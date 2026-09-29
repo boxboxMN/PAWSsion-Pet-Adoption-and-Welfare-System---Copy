@@ -929,7 +929,17 @@ function renderMatches(matches) {
     renderPetCards(allMatchResults);
     updateMatchResultCount(allMatchResults.length);
 }
+const speciesFilter =
+    document.getElementById("matchSpeciesFilter");
 
+if (speciesFilter) {
+    speciesFilter.value =
+        type === "Any" ? "" : type;
+
+    // Lock it only when a specific type was selected
+    speciesFilter.disabled =
+        type !== "Any";
+}
 // RENDER PET CARDS
 function renderPetCards(matches) {
     const container = document.getElementById("matchResultsContainer");
