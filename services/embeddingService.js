@@ -1,13 +1,11 @@
 const axios = require("axios");
+
 const FLASK_API_URL =
     process.env.FLASK_API_URL || "http://localhost:5000";
 
 async function generateEmbedding(text) {
 
     try {
-
-        const FLASK_API_URL =
-            process.env.FLASK_API_URL || "http://localhost:5000";
 
         const response = await axios.post(
             `${FLASK_API_URL}/embedding`,
@@ -57,8 +55,9 @@ async function generateEmbedding(text) {
                 error.response.data.repaired_text;
 
             throw flaskError;
-
         }
+
+        console.error("Message:", error.message);
 
         throw error;
     }
