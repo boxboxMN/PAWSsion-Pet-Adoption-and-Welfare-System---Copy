@@ -87,8 +87,12 @@ async function matchPets(preferences) {
 
     const matches = [];
 
+    // Store console information separately.
+    // This allows us to print everything AFTER sorting.
+    const matchAnalyses = [];
+
     // =========================================
-    // CHECK EACH PET
+    // MATCH EACH PET
     // =========================================
     for (const pet of pets) {
 
@@ -110,7 +114,7 @@ async function matchPets(preferences) {
         `, [pet.animal_id]);
 
         // =========================================
-        // CONVERT PET EMBEDDING FROM JSON
+        // CONVERT PET EMBEDDING
         // =========================================
         const petEmbedding =
             typeof pet.embedding === "string"
@@ -120,26 +124,25 @@ async function matchPets(preferences) {
         // =========================================
         // COSINE SIMILARITY
         // =========================================
-
-        // Raw cosine similarity ranges from -1 to 1.
         const similarity = cosineSimilarity(
             userEmbedding,
             petEmbedding
         );
 
-        // Normalize cosine similarity to a 0-1 range.
+        // Normalize cosine similarity from -1 to 1
+        // into a 0 to 1 range.
         let behaviorSimilarity =
             (similarity + 1) / 2;
 
         // =========================================
-        // BEHAVIOR SIMILARITY BOOST
+        // SMOOTH BOOST
         // =========================================
-        // Only apply the boost when the normalized
-        // behavior similarity is already at least 50%.
+        // PRESERVED FROM YOUR ORIGINAL CODE.
+        //
+        // Only applies when behavior similarity
+        // is already at least 50%.
         if (behaviorSimilarity >= 0.50) {
 
-            // Increase by up to 20% of the remaining
-            // distance toward 1.0.
             behaviorSimilarity +=
                 (1 - behaviorSimilarity) * 0.20;
         }
@@ -147,7 +150,6 @@ async function matchPets(preferences) {
         // =========================================
         // AGE & SEX MATCH
         // =========================================
-
         const sexScore =
             sex === "Any"
                 ? 1
@@ -161,7 +163,6 @@ async function matchPets(preferences) {
         // =========================================
         // FIXED WEIGHTS
         // =========================================
-
         const behaviorWeight = 0.70;
         const ageWeight = 0.20;
         const sexWeight = 0.10;
@@ -169,162 +170,70 @@ async function matchPets(preferences) {
         // =========================================
         // FINAL MATCH SCORE
         // =========================================
-
         const finalScore =
             (behaviorSimilarity * behaviorWeight) +
             (ageScore * ageWeight) +
             (sexScore * sexWeight);
 
         // =========================================
-        // CONSOLE MATCH ANALYSIS
+        // THRESHOLD CHECK
         // =========================================
-
-        console.log("\n========================================");
-        console.log(`PET MATCH ANALYSIS: ${pet.name}`);
-        console.log("========================================");
-
-        // -----------------------------------------
-        // BEHAVIOR SIMILARITY
-        // -----------------------------------------
-
-        console.log(
-            "Raw Cosine Similarity :",
-            similarity.toFixed(4)
-        );
-
-        console.log(
-            "Behavior Similarity    :",
-            (behaviorSimilarity * 100).toFixed(2) + "%"
-        );
-
-        console.log("----------------------------------------");
-
-        // -----------------------------------------
-        // AGE & SEX MATCH
-        // -----------------------------------------
-
-        console.log(
-            "Age Match              :",
-            age === "Any"
-                ? "ANY"
-                : (ageScore === 1 ? "MATCH" : "NO MATCH")
-        );
-
-        console.log(
-            "Sex Match              :",
-            sex === "Any"
-                ? "ANY"
-                : (sexScore === 1 ? "MATCH" : "NO MATCH")
-        );
-
-        console.log("----------------------------------------");
-
-        // -----------------------------------------
-        // MATCH WEIGHTS
-        // -----------------------------------------
-
-        console.log(
-            "Behavior Weight        :",
-            (behaviorWeight * 100).toFixed(0) + "%"
-        );
-
-        console.log(
-            "Age Weight             :",
-            (ageWeight * 100).toFixed(0) + "%"
-        );
-
-        console.log(
-            "Sex Weight             :",
-            (sexWeight * 100).toFixed(0) + "%"
-        );
-
-        console.log("----------------------------------------");
-
-        // -----------------------------------------
-        // WEIGHTED CONTRIBUTIONS
-        // -----------------------------------------
-
-        console.log(
-            "Behavior Contribution  :",
-            (behaviorSimilarity * behaviorWeight * 100)
-                .toFixed(2) + "%"
-        );
-
-        console.log(
-            "Age Contribution       :",
-            (ageScore * ageWeight * 100)
-                .toFixed(2) + "%"
-        );
-
-        console.log(
-            "Sex Contribution       :",
-            (sexScore * sexWeight * 100)
-                .toFixed(2) + "%"
-        );
-
-        console.log("----------------------------------------");
-
-        // -----------------------------------------
-        // FINAL MATCH SCORE
-        // -----------------------------------------
-
-        console.log(
-            "FINAL MATCH SCORE      :",
-            (finalScore * 100).toFixed(2) + "%"
-        );
-
-        console.log(
-            "MATCH THRESHOLD        :",
-            (MATCH_THRESHOLD * 100).toFixed(0) + "%"
-        );
+        const included =
+            finalScore > MATCH_THRESHOLD;
 
         // =========================================
-        // MATCH THRESHOLD
+        // STORE ANALYSIS FOR CONSOLE
         // =========================================
+        matchAnalyses.push({
 
-        // Only pets ABOVE 40% are included.
-        // 40% or below = excluded.
+            animal_id: pet.animal_id,
+            name: pet.name,
 
-        if (finalScore <= MATCH_THRESHOLD) {
+            rawCosineSimilarity: similarity,
 
-            console.log(
-                "RESULT                 : EXCLUDED"
-            );
+            behaviorSimilarity:
+                behaviorSimilarity,
 
-            console.log(
-                "REASON                 :",
-                `Final Match Score is at or below the ` +
-                `${MATCH_THRESHOLD * 100}% threshold.`
-            );
+            ageScore:
+                ageScore,
 
-            console.log(
-                "========================================\n"
-            );
+            sexScore:
+                sexScore,
 
+            behaviorWeight:
+                behaviorWeight,
+
+            ageWeight:
+                ageWeight,
+
+            sexWeight:
+                sexWeight,
+
+            behaviorContribution:
+                behaviorSimilarity *
+                behaviorWeight,
+
+            ageContribution:
+                ageScore *
+                ageWeight,
+
+            sexContribution:
+                sexScore *
+                sexWeight,
+
+            finalScore:
+                finalScore,
+
+            included:
+                included
+        });
+
+        // =========================================
+        // ADD QUALIFYING PET TO MATCH RESULTS
+        // =========================================
+        if (!included) {
             continue;
         }
-
-        // =========================================
-        // PET PASSED MATCH THRESHOLD
-        // =========================================
-
-        console.log(
-            "RESULT                 : INCLUDED"
-        );
-
-        console.log(
-            "REASON                 :",
-            `Final Match Score passed the ` +
-            `${MATCH_THRESHOLD * 100}% threshold.`
-        );
-
-        console.log(
-            "========================================\n"
-        );
-
-        // =========================================
-        // ADD PET TO MATCH RESULTS
-        // =========================================
 
         matches.push({
             animal_id: pet.animal_id,
@@ -341,26 +250,24 @@ async function matchPets(preferences) {
             vaccination_status: pet.vaccination_status,
             medical_history: medicalHistory,
 
-            // Behavior similarity after normalization
-            // and the smooth boost.
             behaviorSimilarity:
                 Number(
                     (behaviorSimilarity * 100)
                         .toFixed(2)
                 ),
 
-            // Individual match indicators
-            ageScore: ageScore * 100,
-            sexScore: sexScore * 100,
+            ageScore:
+                ageScore * 100,
 
-            // Final weighted match score
+            sexScore:
+                sexScore * 100,
+
             score:
                 Number(
                     (finalScore * 100)
                         .toFixed(1)
                 ),
 
-            // Weighted contributions
             behaviorContribution:
                 Math.round(
                     behaviorSimilarity *
@@ -385,15 +292,104 @@ async function matchPets(preferences) {
     }
 
     // =========================================
-    // SORT MATCHES BY HIGHEST SCORE
+    // SORT FINAL MATCHES
     // =========================================
+    matches.sort(
+        (a, b) => b.score - a.score
+    );
 
-    matches.sort((a, b) => b.score - a.score);
+    // =========================================
+    // SORT CONSOLE ANALYSIS
+    // =========================================
+    // This makes the console follow the SAME
+    // order as the displayed match results.
+    matchAnalyses.sort(
+        (a, b) => b.finalScore - a.finalScore
+    );
+
+    // =========================================
+    // PRINT MATCH ANALYSIS
+    // =========================================
+    //
+    // IMPORTANT:
+    // Each pet's complete console output is built
+    // into ONE string and printed with ONE console.log().
+    //
+    // This prevents different lines from different
+    // match requests from being inserted between
+    // the lines of one pet's analysis.
+    //
+    for (const analysis of matchAnalyses) {
+
+        const output = [
+            "",
+            "========================================",
+            `PET MATCH ANALYSIS: ${analysis.name}`,
+            "========================================",
+
+            `Raw Cosine Similarity : ${analysis.rawCosineSimilarity.toFixed(4)}`,
+
+            `Behavior Similarity   : ${(analysis.behaviorSimilarity * 100).toFixed(2)}%`,
+
+            "----------------------------------------",
+
+            `Age Match             : ${
+                age === "Any"
+                    ? "ANY"
+                    : (analysis.ageScore === 1
+                        ? "MATCH"
+                        : "NO MATCH")
+            }`,
+
+            `Sex Match             : ${
+                sex === "Any"
+                    ? "ANY"
+                    : (analysis.sexScore === 1
+                        ? "MATCH"
+                        : "NO MATCH")
+            }`,
+
+            "----------------------------------------",
+
+            `Behavior Weight       : ${(analysis.behaviorWeight * 100).toFixed(0)}%`,
+            `Age Weight            : ${(analysis.ageWeight * 100).toFixed(0)}%`,
+            `Sex Weight            : ${(analysis.sexWeight * 100).toFixed(0)}%`,
+
+            "----------------------------------------",
+
+            `Behavior Contribution : ${(analysis.behaviorContribution * 100).toFixed(2)}%`,
+            `Age Contribution      : ${(analysis.ageContribution * 100).toFixed(2)}%`,
+            `Sex Contribution      : ${(analysis.sexContribution * 100).toFixed(2)}%`,
+
+            "----------------------------------------",
+
+            `FINAL MATCH SCORE     : ${(analysis.finalScore * 100).toFixed(2)}%`,
+            `MATCH THRESHOLD       : ${(MATCH_THRESHOLD * 100).toFixed(0)}%`,
+
+            "----------------------------------------",
+
+            `RESULT                : ${
+                analysis.included
+                    ? "INCLUDED"
+                    : "EXCLUDED"
+            }`,
+
+            `REASON                : ${
+                analysis.included
+                    ? `Final Match Score passed the ${MATCH_THRESHOLD * 100}% threshold.`
+                    : `Final Match Score is at or below the ${MATCH_THRESHOLD * 100}% threshold.`
+            }`,
+
+            "========================================",
+            ""
+        ].join("\n");
+
+        console.log(output);
+    }
 
     // =========================================
     // RETURN MATCH RESULTS
     // =========================================
-
     return {
         matches,
         repairedBehavior
@@ -410,10 +406,6 @@ async function repairBehavior(behavior) {
         const FLASK_API_URL =
             process.env.FLASK_API_URL ||
             "http://localhost:5000";
-
-        // =========================================
-        // CALL FLASK REPAIR
-        // =========================================
 
         console.log("========================================");
         console.log("CALLING FLASK REPAIR");
@@ -434,10 +426,6 @@ async function repairBehavior(behavior) {
             }
         );
 
-        // =========================================
-        // FLASK REPAIR RESPONSE
-        // =========================================
-
         console.log("========================================");
         console.log("FLASK REPAIR RESPONSE");
         console.log(response.data);
@@ -446,9 +434,7 @@ async function repairBehavior(behavior) {
         return response.data;
 
     } catch (error) {
-        // =========================================
-        // FLASK REPAIR ERROR
-        // =========================================
+
         console.error("========================================");
         console.error("FLASK REPAIR ERROR");
         console.error("========================================");
@@ -484,6 +470,7 @@ async function repairBehavior(behavior) {
 
             throw flaskError;
         }
+
         console.error(
             "Error message:",
             error.message
@@ -492,6 +479,7 @@ async function repairBehavior(behavior) {
         throw error;
     }
 }
+
 // ==========================================================
 // EXPORT
 // ==========================================================
