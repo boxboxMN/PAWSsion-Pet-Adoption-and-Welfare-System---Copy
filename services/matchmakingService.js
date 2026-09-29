@@ -187,11 +187,16 @@ if (
         // RAW COSINE SIMILARITY
         // =========================================
 
-        const similarity =
+        const rawSimilarity =
             cosineSimilarity(
                 userEmbedding,
                 petEmbedding
             );
+
+        const adjustedSimilarity =
+            rawSimilarity > 0.6
+                ? Math.min(rawSimilarity + 0.05, 1)
+                : rawSimilarity;
 
 
         // =========================================
@@ -238,7 +243,7 @@ if (
         // =========================================
 
         const behaviorContribution =
-            similarity * behaviorWeight;
+            adjustedSimilarity * behaviorWeight;
 
         const ageContribution =
             ageScore * ageWeight;
@@ -278,7 +283,9 @@ if (
 
             petName: pet.name,
 
-            similarity,
+            rawSimilarity,
+
+            adjustedSimilarity,
 
             sexScore,
 
@@ -355,7 +362,7 @@ if (
             // RAW COSINE SIMILARITY
             behaviorSimilarity:
                 Number(
-                    (similarity * 100)
+                    (adjustedSimilarity * 100)
                         .toFixed(2)
                 ),
 
@@ -382,7 +389,7 @@ if (
             behaviorContribution:
                 Number(
                     (
-                        similarity *
+                        adjustedSimilarity *
                         behaviorWeight *
                         100
                     ).toFixed(2)
@@ -448,7 +455,12 @@ if (
 
         console.log(
             "Raw Cosine Similarity:",
-            log.similarity.toFixed(4)
+            log.rawSimilarity.toFixed(4)
+        );
+
+        console.log(
+            "RCS after 0.05 boost:",
+            log.adjustedSimilarity.toFixed(4)
         );
 
         console.log(
