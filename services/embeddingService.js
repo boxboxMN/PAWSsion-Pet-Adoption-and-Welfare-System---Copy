@@ -20,7 +20,7 @@ async function generateEmbedding(text) {
         );
 
         console.log("========================================");
-        console.log("FLASK EMBEDDING RESPONSE");
+        console.log("FLASK RESPONSE:");
         console.log(response.data);
         console.log("========================================");
 
@@ -37,22 +37,32 @@ async function generateEmbedding(text) {
 
         if (error.response) {
 
-            console.error("Status:", error.response.status);
-            console.error("Message:", error.response.data);
+            console.error(
+                "Status:",
+                error.response.status
+            );
 
+            console.error(
+                "Message:",
+                error.response.data
+            );
+
+            // Pass Flask's message upward
             const flaskError = new Error(
                 error.response.data.message ||
                 "Invalid behavior description."
             );
 
-            flaskError.status = error.response.status;
+            flaskError.status =
+                error.response.status;
+
             flaskError.repairedText =
                 error.response.data.repaired_text;
 
             throw flaskError;
+
         }
 
-        console.error("Error message:", error.message);
         throw error;
     }
 }
