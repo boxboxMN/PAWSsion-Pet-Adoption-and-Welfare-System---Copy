@@ -439,17 +439,24 @@ if (
 // =========================================
 // CONSOLE LOGGING
 // =========================================
-for (const log of matchLogs) {
+
+const matchmakingLog = matchLogs.map((log) => {
+
     const rawSimilarity =
         Number(log.rawSimilarity) || 0;
+
     const finalScore =
         Number(log.finalScore) || 0;
+
     const behaviorContribution =
         Number(log.behaviorContribution) || 0;
+
     const ageContribution =
         Number(log.ageContribution) || 0;
+
     const sexContribution =
         Number(log.sexContribution) || 0;
+
     const sexMatch =
         sex === "Any"
             ? "ANY"
@@ -458,6 +465,7 @@ for (const log of matchLogs) {
                     ? "YES"
                     : "NO"
             );
+
     const ageMatch =
         age === "Any"
             ? "ANY"
@@ -466,31 +474,29 @@ for (const log of matchLogs) {
                     ? "YES"
                     : "NO"
             );
-    console.log(
-        `\n[PET MATCH] ${log.petName}\n` +
-        `Cosine Similarity : ${rawSimilarity.toFixed(4)}\n` +
-        `Sex Match         : ${sexMatch}\n` +
-        `Age Match         : ${ageMatch}\n` +
-        `Weights           : Behavior 70% | Age 20% | Sex 10%\n` +
-        `Contributions     : Behavior ${(
-            behaviorContribution * 100
-        ).toFixed(2)}% | Age ${(
-            ageContribution * 100
-        ).toFixed(2)}% | Sex ${(
-            sexContribution * 100
-        ).toFixed(2)}%\n` +
-        `Final Match Score : ${(finalScore * 100).toFixed(2)}%\n` +
-        `Result            : ${
-            log.included
-                ? "INCLUDED"
-                : "EXCLUDED"
-        } — ${
-            log.included
-                ? "passed"
-                : "did not pass"
-        } the 40% threshold`
-    );
-}
+
+    return [
+        `[PET MATCH] ${log.petName}`,
+        `Cosine Similarity : ${rawSimilarity.toFixed(4)}`,
+        `Sex Match         : ${sexMatch}`,
+        `Age Match         : ${ageMatch}`,
+        `Weights           : Behavior 70% | Age 20% | Sex 10%`,
+        `Contributions     : Behavior ${(behaviorContribution * 100).toFixed(2)}% | Age ${(ageContribution * 100).toFixed(2)}% | Sex ${(sexContribution * 100).toFixed(2)}%`,
+        `Final Match Score : ${(finalScore * 100).toFixed(2)}%`,
+        `Result            : ${log.included ? "INCLUDED" : "EXCLUDED"} — ${log.included ? "passed" : "did not pass"} the 40% threshold`
+    ].join("\n");
+
+}).join("\n\n");
+
+console.log(
+    "\n" +
+    "========================================\n" +
+    "         PAWPON MATCHMAKING RESULTS\n" +
+    "========================================\n\n" +
+    matchmakingLog +
+    "\n\n" +
+    "========================================\n"
+);
     return {
         matches,
         repairedBehavior

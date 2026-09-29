@@ -20,8 +20,9 @@ async function generateEmbedding(text) {
         );
 
         console.log("========================================");
-        console.log("FLASK RESPONSE:");
-        console.log(response.data);
+        console.log("FLASK EMBEDDING RESPONSE");
+        console.log("DIMENSION:", response.data.dimension);
+        console.log("REPAIRED TEXT:", response.data.repaired_text);
         console.log("========================================");
 
         return {

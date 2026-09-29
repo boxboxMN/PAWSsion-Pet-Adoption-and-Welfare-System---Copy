@@ -146,12 +146,6 @@ function initUserNotifications() {
         });
     }
 
-    loadUserNotifications();
-    if (!window.__userNotifPolling) {
-        window.__userNotifPolling = true;
-        setInterval(loadUserNotifications, 30000);
-        setInterval(checkUserSessionStatus, 1500);
-    }
 }
 
 // ==========================================
