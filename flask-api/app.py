@@ -497,40 +497,34 @@ def looks_like_gibberish(text):
         and
         suspicious_ratio >= 0.20
     ):
-
         return True
-
     return False
-
-
+# ==========================================================
+# NUMBER VALIDATION
+# ==========================================================
+def contains_numbers(text):
+    """
+    Returns True when the description contains numbers.
+    """
+    return bool(
+        re.search(
+            r"\d",
+            str(text or "")
+        )
+    )
 # ==========================================================
 # SANITIZE INPUT
 # ==========================================================
-
 def sanitize_before_repair(text):
     """
     Remove unnecessary characters while preserving
     normal language characters and punctuation.
     """
-
     text = normalize_text(
         text
     )
-
     if not text:
-
         return ""
-
-    # ------------------------------------------------------
-    # REMOVE NUMBERS
-    # ------------------------------------------------------
-
-    text = re.sub(
-        r"\d+",
-        " ",
-        text
-    )
-
     # ------------------------------------------------------
     # KEEP:
     # Unicode letters
