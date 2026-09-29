@@ -4,3 +4,5 @@ torch
 scikit-learn
 python-dotenv
 gunicorn
+taglid
+wordninja
