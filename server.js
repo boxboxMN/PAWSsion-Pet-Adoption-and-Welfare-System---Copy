@@ -80,7 +80,12 @@ app.use(helmet.frameguard({ action: 'deny' }));
 const pool = require('./config/database');
 
 console.log("🔵 DATABASE TEST CODE LOADED");
-
+console.log("DB CONFIG CHECK:", {
+    host: process.env.MYSQLHOST,
+    port: process.env.MYSQLPORT,
+    user: process.env.MYSQLUSER,
+    database: process.env.MYSQLDATABASE
+});
 pool.query("SELECT 1 AS test")
     .then(() => {
         console.log("🟢 RAILWAY MYSQL CONNECTION SUCCESSFUL");
