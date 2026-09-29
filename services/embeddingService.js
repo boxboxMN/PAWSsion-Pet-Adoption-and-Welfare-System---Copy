@@ -26,7 +26,9 @@ async function generateEmbedding(text) {
 
         return {
             embedding: response.data.embedding,
-            repairedText: response.data.repaired_text
+            repairedText: response.data.repaired_text,
+            model: response.data.model,
+            dimension: response.data.dimension
         };
 
     } catch (error) {

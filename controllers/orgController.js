@@ -244,13 +244,15 @@ exports.addPet = async (req, res) => {
             INSERT INTO animal_embeddings
             (
                 animal_id,
-                embedding
+                embedding,
+                model_name
             )
-            VALUES (?, ?)
+            VALUES (?, ?, ?)
             `,
             [
                 animal_id,
-                JSON.stringify(embedding)
+                JSON.stringify(embedding),
+                embeddingResult.model
             ]
         );
 
@@ -642,7 +644,7 @@ exports.updatePet = async (req, res) => {
         // UPDATE EMBEDDING
         // ==========================================
         try {
-            const { embedding } = await generateEmbedding(
+            const { embedding, model } = await generateEmbedding(
                 pet_description || ""
             );
             await pool.query(
@@ -650,17 +652,20 @@ exports.updatePet = async (req, res) => {
                 INSERT INTO animal_embeddings
                 (
                     animal_id,
-                    embedding
+                    embedding,
+                    model_name
                 )
-                VALUES (?, ?)
+                VALUES (?, ?, ?)
 
                 ON DUPLICATE KEY UPDATE
                     embedding = VALUES(embedding),
+                    model_name = VALUES(model_name),
                     updated_at = CURRENT_TIMESTAMP
                 `,
                 [
                     id,
-                    JSON.stringify(embedding)
+                    JSON.stringify(embedding),
+                    model
                 ]
             );
 
