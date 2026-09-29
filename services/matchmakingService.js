@@ -3,6 +3,7 @@ const pool = require("../config/database");
 const { generateEmbedding } = require("./embeddingService");
 
 const MATCH_THRESHOLD = 0.40;
+
 // =========================================
 // COSINE SIMILARITY
 // =========================================
@@ -32,58 +33,75 @@ async function matchPets(preferences) {
         age,
         behavior
     } = preferences;
-    
 
-    // Generate ONE embedding for the adopter's description
+    // =========================================
+    // GENERATE ADOPTER BEHAVIOR EMBEDDING
+    // =========================================
     const embeddingResult = await generateEmbedding(behavior);
 
     const userEmbedding = embeddingResult.embedding;
     const repairedBehavior = embeddingResult.repairedText;
-    // Load pets together with their embeddings
-   const [pets] = await pool.query(` 
-    SELECT  
-        a.animal_id,  
-        a.name,  
-        a.species,  
-        a.gender,  
-        a.age,    
-        a.pet_description,   
-        a.image_path,  
-        a.organization_id,  
-        o.organization_name,  
-        a.adoption_status,  
-        a.health_status,  
-        a.vaccination_status,  
-        ae.embedding  
-    FROM animals a 
-    INNER JOIN animal_embeddings ae 
-        ON a.animal_id = ae.animal_id 
-    INNER JOIN organizations o 
-        ON a.organization_id = o.organization_id 
-    WHERE a.adoption_status = 'Available'
 
-    -- Exclude pets with active adoption applications
-    AND NOT EXISTS (
-        SELECT 1
-        FROM user_adoption_applications uaa
-        WHERE uaa.animal_id = a.animal_id
-        AND uaa.status IN (
-            'Under Review',
-            'Interview Scheduled',
-            'Approved'
+    // =========================================
+    // LOAD AVAILABLE PETS
+    // =========================================
+    const [pets] = await pool.query(`
+        SELECT
+            a.animal_id,
+            a.name,
+            a.species,
+            a.gender,
+            a.age,
+            a.pet_description,
+            a.image_path,
+            a.organization_id,
+            o.organization_name,
+            a.adoption_status,
+            a.health_status,
+            a.vaccination_status,
+            ae.embedding
+        FROM animals a
+
+        INNER JOIN animal_embeddings ae
+            ON a.animal_id = ae.animal_id
+
+        INNER JOIN organizations o
+            ON a.organization_id = o.organization_id
+
+        WHERE a.adoption_status = 'Available'
+
+        -- Exclude pets with active adoption applications
+        AND NOT EXISTS (
+            SELECT 1
+            FROM user_adoption_applications uaa
+            WHERE uaa.animal_id = a.animal_id
+            AND uaa.status IN (
+                'Under Review',
+                'Interview Scheduled',
+                'Approved'
+            )
         )
-    )
 
-        ${type !== "Any" ? "AND a.species = ?" : ""} 
+        ${type !== "Any" ? "AND a.species = ?" : ""}
     `, type !== "Any" ? [type] : []);
 
     const matches = [];
 
+    // =========================================
+    // CHECK EACH PET
+    // =========================================
     for (const pet of pets) {
+
+        // =========================================
+        // LOAD MEDICAL HISTORY
+        // =========================================
         const [medicalHistory] = await pool.query(`
             SELECT
                 treatment,
-                DATE_FORMAT(administered_date, '%M %e, %Y') AS administered_date,
+                DATE_FORMAT(
+                    administered_date,
+                    '%M %e, %Y'
+                ) AS administered_date,
                 administered_by,
                 notes
             FROM animal_medical_history
@@ -91,38 +109,55 @@ async function matchPets(preferences) {
             ORDER BY administered_date DESC;
         `, [pet.animal_id]);
 
-        // Convert JSON stored in MySQL
-        const petEmbedding = typeof pet.embedding === "string" ? JSON.parse(pet.embedding) : pet.embedding;
+        // =========================================
+        // CONVERT PET EMBEDDING FROM JSON
+        // =========================================
+        const petEmbedding =
+            typeof pet.embedding === "string"
+                ? JSON.parse(pet.embedding)
+                : pet.embedding;
 
-        // Cosine similarity (-1 to 1) and normalize to 0-1
-        const similarity = cosineSimilarity(userEmbedding, petEmbedding);
-        let behaviorSimilarity = (similarity + 1) / 2;
+        // =========================================
+        // COSINE SIMILARITY
+        // =========================================
 
-        console.log("====================================");
+        // Raw cosine similarity ranges from -1 to 1.
+        const similarity = cosineSimilarity(
+            userEmbedding,
+            petEmbedding
+        );
 
-        matches.sort((a, b) => b.score - a.score);
-        console.log("Pet:", pet.name);
-        console.log("Raw Cosine Similarity:", similarity.toFixed(4));
+        // Normalize cosine similarity to a 0-1 range.
+        let behaviorSimilarity =
+            (similarity + 1) / 2;
 
-        // -----------------------------------
-        // Smooth Boost
-        // -----------------------------------
-        // Only boost if already a decent match.
+        // =========================================
+        // BEHAVIOR SIMILARITY BOOST
+        // =========================================
+        // Only apply the boost when the normalized
+        // behavior similarity is already at least 50%.
         if (behaviorSimilarity >= 0.50) {
-            // Increase by up to 20% of the remaining distance to 1.0
-            behaviorSimilarity += (1 - behaviorSimilarity) * 0.20;
+
+            // Increase by up to 20% of the remaining
+            // distance toward 1.0.
+            behaviorSimilarity +=
+                (1 - behaviorSimilarity) * 0.20;
         }
 
-        console.log("Behavior Similarity :", (behaviorSimilarity * 100).toFixed(2) + "%");
-
         // =========================================
-        // SEX & AGE SCORES
+        // AGE & SEX MATCH
         // =========================================
-        const sexScore = sex === "Any" ? 1 : (pet.gender === sex ? 1 : 0);
-        const ageScore = age === "Any" ? 1 : (pet.age === age ? 1 : 0);
 
-        console.log("Sex Match :", sex === "Any" ? "ANY" : (sexScore === 1 ? "YES" : "NO"));
-        console.log("Age Match :", age === "Any" ? "ANY" : (ageScore === 1 ? "YES" : "NO"));
+        const sexScore =
+            sex === "Any"
+                ? 1
+                : (pet.gender === sex ? 1 : 0);
+
+        const ageScore =
+            age === "Any"
+                ? 1
+                : (pet.age === age ? 1 : 0);
+
         // =========================================
         // FIXED WEIGHTS
         // =========================================
@@ -134,31 +169,162 @@ async function matchPets(preferences) {
         // =========================================
         // FINAL MATCH SCORE
         // =========================================
-        
-        const finalScore = (behaviorSimilarity * behaviorWeight) + (ageScore * ageWeight) + (sexScore * sexWeight);
 
-        console.log("Behavior Weight       :", (behaviorWeight * 100).toFixed(0) + "%");
-        console.log("Age Weight            :", (ageWeight * 100).toFixed(0) + "%");
-        console.log("Sex Weight            :", (sexWeight * 100).toFixed(0) + "%");
-        console.log("Behavior Contribution :", (behaviorSimilarity * behaviorWeight * 100).toFixed(2) + "%");
-        console.log("Age Contribution      :", (ageScore * ageWeight * 100).toFixed(2) + "%");
-        console.log("Sex Contribution      :", (sexScore * sexWeight * 100).toFixed(2) + "%");
-        console.log("------------------------------------");
-        console.log("FINAL MATCH SCORE     :", (finalScore * 100).toFixed(2) + "%");
+        const finalScore =
+            (behaviorSimilarity * behaviorWeight) +
+            (ageScore * ageWeight) +
+            (sexScore * sexWeight);
+
+        // =========================================
+        // CONSOLE MATCH ANALYSIS
+        // =========================================
+
+        console.log("\n========================================");
+        console.log(`PET MATCH ANALYSIS: ${pet.name}`);
+        console.log("========================================");
+
+        // -----------------------------------------
+        // BEHAVIOR SIMILARITY
+        // -----------------------------------------
+
+        console.log(
+            "Raw Cosine Similarity :",
+            similarity.toFixed(4)
+        );
+
+        console.log(
+            "Behavior Similarity    :",
+            (behaviorSimilarity * 100).toFixed(2) + "%"
+        );
+
+        console.log("----------------------------------------");
+
+        // -----------------------------------------
+        // AGE & SEX MATCH
+        // -----------------------------------------
+
+        console.log(
+            "Age Match              :",
+            age === "Any"
+                ? "ANY"
+                : (ageScore === 1 ? "MATCH" : "NO MATCH")
+        );
+
+        console.log(
+            "Sex Match              :",
+            sex === "Any"
+                ? "ANY"
+                : (sexScore === 1 ? "MATCH" : "NO MATCH")
+        );
+
+        console.log("----------------------------------------");
+
+        // -----------------------------------------
+        // MATCH WEIGHTS
+        // -----------------------------------------
+
+        console.log(
+            "Behavior Weight        :",
+            (behaviorWeight * 100).toFixed(0) + "%"
+        );
+
+        console.log(
+            "Age Weight             :",
+            (ageWeight * 100).toFixed(0) + "%"
+        );
+
+        console.log(
+            "Sex Weight             :",
+            (sexWeight * 100).toFixed(0) + "%"
+        );
+
+        console.log("----------------------------------------");
+
+        // -----------------------------------------
+        // WEIGHTED CONTRIBUTIONS
+        // -----------------------------------------
+
+        console.log(
+            "Behavior Contribution  :",
+            (behaviorSimilarity * behaviorWeight * 100)
+                .toFixed(2) + "%"
+        );
+
+        console.log(
+            "Age Contribution       :",
+            (ageScore * ageWeight * 100)
+                .toFixed(2) + "%"
+        );
+
+        console.log(
+            "Sex Contribution       :",
+            (sexScore * sexWeight * 100)
+                .toFixed(2) + "%"
+        );
+
+        console.log("----------------------------------------");
+
+        // -----------------------------------------
+        // FINAL MATCH SCORE
+        // -----------------------------------------
+
+        console.log(
+            "FINAL MATCH SCORE      :",
+            (finalScore * 100).toFixed(2) + "%"
+        );
+
+        console.log(
+            "MATCH THRESHOLD        :",
+            (MATCH_THRESHOLD * 100).toFixed(0) + "%"
+        );
 
         // =========================================
         // MATCH THRESHOLD
         // =========================================
+
         // Only pets ABOVE 40% are included.
         // 40% or below = excluded.
+
         if (finalScore <= MATCH_THRESHOLD) {
-            console.log(`EXCLUDED: ${pet.name} - Final Match Score ${(finalScore * 100).toFixed(2)}% is at or below the 40% threshold.`);
-            console.log("====================================\n");
+
+            console.log(
+                "RESULT                 : EXCLUDED"
+            );
+
+            console.log(
+                "REASON                 :",
+                `Final Match Score is at or below the ` +
+                `${MATCH_THRESHOLD * 100}% threshold.`
+            );
+
+            console.log(
+                "========================================\n"
+            );
+
             continue;
         }
 
-        console.log(`INCLUDED: ${pet.name} - Final Match Score ${(finalScore * 100).toFixed(2)}% passed the 40% threshold.`);
-        console.log("====================================\n");
+        // =========================================
+        // PET PASSED MATCH THRESHOLD
+        // =========================================
+
+        console.log(
+            "RESULT                 : INCLUDED"
+        );
+
+        console.log(
+            "REASON                 :",
+            `Final Match Score passed the ` +
+            `${MATCH_THRESHOLD * 100}% threshold.`
+        );
+
+        console.log(
+            "========================================\n"
+        );
+
+        // =========================================
+        // ADD PET TO MATCH RESULTS
+        // =========================================
 
         matches.push({
             animal_id: pet.animal_id,
@@ -174,25 +340,66 @@ async function matchPets(preferences) {
             health_status: pet.health_status,
             vaccination_status: pet.vaccination_status,
             medical_history: medicalHistory,
-            behaviorSimilarity: Number((behaviorSimilarity * 100).toFixed(2)),
+
+            // Behavior similarity after normalization
+            // and the smooth boost.
+            behaviorSimilarity:
+                Number(
+                    (behaviorSimilarity * 100)
+                        .toFixed(2)
+                ),
+
+            // Individual match indicators
             ageScore: ageScore * 100,
             sexScore: sexScore * 100,
-            score: Number((finalScore * 100).toFixed(1)),
-            behaviorContribution: Math.round(behaviorSimilarity * behaviorWeight * 100),
-            ageContribution: Math.round(ageScore * ageWeight * 100),
-            sexContribution: Math.round(sexScore * sexWeight * 100)
-        });
 
+            // Final weighted match score
+            score:
+                Number(
+                    (finalScore * 100)
+                        .toFixed(1)
+                ),
+
+            // Weighted contributions
+            behaviorContribution:
+                Math.round(
+                    behaviorSimilarity *
+                    behaviorWeight *
+                    100
+                ),
+
+            ageContribution:
+                Math.round(
+                    ageScore *
+                    ageWeight *
+                    100
+                ),
+
+            sexContribution:
+                Math.round(
+                    sexScore *
+                    sexWeight *
+                    100
+                )
+        });
     }
 
-    // Highest score first
+    // =========================================
+    // SORT MATCHES BY HIGHEST SCORE
+    // =========================================
+
     matches.sort((a, b) => b.score - a.score);
+
+    // =========================================
+    // RETURN MATCH RESULTS
+    // =========================================
 
     return {
         matches,
         repairedBehavior
     };
 }
+
 // ==========================================================
 // REPAIR BEHAVIOR
 // ==========================================================
@@ -201,12 +408,23 @@ async function repairBehavior(behavior) {
     try {
 
         const FLASK_API_URL =
-            process.env.FLASK_API_URL || "http://localhost:5000";
+            process.env.FLASK_API_URL ||
+            "http://localhost:5000";
+
+        // =========================================
+        // CALL FLASK REPAIR
+        // =========================================
 
         console.log("========================================");
         console.log("CALLING FLASK REPAIR");
-        console.log("FLASK URL:", `${FLASK_API_URL}/repair`);
-        console.log("BEHAVIOR:", behavior);
+        console.log(
+            "FLASK URL:",
+            `${FLASK_API_URL}/repair`
+        );
+        console.log(
+            "BEHAVIOR:",
+            behavior
+        );
         console.log("========================================");
 
         const response = await axios.post(
@@ -216,6 +434,10 @@ async function repairBehavior(behavior) {
             }
         );
 
+        // =========================================
+        // FLASK REPAIR RESPONSE
+        // =========================================
+
         console.log("========================================");
         console.log("FLASK REPAIR RESPONSE");
         console.log(response.data);
@@ -224,22 +446,32 @@ async function repairBehavior(behavior) {
         return response.data;
 
     } catch (error) {
-
+        // =========================================
+        // FLASK REPAIR ERROR
+        // =========================================
         console.error("========================================");
         console.error("FLASK REPAIR ERROR");
         console.error("========================================");
 
         if (error.response) {
 
-            console.error("Flask status:", error.response.status);
-            console.error("Flask response:", error.response.data);
+            console.error(
+                "Flask status:",
+                error.response.status
+            );
+
+            console.error(
+                "Flask response:",
+                error.response.data
+            );
 
             const flaskError = new Error(
                 error.response.data.message ||
                 "Invalid behavior description."
             );
 
-            flaskError.status = error.response.status;
+            flaskError.status =
+                error.response.status;
 
             flaskError.repairedText =
                 error.response.data.repaired_text;
@@ -252,11 +484,17 @@ async function repairBehavior(behavior) {
 
             throw flaskError;
         }
+        console.error(
+            "Error message:",
+            error.message
+        );
 
-        console.error("Error message:", error.message);
         throw error;
     }
 }
+// ==========================================================
+// EXPORT
+// ==========================================================
 module.exports = {
     matchPets,
     repairBehavior
