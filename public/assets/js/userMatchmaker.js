@@ -601,7 +601,8 @@ async function showCompatibilityScreen() {
        
         // RENDER MATCHES
         renderMatches(
-            data.matches
+            data.matches,
+            type
         );
         // COMPLETE
         updateMatchingProgress(
@@ -920,25 +921,21 @@ function showIntroScreen() {
 
 // RENDER MATCH RESULTS
 let matchedPets = [];
-function renderMatches(matches) {
+function renderMatches(matches, selectedType) {
     allMatchResults = Array.isArray(matches) ? matches : [];
     filteredMatchResults = [...allMatchResults];
     matchedPets = [...allMatchResults];
 
     populateOrganizationFilter(allMatchResults);
+    const speciesFilter = document.getElementById("matchSpeciesFilter");
+    if (speciesFilter) {
+        speciesFilter.disabled = selectedType !== "Any";
+        if (speciesFilter.disabled) {
+            speciesFilter.value = "";
+        }
+    }
     renderPetCards(allMatchResults);
     updateMatchResultCount(allMatchResults.length);
-}
-const speciesFilter =
-    document.getElementById("matchSpeciesFilter");
-
-if (speciesFilter) {
-    speciesFilter.value =
-        type === "Any" ? "" : type;
-
-    // Lock it only when a specific type was selected
-    speciesFilter.disabled =
-        type !== "Any";
 }
 // RENDER PET CARDS
 function renderPetCards(matches) {
