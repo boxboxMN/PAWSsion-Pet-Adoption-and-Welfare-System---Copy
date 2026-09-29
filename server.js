@@ -4,6 +4,7 @@ const session = require('express-session');
 const helmet = require('helmet');
 
 const app = express();
+app.set("trust proxy", 1);
 app.disable("x-powered-by");
 
 
@@ -111,6 +112,7 @@ app.use(session({
     cookie: {
         secure: process.env.NODE_ENV === "production",
         httpOnly: true,
+        sameSite: "lax",
         maxAge: 1000 * 60 * 60 * 24
     }
 }));
@@ -1126,14 +1128,14 @@ app.get("/faqs", (req, res) => {
     res.sendFile(path.join(__dirname, "public/legal4.html"));
 });
 
-app.get("/api/session-status", adminController.getSessionStatus);
-const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-});
-
-// const PORT = process.env.PORT || 3000;
-
-// app.listen(PORT, "0.0.0.0", () => {
-//     console.log(`Server running on port ${PORT}`);
+// app.get("/api/session-status", adminController.getSessionStatus);
+// const PORT = 3000;
+// app.listen(PORT, () => {
+//   console.log(`Server running on http://localhost:${PORT}`);
 // });
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Server running on port ${PORT}`);
+});
