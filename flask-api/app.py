@@ -41,11 +41,11 @@ print(
 # ==========================================================
 # TEXT NORMALIZATION
 # ==========================================================
-
 def normalize_text(text):
     """
-    Normalize whitespace without changing the meaning
-    of the user's description.
+    Normalize text formatting by removing surrounding
+    whitespace, collapsing excessive spaces, and
+    standardizing capitalization.
     """
 
     text = str(text or "")
@@ -58,9 +58,9 @@ def normalize_text(text):
         text
     )
 
+    text = text.lower()
+
     return text.strip()
-
-
 # ==========================================================
 # WORD EXTRACTION
 # ==========================================================
@@ -608,81 +608,68 @@ def sanitize_before_repair(text):
 # ==========================================================
 # DETERMINE WHETHER WORDNINJA IS NEEDED
 # ==========================================================
-
 def should_repair_text(text):
     """
-    WordNinja is only used when the text appears to
-    contain missing word boundaries.
+    Determine whether the text may contain words that have
+    been incorrectly joined together.
 
-    IMPORTANT:
-    Tagalog/Taglish text is never sent to WordNinja.
+    WordNinja is skipped when TagLID detects Tagalog because
+    WordNinja may incorrectly split valid Tagalog words.
     """
 
     # ------------------------------------------------------
-    # IMPORTANT:
-    # Skip WordNinja when Tagalog is detected.
-    #
-    # This prevents valid Tagalog text such as:
-    #
-    # "gusto ko ng mabait masayahin at mahilig maglaro
-    # na alaga"
-    #
-    # from being incorrectly split.
+    # SKIP WORDNINJA FOR TAGALOG / TAGLISH
     # ------------------------------------------------------
-
-    if contains_tagalog(
-        text
-    ):
-
-        print(
-            "TagLID detected Tagalog."
-        )
-
-        print(
-            "WordNinja: Skipped"
-        )
-
+    if contains_tagalog(text):
+        print("TagLID detected Tagalog.")
+        print("WordNinja: Skipped")
         return False
-
-    words = get_words(
-        text
-    )
+    words = get_words(text)
 
     if not words:
-
         return False
-
     # ------------------------------------------------------
-    # Normal sentence:
-    # Do not repair.
-    # ------------------------------------------------------
-
-    if len(words) >= 5:
-
-        return False
-
-    # ------------------------------------------------------
-    # Possibly unseparated text.
-    #
+    # CHECK FOR LONG MASHED WORD
     # Example:
-    # friendlyplayfuldog...
+    # iwantafriendlydogthatlikesplaying
     # ------------------------------------------------------
+    for word in words:
 
-    if (
-        len(words) <= 2
-        and
-        len(text) >= 30
+        clean_word = re.sub(
+            r"['’]",
+            "",
+            word
+        )
+        # A very long single word may indicate that
+        # multiple words were joined together.
+        if len(clean_word) >= 25:
+
+            print(
+                "Possible mashed word detected:",
+                word
+            )
+            return True
+    # ------------------------------------------------------
+    # CHECK FOR CAMEL CASE
+    # Example:
+    # friendlyPlayfulDog
+    # ------------------------------------------------------
+    if re.search(
+        r"[a-z][A-Z]",
+        text
     ):
-
+        print(
+            "Possible camel-case word detected."
+        )
         return True
-
+    # ------------------------------------------------------
+    # NORMAL TEXT
+    # ------------------------------------------------------
     return False
-
 
 # ==========================================================
 # WORDNINJA REPAIR
 # ==========================================================
-
 def repair_behavior_text(text):
     """
     Repair missing word boundaries using WordNinja.
