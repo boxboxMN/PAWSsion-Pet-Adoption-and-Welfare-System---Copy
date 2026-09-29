@@ -74,8 +74,8 @@ function initializeTopbar() {
     }
 
     loadNotifications();
-    setInterval(loadNotifications, 30000);
-    setInterval(checkSessionStatus, 30000);
+    setInterval(loadNotifications, 300000);
+    setInterval(checkSessionStatus, 300000);
 }
 
 async function checkSessionStatus() {
