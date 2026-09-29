@@ -209,64 +209,40 @@ async function repairBehavior(behavior) {
             }
         );
 
-
         console.log("========================================");
         console.log("FLASK REPAIR RESPONSE");
         console.log("========================================");
         console.log(response.data);
         console.log("========================================");
 
-
         return response.data;
-
 
     } catch (error) {
 
-        console.error(
-            "========== FLASK REPAIR ERROR =========="
-        );
-
+        console.error("========================================");
+        console.error("FLASK REPAIR ERROR");
+        console.error("========================================");
 
         if (error.response) {
 
-            console.error(
-                "Flask status:",
-                error.response.status
+            console.error("Status:", error.response.status);
+            console.error("Data:", error.response.data);
+
+            const flaskError = new Error(
+                error.response.data.message ||
+                "Invalid behavior description."
             );
-
-            console.error(
-                "Flask response:",
-                error.response.data
-            );
-
-
-            const flaskError =
-                new Error(
-                    error.response.data.message ||
-                    "Invalid behavior description."
-                );
-
 
             flaskError.status =
                 error.response.status;
 
-
             flaskError.repairedText =
                 error.response.data.repaired_text;
 
-
-            flaskError.wordCount =
-                error.response.data.word_count;
-
-
-            flaskError.characterCount =
-                error.response.data.character_count;
-
-
             throw flaskError;
-
         }
 
+        console.error("Message:", error.message);
 
         throw error;
     }
