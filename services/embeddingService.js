@@ -1,4 +1,6 @@
 const axios = require("axios");
+const FLASK_API_URL =
+    process.env.FLASK_API_URL || "http://localhost:5000";
 
 async function generateEmbedding(text) {
 
