@@ -792,88 +792,6 @@ def cleanup_repaired_text(text):
         cleaned_words
     ).strip()
 
-
-# ==========================================================
-# EMBEDDING ENDPOINT
-# ==========================================================
-
-@app.route(
-    "/embedding",
-    methods=["POST"]
-)
-def embedding():
-
-    try:
-
-        # --------------------------------------------------
-        # READ JSON
-        # --------------------------------------------------
-
-        data = request.get_json(
-            silent=True
-        )
-
-        if not data:
-
-            return jsonify({
-                "success": False,
-                "message": "No data received."
-            }), 400
-
-        # --------------------------------------------------
-        # GET TEXT
-        # --------------------------------------------------
-
-        text = data.get(
-            "text",
-            ""
-        )
-
-        text = normalize_text(
-            text
-        )
-
-        if not text:
-
-            return jsonify({
-                "success": False,
-                "message": "Text is required."
-            }), 400
-
-        # --------------------------------------------------
-        # GENERATE EMBEDDING
-        # --------------------------------------------------
-
-        embedding_vector = model.encode(
-            text,
-            normalize_embeddings=False
-        )
-
-        # --------------------------------------------------
-        # RETURN EMBEDDING
-        # --------------------------------------------------
-
-        return jsonify({
-            "success": True,
-            "embedding": embedding_vector.tolist(),
-            "repaired_text": text,
-            "model": "paraphrase-MiniLM-L3-v2",
-            "dimension": len(embedding)
-        }), 200
-
-    except Exception as e:
-
-        print(
-            "Embedding error:",
-            e
-        )
-
-        return jsonify({
-            "success": False,
-            "message": "Unable to generate embedding."
-        }), 500
-
-
 # ==========================================================
 # REPAIR / VALIDATION ENDPOINT
 # ==========================================================
@@ -1401,7 +1319,11 @@ def get_embedding():
             "repaired_text":
                 text,
             "token_count":
-                token_count
+                token_count,
+            "model":
+                "paraphrase-MiniLM-L3-v2",
+            "dimension":
+                len(embedding)
         })
     except Exception as error:
         print(
