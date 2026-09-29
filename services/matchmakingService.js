@@ -6,6 +6,9 @@ const MATCH_THRESHOLD = 0.40;
 // COSINE SIMILARITY
 // =========================================
 function cosineSimilarity(vecA, vecB) {
+    if (!vecA || !vecB || vecA.length !== vecB.length) {
+        return 0;
+    }
 
     let dot = 0;
     let normA = 0;
@@ -17,9 +20,12 @@ function cosineSimilarity(vecA, vecB) {
         normB += vecB[i] * vecB[i];
     }
 
+    if (normA === 0 || normB === 0) {
+        return 0;
+    }
+
     return dot / (Math.sqrt(normA) * Math.sqrt(normB));
 }
-
 // =========================================
 // MATCH PETS
 // =========================================
@@ -95,7 +101,9 @@ async function matchPets(preferences) {
 
         // Cosine similarity (-1 to 1) and normalize to 0-1
         const similarity = cosineSimilarity(userEmbedding, petEmbedding);
-        let behaviorSimilarity = (similarity + 1) / 2;
+        let behaviorSimilarity = similarity;
+        // Keep the value between 0 and 1
+        behaviorSimilarity = Math.max(0, Math.min(1, behaviorSimilarity));
 
         console.log("====================================");
 

@@ -855,7 +855,8 @@ def embedding():
 
         return jsonify({
             "success": True,
-            "embedding": embedding_vector.tolist()
+            "embedding": embedding_vector.tolist(),
+            "repaired_text": text
         }), 200
 
     except Exception as e:
