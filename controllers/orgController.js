@@ -615,7 +615,7 @@ exports.updatePet = async (req, res) => {
         // UPDATE EMBEDDING
         // ==========================================
         try {
-            const embedding = await generateEmbedding(
+            const { embedding } = await generateEmbedding(
                 pet_description || ""
             );
             await pool.query(
