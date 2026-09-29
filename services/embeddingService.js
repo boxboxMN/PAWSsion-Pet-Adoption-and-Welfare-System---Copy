@@ -4,8 +4,13 @@ const FLASK_API_URL =
     process.env.FLASK_API_URL || "http://localhost:5000";
 
 async function generateEmbedding(text) {
-
     try {
+
+        console.log("========================================");
+        console.log("CALLING FLASK EMBEDDING");
+        console.log("FLASK URL:", `${FLASK_API_URL}/embedding`);
+        console.log("TEXT:", text);
+        console.log("========================================");
 
         const response = await axios.post(
             `${FLASK_API_URL}/embedding`,
@@ -15,7 +20,7 @@ async function generateEmbedding(text) {
         );
 
         console.log("========================================");
-        console.log("FLASK RESPONSE:");
+        console.log("FLASK EMBEDDING RESPONSE");
         console.log(response.data);
         console.log("========================================");
 
@@ -32,33 +37,22 @@ async function generateEmbedding(text) {
 
         if (error.response) {
 
-            console.error(
-                "Status:",
-                error.response.status
-            );
+            console.error("Status:", error.response.status);
+            console.error("Message:", error.response.data);
 
-            console.error(
-                "Message:",
-                error.response.data
-            );
-
-            // Pass Flask's message upward
             const flaskError = new Error(
                 error.response.data.message ||
                 "Invalid behavior description."
             );
 
-            flaskError.status =
-                error.response.status;
-
+            flaskError.status = error.response.status;
             flaskError.repairedText =
                 error.response.data.repaired_text;
 
             throw flaskError;
         }
 
-        console.error("Message:", error.message);
-
+        console.error("Error message:", error.message);
         throw error;
     }
 }

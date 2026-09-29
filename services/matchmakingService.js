@@ -196,7 +196,6 @@ async function matchPets(preferences) {
 // ==========================================================
 // REPAIR BEHAVIOR
 // ==========================================================
-
 async function repairBehavior(behavior) {
 
     try {
@@ -240,8 +239,7 @@ async function repairBehavior(behavior) {
                 "Invalid behavior description."
             );
 
-            flaskError.status =
-                error.response.status;
+            flaskError.status = error.response.status;
 
             flaskError.repairedText =
                 error.response.data.repaired_text;
@@ -256,7 +254,6 @@ async function repairBehavior(behavior) {
         }
 
         console.error("Error message:", error.message);
-
         throw error;
     }
 }
