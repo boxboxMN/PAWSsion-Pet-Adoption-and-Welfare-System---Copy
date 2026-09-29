@@ -17,7 +17,12 @@ function normalizeBehaviorInput(rawInput) {
         .replace(/\s+/g, " ")
         .trim();
 }
-
+// number
+document.getElementById("behavior").addEventListener("keydown", function (e) {
+    if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+    }
+});
 // EXCESSIVE CHARACTER REPETITION
 function hasExcessiveCharacterRepetition(text) {
     return /(.)\1{5,}/u.test(text);
