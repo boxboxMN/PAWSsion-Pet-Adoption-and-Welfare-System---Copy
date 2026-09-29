@@ -791,9 +791,12 @@
                         <p class="text-xs text-slate-500 leading-relaxed">The more details you provide about their behavior and traits, the better our AI engine can match you.</p>
                     </div>
 
-                    <textarea rows="4" id="behavior"
-                        class="w-full bg-slate-50/60 hover:bg-slate-50 border border-slate-200/90 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-400 transition-all outline-none leading-relaxed"
-                        placeholder="Describe the personality, behavior, and traits you prefer in a pet...&#10;&#10;e.g., I would like a friendly, calm, playful, and affectionate pet that enjoys being around people, is gentle with children, and gets along well with other pets."></textarea>
+                   <textarea rows="4" id="behavior"
+                    inputmode="text"
+                    class="w-full bg-slate-50/60 hover:bg-slate-50 border border-slate-200/90 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-400 transition-all outline-none leading-relaxed"
+                    placeholder="Describe the personality, behavior, and traits you prefer in a pet...&#10;&#10;e.g., I would like a friendly, calm, playful, and affectionate pet that enjoys being around people, is gentle with children, and gets along well with other pets."
+                    oninput="this.value = this.value.replace(/[0-9]/g, '')"></textarea>
+
                     <!-- GUIDELINES CALLOUT BOX -->
                     <div class="rounded-2xl bg-slate-50 border border-slate-200/80 p-3 space-y-2 -pt-10">
                         <div class="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wide">
