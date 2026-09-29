@@ -856,7 +856,9 @@ def embedding():
         return jsonify({
             "success": True,
             "embedding": embedding_vector.tolist(),
-            "repaired_text": text
+            "repaired_text": text,
+            "model": "paraphrase-MiniLM-L3-v2",
+            "dimension": len(embedding)
         }), 200
 
     except Exception as e:

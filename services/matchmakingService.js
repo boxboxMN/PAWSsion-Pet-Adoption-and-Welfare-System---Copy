@@ -54,20 +54,28 @@ async function matchPets(preferences) {
     } = preferences;
 
 
-    // =========================================
-    // GENERATE ADOPTER EMBEDDING
-    // =========================================
+// =========================================
+// GENERATE ADOPTER EMBEDDING
+// =========================================
 
-    const embeddingResult =
-        await generateEmbedding(behavior);
+const embeddingResult =
+    await generateEmbedding(behavior);
 
-    const userEmbedding =
-        embeddingResult.embedding;
+const userEmbedding =
+    embeddingResult.embedding;
 
-    const repairedBehavior =
-        embeddingResult.repairedText;
+const repairedBehavior =
+    embeddingResult.repairedText;
 
-
+// Validate adopter embedding
+if (
+    !Array.isArray(userEmbedding) ||
+    userEmbedding.length !== 384
+) {
+    throw new Error(
+        "Invalid adopter embedding. Expected 384 dimensions."
+    );
+}
     // =========================================
     // LOAD AVAILABLE PETS
     // =========================================
