@@ -80,6 +80,7 @@ async function matchPets(preferences) {
     `, type !== "Any" ? [type] : []);
 
     const matches = [];
+    const matchLogs = [];
 
     for (const pet of pets) {
         const [medicalHistory] = await pool.query(`
@@ -100,12 +101,6 @@ async function matchPets(preferences) {
         const similarity = cosineSimilarity(userEmbedding, petEmbedding);
         let behaviorSimilarity = (similarity + 1) / 2;
 
-        console.log("====================================");
-
-        matches.sort((a, b) => b.score - a.score);
-        console.log("Pet:", pet.name);
-        console.log("Raw Cosine Similarity:", similarity.toFixed(4));
-
         // -----------------------------------
         // Smooth Boost
         // -----------------------------------
@@ -115,16 +110,12 @@ async function matchPets(preferences) {
             behaviorSimilarity += (1 - behaviorSimilarity) * 0.20;
         }
 
-        console.log("Behavior Similarity :", (behaviorSimilarity * 100).toFixed(2) + "%");
-
         // =========================================
         // SEX & AGE SCORES
         // =========================================
         const sexScore = sex === "Any" ? 1 : (pet.gender === sex ? 1 : 0);
         const ageScore = age === "Any" ? 1 : (pet.age === age ? 1 : 0);
 
-        console.log("Sex Match :", sex === "Any" ? "ANY" : (sexScore === 1 ? "YES" : "NO"));
-        console.log("Age Match :", age === "Any" ? "ANY" : (ageScore === 1 ? "YES" : "NO"));
         // =========================================
         // FIXED WEIGHTS
         // =========================================
@@ -139,28 +130,28 @@ async function matchPets(preferences) {
         
         const finalScore = (behaviorSimilarity * behaviorWeight) + (ageScore * ageWeight) + (sexScore * sexWeight);
 
-        console.log("Behavior Weight       :", (behaviorWeight * 100).toFixed(0) + "%");
-        console.log("Age Weight            :", (ageWeight * 100).toFixed(0) + "%");
-        console.log("Sex Weight            :", (sexWeight * 100).toFixed(0) + "%");
-        console.log("Behavior Contribution :", (behaviorSimilarity * behaviorWeight * 100).toFixed(2) + "%");
-        console.log("Age Contribution      :", (ageScore * ageWeight * 100).toFixed(2) + "%");
-        console.log("Sex Contribution      :", (sexScore * sexWeight * 100).toFixed(2) + "%");
-        console.log("------------------------------------");
-        console.log("FINAL MATCH SCORE     :", (finalScore * 100).toFixed(2) + "%");
-
         // =========================================
         // MATCH THRESHOLD
         // =========================================
         // Only pets ABOVE 40% are included.
         // 40% or below = excluded.
-        if (finalScore <= MATCH_THRESHOLD) {
-            console.log(`EXCLUDED: ${pet.name} - Final Match Score ${(finalScore * 100).toFixed(2)}% is at or below the 40% threshold.`);
-            console.log("====================================\n");
+        const included = finalScore > MATCH_THRESHOLD;
+        matchLogs.push({
+            petName: pet.name,
+            similarity,
+            behaviorSimilarity,
+            sexScore,
+            ageScore,
+            behaviorWeight,
+            ageWeight,
+            sexWeight,
+            finalScore,
+            included
+        });
+
+        if (!included) {
             continue;
         }
-
-        console.log(`INCLUDED: ${pet.name} - Final Match Score ${(finalScore * 100).toFixed(2)}% passed the 40% threshold.`);
-        console.log("====================================\n");
 
         matches.push({
             animal_id: pet.animal_id,
@@ -189,6 +180,30 @@ async function matchPets(preferences) {
 
     // Highest score first
     matches.sort((a, b) => b.score - a.score);
+    matchLogs.sort((a, b) => b.finalScore - a.finalScore);
+
+    for (const log of matchLogs) {
+        console.log("====================================");
+        console.log("Pet:", log.petName);
+        console.log("Raw Cosine Similarity:", log.similarity.toFixed(4));
+        console.log("Behavior Similarity :", (log.behaviorSimilarity * 100).toFixed(2) + "%");
+        console.log("Sex Match :", sex === "Any" ? "ANY" : (log.sexScore === 1 ? "YES" : "NO"));
+        console.log("Age Match :", age === "Any" ? "ANY" : (log.ageScore === 1 ? "YES" : "NO"));
+        console.log("Behavior Weight       :", (log.behaviorWeight * 100).toFixed(0) + "%");
+        console.log("Age Weight            :", (log.ageWeight * 100).toFixed(0) + "%");
+        console.log("Sex Weight            :", (log.sexWeight * 100).toFixed(0) + "%");
+        console.log("Behavior Contribution :", (log.behaviorSimilarity * log.behaviorWeight * 100).toFixed(2) + "%");
+        console.log("Age Contribution      :", (log.ageScore * log.ageWeight * 100).toFixed(2) + "%");
+        console.log("Sex Contribution      :", (log.sexScore * log.sexWeight * 100).toFixed(2) + "%");
+        console.log("------------------------------------");
+        console.log("FINAL MATCH SCORE     :", (log.finalScore * 100).toFixed(2) + "%");
+        if (log.included) {
+            console.log(`INCLUDED: ${log.petName} - Final Match Score ${(log.finalScore * 100).toFixed(2)}% passed the 40% threshold.`);
+        } else {
+            console.log(`EXCLUDED: ${log.petName} - Final Match Score ${(log.finalScore * 100).toFixed(2)}% is at or below the 40% threshold.`);
+        }
+        console.log("====================================\n");
+    }
 
     return {
         matches,
