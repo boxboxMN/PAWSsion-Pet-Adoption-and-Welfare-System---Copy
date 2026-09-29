@@ -1,9 +1,17 @@
+import os
+
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["MKL_NUM_THREADS"] = "1"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+import torch
+torch.set_num_threads(1)
+
 from flask import Flask, request, jsonify
 from sentence_transformers import SentenceTransformer
 from taglid.lid import lang_identify, simplify
 import wordninja
 import re
-
 
 # ==========================================================
 # FLASK APP
@@ -19,7 +27,8 @@ app = Flask(__name__)
 print("Loading Sentence Transformer model...")
 
 model = SentenceTransformer(
-    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    device="cpu"
 )
 
 print("Sentence Transformer model loaded!")
@@ -1440,8 +1449,6 @@ def get_embedding():
 #     )
 
 if __name__ == "__main__":
-    import os
-
     port = int(os.environ.get("PORT", 5000))
 
     app.run(
