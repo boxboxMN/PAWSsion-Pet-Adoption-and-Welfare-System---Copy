@@ -225,6 +225,7 @@ exports.addPet = async (req, res) => {
         console.log("EMBEDDING GENERATED:", Array.isArray(embeddingResult.embedding));
 
         const embedding = embeddingResult.embedding;
+        const modelName = embeddingResult.model;
 
         if (
             !Array.isArray(embedding) ||
