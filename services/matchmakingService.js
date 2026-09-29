@@ -199,10 +199,11 @@ async function repairBehavior(behavior) {
 
     try {
 
-        const axios = require("axios");
+        const FLASK_API_URL =
+            process.env.FLASK_API_URL || "http://localhost:5000";
 
         const response = await axios.post(
-            "http://127.0.0.1:5000/repair",
+            `${FLASK_API_URL}/repair`,
             {
                 text: behavior
             }

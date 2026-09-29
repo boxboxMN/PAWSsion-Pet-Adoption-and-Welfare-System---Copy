@@ -4,8 +4,11 @@ async function generateEmbedding(text) {
 
     try {
 
+        const FLASK_API_URL =
+            process.env.FLASK_API_URL || "http://localhost:5000";
+
         const response = await axios.post(
-            "http://localhost:5000/embedding",
+            `${FLASK_API_URL}/embedding`,
             {
                 text: text
             }
