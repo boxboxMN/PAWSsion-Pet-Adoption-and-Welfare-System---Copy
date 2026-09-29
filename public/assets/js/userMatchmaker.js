@@ -922,18 +922,31 @@ function showIntroScreen() {
 // RENDER MATCH RESULTS
 let matchedPets = [];
 function renderMatches(matches, selectedType) {
-    allMatchResults = Array.isArray(matches) ? matches : [];
-    filteredMatchResults = [...allMatchResults];
-    matchedPets = [...allMatchResults];
-
-    populateOrganizationFilter(allMatchResults);
-    const speciesFilter = document.getElementById("matchSpeciesFilter");
+    allMatchResults =
+        Array.isArray(matches)
+            ? matches
+            : [];
+    filteredMatchResults =
+        [...allMatchResults];
+    matchedPets =
+        [...allMatchResults];
+    populateOrganizationFilter(
+        allMatchResults
+    );
+    const speciesFilter =
+        document.getElementById(
+            "matchSpeciesFilter"
+        );
     if (speciesFilter) {
-        speciesFilter.value = selectedType === "Any" ? "" : selectedType;
-        speciesFilter.disabled = selectedType !== "Any";
+        speciesFilter.value =
+            selectedType === "Any"
+                ? ""
+                : selectedType;
+        speciesFilter.disabled =
+            selectedType !== "Any";
     }
     renderPetCards(allMatchResults);
-    updateMatchResultCount(allMatchResults.length);
+    updateMatchResultCount( allMatchResults.length);
 }
 // RENDER PET CARDS
 function renderPetCards(matches) {
