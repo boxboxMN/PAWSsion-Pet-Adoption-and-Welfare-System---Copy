@@ -291,39 +291,6 @@ function sanitizeBehaviorInput(rawInput) {
         .trim();
 }
 
-// MAIN MATCHMAKING FLOW
-function setCompatibilityPreferenceFilters(type, sex, age) {
-    const preferences = [
-        { id: "matchSpeciesFilter", value: type, label: "Species" },
-        { id: "matchGenderFilter", value: sex, label: "Sex" },
-        { id: "matchAgeFilter", value: age, label: "Age", normalize: normalizeAgeCategory }
-    ];
-
-    preferences.forEach(({ id, value, label, normalize }) => {
-        const filter = document.getElementById(id);
-        if (!filter) return;
-
-        const isLocked = Boolean(value) && normalizeFilterText(value) !== "any";
-        const normalizedValue = normalize ? normalize(value) : normalizeFilterText(value);
-        const matchingOption = isLocked
-            ? [...filter.options].find(option => {
-                const optionValue = normalize ? normalize(option.value) : normalizeFilterText(option.value);
-                return optionValue === normalizedValue;
-            })
-            : null;
-
-        filter.value = isLocked ? matchingOption?.value || "" : "";
-        filter.disabled = isLocked;
-        filter.title = isLocked
-            ? `Locked to your ${label.toLowerCase()} preference used for matchmaking.`
-            : "";
-        filter.setAttribute(
-            "aria-label",
-            isLocked ? `${label} filter, locked to ${value}` : `${label} filter`
-        );
-    });
-}
-
 async function showCompatibilityScreen() {
 
     // GET PREFERENCES
@@ -636,8 +603,6 @@ async function showCompatibilityScreen() {
         renderMatches(
             data.matches
         );
-        setCompatibilityPreferenceFilters(type, sex, age);
-        applyMatchFilters();
         // COMPLETE
         updateMatchingProgress(
             100,
@@ -1260,13 +1225,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (search) {
                     search.value = "";
                 }
-                if (species && !species.disabled) {
+                if (species) {
                     species.value = "";
                 }
-                if (gender && !gender.disabled) {
+                if (gender) {
                     gender.value = "";
                 }
-                if (age && !age.disabled) {
+                if (age) {
                     age.value = "";
                 }
                 if (organization) {
