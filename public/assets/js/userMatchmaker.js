@@ -929,10 +929,8 @@ function renderMatches(matches, selectedType) {
     populateOrganizationFilter(allMatchResults);
     const speciesFilter = document.getElementById("matchSpeciesFilter");
     if (speciesFilter) {
+        speciesFilter.value = selectedType === "Any" ? "" : selectedType;
         speciesFilter.disabled = selectedType !== "Any";
-        if (speciesFilter.disabled) {
-            speciesFilter.value = "";
-        }
     }
     renderPetCards(allMatchResults);
     updateMatchResultCount(allMatchResults.length);
