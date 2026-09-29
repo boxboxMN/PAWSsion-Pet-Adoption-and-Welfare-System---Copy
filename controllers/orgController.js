@@ -212,26 +212,53 @@ exports.addPet = async (req, res) => {
         // GENERATE EMBEDDING
         // ==========================================
         try {
-            console.log("Generating embedding...");
-            const embedding = await generateEmbedding(
-                pet_description || ""
+        console.log("========================================");
+        console.log("GENERATING PET EMBEDDING");
+        console.log("========================================");
+
+        const embeddingResult = await generateEmbedding(
+            pet_description || ""
+        );
+
+        console.log("EMBEDDING MODEL USED:", embeddingResult.model);
+        console.log("EMBEDDING DIMENSION:", embeddingResult.dimension);
+        console.log("EMBEDDING GENERATED:", Array.isArray(embeddingResult.embedding));
+
+        const embedding = embeddingResult.embedding;
+
+        if (
+            !Array.isArray(embedding) ||
+            embedding.length !== 384
+        ) {
+            throw new Error(
+                `Invalid embedding. Expected 384 dimensions but received ${
+                    Array.isArray(embedding)
+                        ? embedding.length
+                        : "non-array"
+                }.`
             );
-            console.log("Embedding generated.");
-            await pool.query(
-                `
-                INSERT INTO animal_embeddings
-                (
-                    animal_id,
-                    embedding
-                )
-                VALUES (?, ?)
-                `,
-                [
-                    animal_id,
-                    JSON.stringify(embedding)
-                ]
-            );
-            console.log("Embedding saved.");
+        }
+
+        await pool.query(
+            `
+            INSERT INTO animal_embeddings
+            (
+                animal_id,
+                embedding
+            )
+            VALUES (?, ?)
+            `,
+            [
+                animal_id,
+                JSON.stringify(embedding)
+            ]
+        );
+
+        console.log("EMBEDDING SAVED SUCCESSFULLY");
+        console.log("MODEL:", embeddingResult.model);
+        console.log("DIMENSION:", embedding.length);
+        console.log("========================================");
+
         } catch (embedErr) {
             console.warn(
                 "⚠️ Embedding service offline or skipped:",
