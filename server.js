@@ -99,7 +99,11 @@ const { checkAccountStatus } = require("./controllers/adminController");
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
+app.get("/health", (req, res) => {
+    res.status(200).json({
+        status: "ok"
+    });
+});
 app.use((req, res, next) => {
     const ignoredRoutes = [
         "/api/session-status"
