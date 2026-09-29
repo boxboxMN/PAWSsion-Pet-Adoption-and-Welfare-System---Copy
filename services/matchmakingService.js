@@ -198,20 +198,28 @@ async function matchPets(preferences) {
 // ==========================================================
 // REPAIR BEHAVIOR
 // ==========================================================
-
 async function repairBehavior(behavior) {
 
     try {
 
-        const axios = require("axios");
+        const FLASK_API_URL =
+            process.env.FLASK_API_URL || "http://localhost:5000";
+
+        console.log("========================================");
+        console.log("CALLING FLASK REPAIR");
+        console.log(
+            "FLASK URL:",
+            `${FLASK_API_URL}/repair`
+        );
+        console.log("TEXT:", behavior);
+        console.log("========================================");
 
         const response = await axios.post(
-            "http://127.0.0.1:5000/repair",
+            `${FLASK_API_URL}/repair`,
             {
                 text: behavior
             }
         );
-
 
         console.log("========================================");
         console.log("FLASK REPAIR RESPONSE");
@@ -219,16 +227,13 @@ async function repairBehavior(behavior) {
         console.log(response.data);
         console.log("========================================");
 
-
         return response.data;
-
 
     } catch (error) {
 
         console.error(
             "========== FLASK REPAIR ERROR =========="
         );
-
 
         if (error.response) {
 
@@ -242,34 +247,32 @@ async function repairBehavior(behavior) {
                 error.response.data
             );
 
-
             const flaskError =
                 new Error(
                     error.response.data.message ||
                     "Invalid behavior description."
                 );
 
-
             flaskError.status =
                 error.response.status;
-
 
             flaskError.repairedText =
                 error.response.data.repaired_text;
 
-
             flaskError.wordCount =
                 error.response.data.word_count;
 
-
             flaskError.characterCount =
                 error.response.data.character_count;
-
 
             throw flaskError;
 
         }
 
+        console.error(
+            "Error message:",
+            error.message
+        );
 
         throw error;
     }
