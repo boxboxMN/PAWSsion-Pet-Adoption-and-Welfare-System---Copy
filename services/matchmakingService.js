@@ -1,5 +1,7 @@
+const axios = require("axios");
 const pool = require("../config/database");
 const { generateEmbedding } = require("./embeddingService");
+
 const MATCH_THRESHOLD = 0.40;
 // =========================================
 // COSINE SIMILARITY
@@ -202,6 +204,12 @@ async function repairBehavior(behavior) {
         const FLASK_API_URL =
             process.env.FLASK_API_URL || "http://localhost:5000";
 
+        console.log("========================================");
+        console.log("CALLING FLASK REPAIR");
+        console.log("FLASK URL:", `${FLASK_API_URL}/repair`);
+        console.log("BEHAVIOR:", behavior);
+        console.log("========================================");
+
         const response = await axios.post(
             `${FLASK_API_URL}/repair`,
             {
@@ -211,7 +219,6 @@ async function repairBehavior(behavior) {
 
         console.log("========================================");
         console.log("FLASK REPAIR RESPONSE");
-        console.log("========================================");
         console.log(response.data);
         console.log("========================================");
 
@@ -225,8 +232,8 @@ async function repairBehavior(behavior) {
 
         if (error.response) {
 
-            console.error("Status:", error.response.status);
-            console.error("Data:", error.response.data);
+            console.error("Flask status:", error.response.status);
+            console.error("Flask response:", error.response.data);
 
             const flaskError = new Error(
                 error.response.data.message ||
@@ -239,10 +246,16 @@ async function repairBehavior(behavior) {
             flaskError.repairedText =
                 error.response.data.repaired_text;
 
+            flaskError.wordCount =
+                error.response.data.word_count;
+
+            flaskError.characterCount =
+                error.response.data.character_count;
+
             throw flaskError;
         }
 
-        console.error("Message:", error.message);
+        console.error("Error message:", error.message);
 
         throw error;
     }
