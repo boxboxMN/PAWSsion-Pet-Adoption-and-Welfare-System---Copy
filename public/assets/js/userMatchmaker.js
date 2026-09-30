@@ -1492,11 +1492,19 @@ function openMatchPetModal(pet, rank) {
     const ageScoreElement = document.getElementById("modalAgeScore");
     const ageDetail = document.getElementById("modalAgeMatchDetail");
 
-    if (ageScoreElement) ageScoreElement.textContent = `${ageScore.toFixed(0)}%`;
-    if (ageDetail) {
-        const ageMatchText = ageScore >= 100 ? "Matches" : "Does not match";
-        ageDetail.textContent = `${ageMatchText} your age preference (+${ageContribution.toFixed(0)}% contribution)`;
+    if (ageScoreElement) {
+        // Maximum contribution from age = 20%
+        ageScoreElement.textContent = `+${ageContribution.toFixed(0)}%`;
     }
+
+    if (ageDetail) {
+        const ageMatchText = ageScore >= 100
+            ? "Matches your age preference"
+            : "Does not match your age preference";
+
+        ageDetail.textContent = ageMatchText;
+    }
+
 
     // ------------------------------------------------------
     // GENDER / SEX
@@ -1507,10 +1515,17 @@ function openMatchPetModal(pet, rank) {
     const sexScoreElement = document.getElementById("modalSexScore");
     const sexDetail = document.getElementById("modalSexMatchDetail");
 
-    if (sexScoreElement) sexScoreElement.textContent = `${sexScore.toFixed(0)}%`;
+    if (sexScoreElement) {
+        // Maximum contribution from gender = 10%
+        sexScoreElement.textContent = `+${sexContribution.toFixed(0)}%`;
+    }
+
     if (sexDetail) {
-        const sexMatchText = sexScore >= 100 ? "Matches" : "Does not match";
-        sexDetail.textContent = `${sexMatchText} your gender preference (+${sexContribution.toFixed(0)}% contribution)`;
+        const sexMatchText = sexScore >= 100
+            ? "Matches your gender preference"
+            : "Does not match your gender preference";
+
+        sexDetail.textContent = sexMatchText;
     }
 
     // ------------------------------------------------------
