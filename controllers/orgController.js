@@ -2,18 +2,6 @@ const pool = require("../config/database");
 const { generateEmbedding } = require("../services/embeddingService");
 const { logActivity } = require("./adminController");
 const { createNotification, notifyAllAdmins } = require("./adminController");
-
-// ==========================================
-// NORMALIZE PET DESCRIPTION FOR DUPLICATE CHECK
-// ==========================================
-function normalizePetDescription(text) {
-    return String(text ?? "")
-        .normalize("NFKC")
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}\s]/gu, "")
-        .replace(/\s+/g, " ")
-        .trim();
-}
 // ==========================================
 // RECYCLE BIN: Auto-purge pets na sobra na sa 30 araw
 // ==========================================
