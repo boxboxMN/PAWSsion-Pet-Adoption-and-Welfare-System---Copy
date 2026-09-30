@@ -447,6 +447,14 @@ console.log("========================================");
 matchLogs.forEach((log) => {
     const rawSimilarity =
         Number(log.rawSimilarity) || 0;
+    const adjustedSimilarity =
+        Number(log.adjustedSimilarity) || 0;
+    const behaviorContribution =
+        Number(log.behaviorContribution) || 0;
+    const ageContribution =
+        Number(log.ageContribution) || 0;
+    const sexContribution =
+        Number(log.sexContribution) || 0;
     const finalScore =
         Number(log.finalScore) || 0;
     const result =
@@ -454,21 +462,32 @@ matchLogs.forEach((log) => {
             ? "INCLUDED"
             : "EXCLUDED";
 
+    console.log(`[${result}] ${log.petName}`);
+    console.log(`Raw cosine similarity: ${rawSimilarity.toFixed(4)}`);
+    console.log(`RCS after boost: ${adjustedSimilarity.toFixed(4)}`);
     console.log(
-        `[${result}] ${log.petName} | ` +
-        `Cosine: ${rawSimilarity.toFixed(4)} | ` +
-        `Sex: ${sex === "Any"
-            ? "ANY"
-            : log.sexScore === 1
-                ? "YES"
-                : "NO"} | ` +
-        `Age: ${age === "Any"
-            ? "ANY"
-            : log.ageScore === 1
-                ? "YES"
-                : "NO"} | ` +
-        `Final: ${(finalScore * 100).toFixed(2)}%`
+        `Behavior: ${adjustedSimilarity.toFixed(4)} x ` +
+        `${(log.behaviorWeight * 100).toFixed(0)}% = ` +
+        `${(behaviorContribution * 100).toFixed(2)}%`
     );
+    console.log(
+        `Age: ${(log.ageScore * 100).toFixed(0)}% x ` +
+        `${(log.ageWeight * 100).toFixed(0)}% = ` +
+        `${(ageContribution * 100).toFixed(2)}%`
+    );
+    console.log(
+        `Sex: ${(log.sexScore * 100).toFixed(0)}% x ` +
+        `${(log.sexWeight * 100).toFixed(0)}% = ` +
+        `${(sexContribution * 100).toFixed(2)}%`
+    );
+    console.log(
+        `Final: ${(behaviorContribution * 100).toFixed(2)}% + ` +
+        `${(ageContribution * 100).toFixed(2)}% + ` +
+        `${(sexContribution * 100).toFixed(2)}% = ` +
+        `${(finalScore * 100).toFixed(2)}% ` +
+        `(threshold: ${(MATCH_THRESHOLD * 100).toFixed(0)}%)`
+    );
+    console.log("----------------------------------------");
 });
 };
 // ==========================================================
