@@ -132,6 +132,35 @@ if (
             : []
     );
 
+    const medicalHistoryByAnimalId = new Map();
+
+    if (pets.length > 0) {
+        const animalIds = pets.map(pet => pet.animal_id);
+        const [medicalHistories] = await pool.query(`
+            SELECT
+                animal_id,
+                treatment,
+                DATE_FORMAT(
+                    administered_date,
+                    '%M %e, %Y'
+                ) AS administered_date,
+                administered_by,
+                notes
+            FROM animal_medical_history
+            WHERE animal_id IN (?)
+            ORDER BY animal_id, administered_date DESC
+        `, [animalIds]);
+
+        for (const history of medicalHistories) {
+            const animalId = String(history.animal_id);
+            const histories =
+                medicalHistoryByAnimalId.get(animalId) || [];
+
+            histories.push(history);
+            medicalHistoryByAnimalId.set(animalId, histories);
+        }
+    }
+
 
     // =========================================
     // MATCH RESULTS
@@ -148,29 +177,8 @@ if (
 
     for (const pet of pets) {
 
-        // =========================================
-        // MEDICAL HISTORY
-        // =========================================
-
-        const [medicalHistory] =
-            await pool.query(`
-                SELECT
-                    treatment,
-                    DATE_FORMAT(
-                        administered_date,
-                        '%M %e, %Y'
-                    ) AS administered_date,
-                    administered_by,
-                    notes
-
-                FROM animal_medical_history
-
-                WHERE animal_id = ?
-
-                ORDER BY administered_date DESC;
-            `,
-            [pet.animal_id]
-        );
+        const medicalHistory =
+            medicalHistoryByAnimalId.get(String(pet.animal_id)) || [];
 
 
         // =========================================
@@ -445,8 +453,8 @@ console.log("       PAWPON MATCHMAKING RESULTS");
 console.log("========================================");
 
 matchLogs.forEach((log) => {
-    const rawSimilarity =
-        Number(log.rawSimilarity) || 0;
+    const adjustedSimilarity =
+        Number(log.adjustedSimilarity) || 0;
     const finalScore =
         Number(log.finalScore) || 0;
     const result =
@@ -456,7 +464,7 @@ matchLogs.forEach((log) => {
 
     console.log(
         `[${result}] ${log.petName} | ` +
-        `Cosine: ${rawSimilarity.toFixed(4)} | ` +
+        `Cosine: ${adjustedSimilarity.toFixed(4)} | ` +
         `Sex: ${sex === "Any"
             ? "ANY"
             : log.sexScore === 1

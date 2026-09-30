@@ -547,6 +547,7 @@ async function showCompatibilityScreen() {
     );
 
     // MATCHMAKING REQUEST
+    let matchingTimeout;
     try {
         updateMatchingProgress(
             70,
@@ -557,10 +558,16 @@ async function showCompatibilityScreen() {
         );
 
         // SEND REQUEST TO MATCHMAKING API
+        const requestController = new AbortController();
+        matchingTimeout = setTimeout(
+            () => requestController.abort(),
+            60000
+        );
         const response = await fetch(
             "/api/matchmaking",
             {
                 method: "POST",
+                signal: requestController.signal,
                 headers: {
                     "Content-Type": "application/json"
                 },
@@ -576,11 +583,13 @@ async function showCompatibilityScreen() {
         // HANDLE API ERROR
         if (!response.ok) {
             const errorData = await response.json();
+            clearTimeout(matchingTimeout);
             console.error("Matching error response:", errorData);
             message.textContent =
                 errorData.message ||
                 `Matching request failed: ${response.status}`;
             message.classList.remove("hidden");
+            showScreen(preferenceScreen);
             return;
         }
 
@@ -594,6 +603,7 @@ async function showCompatibilityScreen() {
         );
         const data =
             await response.json();
+        clearTimeout(matchingTimeout);
         console.log(
             "Matchmaking response:",
             data
@@ -619,6 +629,7 @@ async function showCompatibilityScreen() {
             compatibilityScreen
         );
     } catch (err) {
+        clearTimeout(matchingTimeout);
 
         // HANDLE MATCHMAKING ERROR
         console.error(
@@ -630,7 +641,9 @@ async function showCompatibilityScreen() {
             preferenceScreen
         );
         message.textContent =
-            "Something went wrong while finding matches. Please try again.";
+            err.name === "AbortError"
+                ? "Finding matches took too long. Please try again."
+                : "Something went wrong while finding matches. Please try again.";
         message.classList.remove("hidden");
     }
 }
