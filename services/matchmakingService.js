@@ -370,26 +370,34 @@ if (
 // =========================================
 // CONSOLE LOGGING
 // =========================================
+// Sort from highest FINAL MATCH SCORE to lowest
+matchLogs.sort((a, b) => b.finalScore - a.finalScore);
 for (const log of matchLogs) {
     console.log("====================================");
     console.log("Pet:", log.petName);
+
     console.log(
         "Cosine Similarity:",
         log.adjustedSimilarity.toFixed(4)
     );
+
     console.log("Match Breakdown:");
+
     console.log(
         "  Behavior:",
         (log.behaviorContribution * 100).toFixed(2) + "%"
     );
+
     console.log(
         "  Age:",
         (log.ageContribution * 100).toFixed(2) + "%"
     );
+
     console.log(
         "  Sex:",
         (log.sexContribution * 100).toFixed(2) + "%"
     );
+
     console.log(
         "FINAL MATCH SCORE:",
         (log.finalScore * 100).toFixed(2) + "%"
