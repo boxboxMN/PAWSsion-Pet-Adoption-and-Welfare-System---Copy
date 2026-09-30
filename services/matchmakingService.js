@@ -230,38 +230,26 @@ if (
         // =========================================
         // FIXED WSM WEIGHTS
         // =========================================
-
         const behaviorWeight = 0.70;
-
         const ageWeight = 0.20;
-
         const sexWeight = 0.10;
-
 
         // =========================================
         // WEIGHTED CONTRIBUTIONS
         // =========================================
-
         const behaviorContribution =
             adjustedSimilarity * behaviorWeight;
-
         const ageContribution =
             ageScore * ageWeight;
-
         const sexContribution =
             sexScore * sexWeight;
-
-
         // =========================================
         // FINAL MATCH SCORE
         // =========================================
-
         const finalScore =
             behaviorContribution +
             ageContribution +
             sexContribution;
-
-
         // =========================================
         // THRESHOLD
         // =========================================
@@ -270,121 +258,74 @@ if (
         // weighted score ABOVE 40% are included.
         //
         // =========================================
-
         const included =
             finalScore > MATCH_THRESHOLD;
-
-
         // =========================================
         // LOG MATCH CALCULATION
         // =========================================
-
         matchLogs.push({
-
             petName: pet.name,
-
             rawSimilarity,
-
             adjustedSimilarity,
-
             sexScore,
-
             ageScore,
-
             behaviorWeight,
-
             ageWeight,
-
             sexWeight,
-
             behaviorContribution,
-
             ageContribution,
-
             sexContribution,
-
             finalScore,
-
             included
-
         });
-
-
         // =========================================
         // EXCLUDE WEAK MATCH
         // =========================================
-
         if (!included) {
             continue;
         }
-
-
         // =========================================
         // SAVE MATCH RESULT
         // =========================================
-
         matches.push({
-
             animal_id: pet.animal_id,
-
             name: pet.name,
-
             species: pet.species,
-
             gender: pet.gender,
-
             age: pet.age,
-
             image_path: pet.image_path,
-
             pet_description:
                 pet.pet_description,
-
             organization_id:
                 pet.organization_id,
-
             organization_name:
                 pet.organization_name,
-
             adoption_status:
                 pet.adoption_status,
-
             health_status:
                 pet.health_status,
-
             vaccination_status:
                 pet.vaccination_status,
-
             medical_history:
                 medicalHistory,
-
-
             // RAW COSINE SIMILARITY
             behaviorSimilarity:
                 Number(
                     (adjustedSimilarity * 100)
                         .toFixed(2)
                 ),
-
-
             // AGE COMPATIBILITY
             ageScore:
                 ageScore * 100,
-
-
             // SEX COMPATIBILITY
             sexScore:
                 sexScore * 100,
-
-
             // FINAL WSM SCORE
             score:
                 Number(
                     (finalScore * 100)
                         .toFixed(1)
                 ),
-
-
             // CONTRIBUTIONS
             behaviorContribution:
                 Number(
@@ -394,7 +335,6 @@ if (
                         100
                     ).toFixed(2)
                 ),
-
             ageContribution:
                 Number(
                     (
@@ -403,7 +343,6 @@ if (
                         100
                     ).toFixed(2)
                 ),
-
             sexContribution:
                 Number(
                     (
@@ -412,169 +351,61 @@ if (
                         100
                     ).toFixed(2)
                 )
-
         });
-
     }
-
-
     // =========================================
     // SORT HIGHEST SCORE FIRST
     // =========================================
-
     matches.sort(
         (a, b) => b.score - a.score
     );
-
-
     // =========================================
     // SORT DEBUG LOGS
     // =========================================
-
     matchLogs.sort(
         (a, b) =>
             b.finalScore -
             a.finalScore
     );
-
-
-    // =========================================
-    // CONSOLE LOGGING
-    // =========================================
-
-    for (const log of matchLogs) {
-
-        console.log(
-            "===================================="
-        );
-
-        console.log(
-            "Pet:",
-            log.petName
-        );
-
-        console.log(
-            "Raw Cosine Similarity:",
-            log.rawSimilarity.toFixed(4)
-        );
-
-        console.log(
-            "RCS after 0.05 boost:",
-            log.adjustedSimilarity.toFixed(4)
-        );
-
-        console.log(
-            "Sex Match:",
-            sex === "Any"
-                ? "ANY"
-                : (
-                    log.sexScore === 1
-                        ? "YES"
-                        : "NO"
-                )
-        );
-
-        console.log(
-            "Age Match:",
-            age === "Any"
-                ? "ANY"
-                : (
-                    log.ageScore === 1
-                        ? "YES"
-                        : "NO"
-                )
-        );
-
-        console.log(
-            "Behavior Weight:",
-            (
-                log.behaviorWeight * 100
-            ).toFixed(0) + "%"
-        );
-
-        console.log(
-            "Age Weight:",
-            (
-                log.ageWeight * 100
-            ).toFixed(0) + "%"
-        );
-
-        console.log(
-            "Sex Weight:",
-            (
-                log.sexWeight * 100
-            ).toFixed(0) + "%"
-        );
-
-        console.log(
-            "Behavior Contribution:",
-            (
-                log.behaviorContribution * 100
-            ).toFixed(2) + "%"
-        );
-
-        console.log(
-            "Age Contribution:",
-            (
-                log.ageContribution * 100
-            ).toFixed(2) + "%"
-        );
-
-        console.log(
-            "Sex Contribution:",
-            (
-                log.sexContribution * 100
-            ).toFixed(2) + "%"
-        );
-
-        console.log(
-            "------------------------------------"
-        );
-
-        console.log(
-            "FINAL MATCH SCORE:",
-            (
-                log.finalScore * 100
-            ).toFixed(2) + "%"
-        );
-
-        if (log.included) {
-
-            console.log(
-                `INCLUDED: ${log.petName} - ` +
-                `Final Match Score ` +
-                `${(
-                    log.finalScore * 100
-                ).toFixed(2)}% ` +
-                `passed the 40% threshold.`
-            );
-
-        } else {
-
-            console.log(
-                `EXCLUDED: ${log.petName} - ` +
-                `Final Match Score ` +
-                `${(
-                    log.finalScore * 100
-                ).toFixed(2)}% ` +
-                `is at or below the 40% threshold.`
-            );
-
-        }
-
-        console.log(
-            "====================================\n"
-        );
-    }
-
-
-    return {
-        matches,
-        repairedBehavior
-    };
+// =========================================
+// CONSOLE LOGGING
+// =========================================
+for (const log of matchLogs) {
+    console.log("====================================");
+    console.log("Pet:", log.petName);
+    console.log(
+        "Cosine Similarity:",
+        log.adjustedSimilarity.toFixed(4)
+    );
+    console.log("Match Breakdown:");
+    console.log(
+        "  Behavior:",
+        (log.behaviorContribution * 100).toFixed(2) + "%"
+    );
+    console.log(
+        "  Age:",
+        (log.ageContribution * 100).toFixed(2) + "%"
+    );
+    console.log(
+        "  Sex:",
+        (log.sexContribution * 100).toFixed(2) + "%"
+    );
+    console.log(
+        "FINAL MATCH SCORE:",
+        (log.finalScore * 100).toFixed(2) + "%"
+    );
+    console.log(
+        log.included
+            ? "RESULT: INCLUDED"
+            : "RESULT: EXCLUDED"
+    );
+    console.log("====================================\n");
 }
-
-
+return {
+    matches,
+    repairedBehavior
+};
+}
 // ==========================================================
 // REPAIR BEHAVIOR
 // ==========================================================
