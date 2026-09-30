@@ -1314,10 +1314,10 @@ function openMatchPetModal(pet, rank) {
 
     // Reset classes
     statusBadge.className =
-        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold";
+        "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold";
     switch (pet.adoption_status) {
         case "Available":
-            statusRemark.textContent = "🟢 Available";
+            statusRemark.textContent = "Available";
             statusBadge.classList.add(
                 "bg-emerald-50",
                 "border",
@@ -1326,7 +1326,7 @@ function openMatchPetModal(pet, rank) {
             );
             break;
         case "Pending":
-            statusRemark.textContent = "🟡 Adoption in Progress";
+            statusRemark.textContent = "Adoption in Progress";
             statusBadge.classList.add(
                 "bg-yellow-50",
                 "border",
@@ -1335,7 +1335,7 @@ function openMatchPetModal(pet, rank) {
             );
             break;
         case "Adopted":
-            statusRemark.textContent = "💙 Successfully Adopted";
+            statusRemark.textContent = "Successfully Adopted";
             statusBadge.classList.add(
                 "bg-blue-50",
                 "border",
@@ -1344,7 +1344,7 @@ function openMatchPetModal(pet, rank) {
             );
             break;
         case "Archived":
-            statusRemark.textContent = "⚪ No Longer Listed";
+            statusRemark.textContent = "No Longer Listed";
             statusBadge.classList.add(
                 "bg-slate-100",
                 "border",
@@ -1368,10 +1368,10 @@ function openMatchPetModal(pet, rank) {
 
     // Reset classes
     healthBadge.className =
-        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium";
+        "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium";
     switch (pet.health_status) {
         case "Healthy":
-            healthRemark.textContent = "💚 Excellent Condition";
+            healthRemark.textContent = "Excellent Condition";
             healthBadge.classList.add(
                 "bg-emerald-50",
                 "border",
@@ -1380,7 +1380,7 @@ function openMatchPetModal(pet, rank) {
             );
             break;
         case "Recovered":
-            healthRemark.textContent = "🌿 Recovered";
+            healthRemark.textContent = "Recovered";
             healthBadge.classList.add(
                 "bg-green-50",
                 "border",
@@ -1389,7 +1389,7 @@ function openMatchPetModal(pet, rank) {
             );
             break;
         case "Under Treatment":
-            healthRemark.textContent = "🩺 Under Treatment";
+            healthRemark.textContent = "Under Treatment";
             healthBadge.classList.add(
                 "bg-yellow-50",
                 "border",
@@ -1398,7 +1398,7 @@ function openMatchPetModal(pet, rank) {
             );
             break;
         case "Sick":
-            healthRemark.textContent = "❤️ Needs Extra Care";
+            healthRemark.textContent = "Needs Extra Care";
             healthBadge.classList.add(
                 "bg-red-50",
                 "border",
@@ -1422,10 +1422,10 @@ function openMatchPetModal(pet, rank) {
 
     // Reset classes
     vaccinationBadge.className =
-        "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium";
+        "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium";
     switch (pet.vaccination_status) {
         case "Vaccinated":
-            vaccinationRemark.textContent = "💉 Vaccinated";
+            vaccinationRemark.textContent = "Vaccinated";
             vaccinationBadge.classList.add(
                 "bg-blue-50",
                 "border",
@@ -1434,7 +1434,7 @@ function openMatchPetModal(pet, rank) {
             );
             break;
         case "Not Vaccinated":
-            vaccinationRemark.textContent = "⚠️ Not Yet Vaccinated";
+            vaccinationRemark.textContent = "Not Yet Vaccinated";
             vaccinationBadge.classList.add(
                 "bg-orange-50",
                 "border",
@@ -1443,7 +1443,7 @@ function openMatchPetModal(pet, rank) {
             );
             break;
         case "Unknown":
-            vaccinationRemark.textContent = "❓ Vaccination Unknown";
+            vaccinationRemark.textContent = "Vaccination Unknown";
             vaccinationBadge.classList.add(
                 "bg-slate-100",
                 "border",
@@ -1460,28 +1460,71 @@ function openMatchPetModal(pet, rank) {
                 "text-gray-700"
             );
     }
-    // MATCH SCORE
+    // ======================================================
+    // MATCH SCORE & COMPATIBILITY BREAKDOWN
+    // ======================================================
     document.getElementById("modalRank").textContent = rank;
-    document.getElementById("modalScore").textContent = pet.score + "%";
-    document.getElementById("modalFinalScore").textContent = pet.score + "%";
-    document.getElementById("modalFinalScoreBar").style.width = pet.score + "%";        
+    const finalScore = Number(pet.score) || 0;
+    document.getElementById("modalScore").textContent = `${finalScore.toFixed(1)}%`;
+    document.getElementById("modalFinalScore").textContent = `${finalScore.toFixed(1)}%`;
+    document.getElementById("modalFinalScoreBar").style.width = `${Math.min(finalScore, 100)}%`;
+
+    const behaviorSimilarity = Number(pet.behaviorSimilarity) || 0;
+    const behaviorContribution = Number(pet.behaviorContribution) || 0;
+
+    const behaviorScore = document.getElementById("modalBehaviorScore");
+    const behaviorBar = document.getElementById("modalBehaviorScoreBar");
+    const behaviorDetail = document.getElementById("modalBehaviorDetail");
+
+    if (behaviorScore) behaviorScore.textContent = `${behaviorContribution.toFixed(2)}%`;
+    if (behaviorBar) behaviorBar.style.width = `${Math.min(behaviorContribution, 70) / 70 * 100}%`;
+    if (behaviorDetail) {
+        behaviorDetail.textContent = `Your pet's behavior similarity is ${behaviorSimilarity.toFixed(2)}%. ` +
+            `This contributes ${behaviorContribution.toFixed(2)}% to the final match score.`;
+    }
+
+    // ------------------------------------------------------
+    // AGE
+    // ------------------------------------------------------
+    const ageScore = Number(pet.ageScore) || 0;
+    const ageContribution = Number(pet.ageContribution) || 0;
+
+    const ageScoreElement = document.getElementById("modalAgeScore");
+    const ageDetail = document.getElementById("modalAgeMatchDetail");
+
+    if (ageScoreElement) ageScoreElement.textContent = `${ageScore.toFixed(0)}%`;
+    if (ageDetail) {
+        const ageMatchText = ageScore >= 100 ? "Matches" : "Does not match";
+        ageDetail.textContent = `${ageMatchText} your age preference (+${ageContribution.toFixed(0)}% contribution)`;
+    }
+
+    // ------------------------------------------------------
+    // GENDER / SEX
+    // ------------------------------------------------------
+    const sexScore = Number(pet.sexScore) || 0;
+    const sexContribution = Number(pet.sexContribution) || 0;
+
+    const sexScoreElement = document.getElementById("modalSexScore");
+    const sexDetail = document.getElementById("modalSexMatchDetail");
+
+    if (sexScoreElement) sexScoreElement.textContent = `${sexScore.toFixed(0)}%`;
+    if (sexDetail) {
+        const sexMatchText = sexScore >= 100 ? "Matches" : "Does not match";
+        sexDetail.textContent = `${sexMatchText} your gender preference (+${sexContribution.toFixed(0)}% contribution)`;
+    }
+
+    // ------------------------------------------------------
+    // MATCH REMARK
+    // ------------------------------------------------------
     const remark = document.getElementById("modalMatchRemark");
-        if (pet.score >= 90) {
-            remark.textContent = "Perfect Match 💚";
-        }
-        else if (pet.score >= 80) {
-            remark.textContent = "Excellent Match 🌟";
-        }
-        else if (pet.score >= 70) {
-            remark.textContent = "Great Match ❤️";
-        }
-        else if (pet.score >= 60) {
-            remark.textContent = "Good Match 👍";
-        }
-        else {
-            remark.textContent = "Possible Match 🐾";
-        }
-    
+
+    if (remark) {
+        if (finalScore >= 90) remark.textContent = "Perfect Match 💚";
+        else if (finalScore >= 80) remark.textContent = "Excellent Match 🌟";
+        else if (finalScore >= 70) remark.textContent = "Great Match ❤️";
+        else if (finalScore >= 60) remark.textContent = "Good Match 👍";
+        else remark.textContent = "Possible Match 🐾";
+    }
         // MEDICAL HISTORY
     const body = document.getElementById("modalMedicalBody");
     body.innerHTML = "";
