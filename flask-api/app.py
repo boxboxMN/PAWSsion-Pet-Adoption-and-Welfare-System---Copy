@@ -1292,7 +1292,7 @@ def get_embedding():
         ).tolist()
         print("========================================")
         print("EMBEDDING DEBUG")
-        print("MODEL:", MODEL_NAME)
+        print("MODEL:", model_name)
         print("DIMENSION:", len(embedding))
         print("TEXT:", text)
         print("========================================")
