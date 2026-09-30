@@ -1534,11 +1534,15 @@ function openMatchPetModal(pet, rank) {
     const remark = document.getElementById("modalMatchRemark");
 
     if (remark) {
-        if (finalScore >= 90) remark.textContent = "Perfect Match 💚";
-        else if (finalScore >= 80) remark.textContent = "Excellent Match 🌟";
-        else if (finalScore >= 70) remark.textContent = "Great Match ❤️";
-        else if (finalScore >= 60) remark.textContent = "Good Match 👍";
-        else remark.textContent = "Possible Match 🐾";
+        if (finalScore >= 80) {
+            remark.textContent = "Very Similar";
+        } else if (finalScore >= 60) {
+            remark.textContent = "Moderately Similar";
+        } else if (finalScore >= 40) {
+            remark.textContent = "Somewhat Similar";
+        } else {
+            remark.textContent = "Not Similar";
+        }
     }
         // MEDICAL HISTORY
     const body = document.getElementById("modalMedicalBody");

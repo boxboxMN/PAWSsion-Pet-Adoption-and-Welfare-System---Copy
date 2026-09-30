@@ -120,9 +120,15 @@
             <h3 class="text-xs font-bold uppercase tracking-wide text-blue-900 mb-4">
                 Profile Photo
             </h3>
-
             <label class="relative block aspect-square rounded-2xl border-2 border-dashed border-slate-300 bg-white overflow-hidden cursor-pointer hover:border-blue-700 transition">
-                <input id="petImageInput" type="file" name="image" accept=".jpg,.jpeg,.png,.webp" class="hidden">
+                <input
+                    id="petImageInput"
+                    type="file"
+                    name="image"
+                    accept=".jpg,.jpeg,.png,.webp"
+                    required
+                    class="hidden"
+                >
 
                 <!-- Preview -->
                 <img id="petImagePreview"  class="hidden w-full h-full object-cover">
@@ -363,8 +369,18 @@
            
             <!-- DESCRIPTION -->
             <div>
-                <label class="block text-sm font-medium mb-1">Pet Description</label>
-                <textarea name="pet_description" rows="5" maxlength="1000" placeholder="Describe the pet's personality, friendliness, behavior, and special notes..." class="w-full rounded-lg border p-3 resize-none"></textarea>
+               <label class="block text-sm font-medium mb-1">
+                    Pet Description <span class="text-red-500">*</span>
+                </label>
+
+                <textarea
+                    name="pet_description"
+                    rows="5"
+                    maxlength="1000"
+                    required
+                    placeholder="Describe the pet's personality, friendliness, behavior, and special notes..."
+                    class="w-full rounded-lg border p-3 resize-none"
+                ></textarea>
             </div>
 
             <!-- BUTTONS -->
