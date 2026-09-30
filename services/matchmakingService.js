@@ -445,8 +445,6 @@ console.log("       PAWPON MATCHMAKING RESULTS");
 console.log("========================================");
 
 matchLogs.forEach((log) => {
-    const rawSimilarity =
-        Number(log.rawSimilarity) || 0;
     const adjustedSimilarity =
         Number(log.adjustedSimilarity) || 0;
     const behaviorContribution =
@@ -463,7 +461,7 @@ matchLogs.forEach((log) => {
             : "EXCLUDED";
 
     console.log(`[${result}] ${log.petName}`);
-    console.log(`Raw cosine similarity ${adjustedSimilarity.toFixed(4)}`);
+    console.log(`Raw Cosine similarity: ${adjustedSimilarity.toFixed(4)}`);
     console.log(
         `Behavior: ${adjustedSimilarity.toFixed(4)} x ` +
         `${(log.behaviorWeight * 100).toFixed(0)}% = ` +
