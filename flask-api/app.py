@@ -28,6 +28,7 @@ print("Loading Sentence Transformer model...")
 
 model = SentenceTransformer(
     "sentence-transformers/paraphrase-MiniLM-L12-v2",
+    MODEL_NAME,
     device="cpu"
 )
 
@@ -1290,7 +1291,7 @@ def get_embedding():
         ).tolist()
         print("========================================")
         print("EMBEDDING DEBUG")
-        print("MODEL: paraphrase-MiniLM-L3-v2")
+        print("MODEL:", MODEL_NAME)
         print("DIMENSION:", len(embedding))
         print("TEXT:", text)
         print("========================================")
