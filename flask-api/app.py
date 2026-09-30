@@ -27,7 +27,7 @@ app = Flask(__name__)
 print("Loading Sentence Transformer model...")
 
 model = SentenceTransformer(
-    "sentence-transformers/paraphrase-MiniLM-L3-v2",
+    "sentence-transformers/paraphrase-MiniLM-L12-v2",
     device="cpu"
 )
 
