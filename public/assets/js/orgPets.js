@@ -930,33 +930,76 @@ function openPetDetailsModal(pet){
     }
 
     document.getElementById("editPetBtn").onclick = () => {
-
-        editingPetId = pet.animal_id;
-        document.getElementById("animal_id").value = pet.animal_id;
-        petForm.name.value = pet.name;
-        petForm.species.value = pet.species;
-        petForm.gender.value = pet.gender;
-        petForm.age.value = pet.age;
-        petForm.health_status.value = pet.health_status;
-        petForm.vaccination_status.value = pet.vaccination_status;
-        petForm.adoption_status.value = pet.adoption_status;
-        petForm.pet_description.value = pet.pet_description || "";
-
-        medicalList = pet.medical_history ? [...pet.medical_history] : [];
-        renderMedicalTable();
-
-        modalTitle.innerHTML = `
-            <i class="fa-solid fa-pen text-amber-500 mr-2"></i>
-            Edit Pet
-        `;
-        submitButton.innerHTML = `
-            <i class="fa-solid fa-floppy-disk mr-2"></i>
-            Save Changes
-        `;
-        closeViewPetModal();
-        modal.classList.remove("hidden");
-        modal.classList.add("flex");
-    };
+    // IMPORTANT: tell submit handler this is an UPDATE
+    editingPetId = pet.animal_id;
+    console.log("EDITING PET ID:", editingPetId);
+    // HiddenID
+    const animalIdInput = document.getElementById("animal_id");
+    if (animalIdInput) {
+        animalIdInput.value = pet.animal_id;
+    }
+    // Populate form
+    petForm.querySelector('[name="name"]').value = pet.name || "";
+    petForm.querySelector('[name="species"]').value = pet.species || "";
+    petForm.querySelector('[name="gender"]').value = pet.gender || "";
+    petForm.querySelector('[name="age"]').value = pet.age || "";
+    petForm.querySelector('[name="health_status"]').value =
+        pet.health_status || "";
+    petForm.querySelector('[name="vaccination_status"]').value =
+        pet.vaccination_status || "";
+    petForm.querySelector('[name="adoption_status"]').value =
+        pet.adoption_status || "";
+    petForm.querySelector('[name="pet_description"]').value =
+        pet.pet_description || "";
+    // Medical history
+    medicalList = pet.medical_history
+        ? [...pet.medical_history]
+        : [];
+    renderMedicalTable();
+    // Handle adopter section when editing
+    const adopterDetailsSection =
+        document.getElementById("adopterDetailsSection");
+    const adopterInputs =
+        document.querySelectorAll(".adopter-input");
+    if (pet.adoption_status === "Adopted") {
+        adopterDetailsSection?.classList.remove("hidden");
+        adopterInputs.forEach(input => {
+            input.setAttribute("required", "true");
+        });
+    } else {
+        adopterDetailsSection?.classList.add("hidden");
+        adopterInputs.forEach(input => {
+            input.removeAttribute("required");
+            input.value = "";
+        });
+    }
+    // Keep existing image unless user selects a new one
+    petImageInput.value = "";
+    if (pet.image_path) {
+        petImagePreview.src = `/uploads/pets/${pet.image_path}`;
+        petImagePreview.classList.remove("hidden");
+        uploadPlaceholder.classList.add("hidden");
+        selectedFileName.textContent = "Current profile picture";
+    } else {
+        petImagePreview.src = "";
+        petImagePreview.classList.add("hidden");
+        uploadPlaceholder.classList.remove("hidden");
+        selectedFileName.textContent = "";
+    }
+    // Modal title
+    modalTitle.innerHTML = `
+        <i class="fa-solid fa-pen text-amber-500 mr-2"></i>
+        Edit Pet
+    `;
+    // Submit button
+    submitButton.innerHTML = `
+        <i class="fa-solid fa-floppy-disk mr-2"></i>
+        Save Changes
+    `;
+    closeViewPetModal();
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+};
 
     document.getElementById("deletePetBtn").onclick = async () => {
         const confirmed = await showConfirm(
