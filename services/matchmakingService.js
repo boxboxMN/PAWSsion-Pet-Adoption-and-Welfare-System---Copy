@@ -463,8 +463,7 @@ matchLogs.forEach((log) => {
             : "EXCLUDED";
 
     console.log(`[${result}] ${log.petName}`);
-    console.log(`Raw cosine similarity: ${rawSimilarity.toFixed(4)}`);
-    console.log(`RCS after boost: ${adjustedSimilarity.toFixed(4)}`);
+    console.log(`Raw cosine similarity ${adjustedSimilarity.toFixed(4)}`);
     console.log(
         `Behavior: ${adjustedSimilarity.toFixed(4)} x ` +
         `${(log.behaviorWeight * 100).toFixed(0)}% = ` +
