@@ -28,15 +28,16 @@ print("Loading Sentence Transformer model...")
 
 model = SentenceTransformer(
     "sentence-transformers/paraphrase-MiniLM-L12-v2",
-    MODEL_NAME,
     device="cpu"
 )
 
 print("Sentence Transformer model loaded!")
-print(
-    "Embedding dimension:",
-    model.get_sentence_embedding_dimension()
-)
+
+# Get the actual loaded model information
+model_name = model._modules["0"].auto_model.config._name_or_path
+
+print("MODEL:", model_name)
+print("Embedding dimension:", model.get_embedding_dimension())
 
 
 # ==========================================================
