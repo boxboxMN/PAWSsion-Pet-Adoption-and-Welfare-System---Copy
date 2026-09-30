@@ -4,9 +4,16 @@ const { logActivity } = require("./adminController");
 const { createNotification, notifyAllAdmins } = require("./adminController");
 
 // ==========================================
-// PET MANAGEMENT CONTROLLERS
+// NORMALIZE PET DESCRIPTION FOR DUPLICATE CHECK
 // ==========================================
-
+function normalizePetDescription(text) {
+    return String(text ?? "")
+        .normalize("NFKC")
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\s]/gu, "")
+        .replace(/\s+/g, " ")
+        .trim();
+}
 // ==========================================
 // RECYCLE BIN: Auto-purge pets na sobra na sa 30 araw
 // ==========================================
@@ -78,6 +85,43 @@ exports.addPet = async (req, res) => {
         }
 
         const organization_id = org[0].organization_id;
+        // ==========================================
+        // CHECK DUPLICATE PET DESCRIPTION
+        // ==========================================
+        const normalizedDescription =
+            normalizePetDescription(pet_description);
+
+        if (!normalizedDescription) {
+            return res.status(400).json({
+                success: false,
+                message: "Pet description is required."
+            });
+        }
+
+        const [existingPets] = await pool.query(
+            `
+            SELECT animal_id, name, pet_description
+            FROM animals
+            WHERE organization_id = ?
+            AND pet_description IS NOT NULL
+            AND animal_id != ?
+            `,
+            [organizationId, id]
+        );
+
+        const duplicatePet = existingPets.find(pet =>
+            normalizePetDescription(pet.pet_description) === normalizedDescription
+        );
+
+        if (duplicatePet) {
+            return res.status(409).json({
+                success: false,
+                duplicate: true,
+                message:
+                    `This pet description is already being used by ${duplicatePet.name}. ` +
+                    `Please provide a unique description that reflects this pet's individual personality and behavior.`
+            });
+        }
 
         // ==========================================
         // IMAGE
