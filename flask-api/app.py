@@ -1329,7 +1329,7 @@ def get_embedding():
             "token_count":
                 token_count,
             "model":
-                "paraphrase-MiniLM-L3-v2",
+                model_name,
             "dimension":
                 len(embedding)
         })
