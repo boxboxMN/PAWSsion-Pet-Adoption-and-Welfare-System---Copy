@@ -132,35 +132,6 @@ if (
             : []
     );
 
-    const medicalHistoryByAnimalId = new Map();
-
-    if (pets.length > 0) {
-        const animalIds = pets.map(pet => pet.animal_id);
-        const [medicalHistories] = await pool.query(`
-            SELECT
-                animal_id,
-                treatment,
-                DATE_FORMAT(
-                    administered_date,
-                    '%M %e, %Y'
-                ) AS administered_date,
-                administered_by,
-                notes
-            FROM animal_medical_history
-            WHERE animal_id IN (?)
-            ORDER BY animal_id, administered_date DESC
-        `, [animalIds]);
-
-        for (const history of medicalHistories) {
-            const animalId = String(history.animal_id);
-            const histories =
-                medicalHistoryByAnimalId.get(animalId) || [];
-
-            histories.push(history);
-            medicalHistoryByAnimalId.set(animalId, histories);
-        }
-    }
-
 
     // =========================================
     // MATCH RESULTS
@@ -177,8 +148,29 @@ if (
 
     for (const pet of pets) {
 
-        const medicalHistory =
-            medicalHistoryByAnimalId.get(String(pet.animal_id)) || [];
+        // =========================================
+        // MEDICAL HISTORY
+        // =========================================
+
+        const [medicalHistory] =
+            await pool.query(`
+                SELECT
+                    treatment,
+                    DATE_FORMAT(
+                        administered_date,
+                        '%M %e, %Y'
+                    ) AS administered_date,
+                    administered_by,
+                    notes
+
+                FROM animal_medical_history
+
+                WHERE animal_id = ?
+
+                ORDER BY administered_date DESC;
+            `,
+            [pet.animal_id]
+        );
 
 
         // =========================================
@@ -444,41 +436,145 @@ if (
             b.finalScore -
             a.finalScore
     );
-// =========================================
-// CONSOLE LOGGING
-// =========================================
-console.log("");
-console.log("========================================");
-console.log("       PAWPON MATCHMAKING RESULTS");
-console.log("========================================");
 
-matchLogs.forEach((log) => {
-    const adjustedSimilarity =
-        Number(log.adjustedSimilarity) || 0;
-    const finalScore =
-        Number(log.finalScore) || 0;
-    const result =
-        log.included
-            ? "INCLUDED"
-            : "EXCLUDED";
 
-    console.log(
-        `[${result}] ${log.petName} | ` +
-        `Cosine: ${adjustedSimilarity.toFixed(4)} | ` +
-        `Sex: ${sex === "Any"
-            ? "ANY"
-            : log.sexScore === 1
-                ? "YES"
-                : "NO"} | ` +
-        `Age: ${age === "Any"
-            ? "ANY"
-            : log.ageScore === 1
-                ? "YES"
-                : "NO"} | ` +
-        `Final: ${(finalScore * 100).toFixed(2)}%`
-    );
-});
+    // =========================================
+    // CONSOLE LOGGING
+    // =========================================
+
+    for (const log of matchLogs) {
+
+        console.log(
+            "===================================="
+        );
+
+        console.log(
+            "Pet:",
+            log.petName
+        );
+
+        console.log(
+            "Raw Cosine Similarity:",
+            log.rawSimilarity.toFixed(4)
+        );
+
+        console.log(
+            "RCS after 0.05 boost:",
+            log.adjustedSimilarity.toFixed(4)
+        );
+
+        console.log(
+            "Sex Match:",
+            sex === "Any"
+                ? "ANY"
+                : (
+                    log.sexScore === 1
+                        ? "YES"
+                        : "NO"
+                )
+        );
+
+        console.log(
+            "Age Match:",
+            age === "Any"
+                ? "ANY"
+                : (
+                    log.ageScore === 1
+                        ? "YES"
+                        : "NO"
+                )
+        );
+
+        console.log(
+            "Behavior Weight:",
+            (
+                log.behaviorWeight * 100
+            ).toFixed(0) + "%"
+        );
+
+        console.log(
+            "Age Weight:",
+            (
+                log.ageWeight * 100
+            ).toFixed(0) + "%"
+        );
+
+        console.log(
+            "Sex Weight:",
+            (
+                log.sexWeight * 100
+            ).toFixed(0) + "%"
+        );
+
+        console.log(
+            "Behavior Contribution:",
+            (
+                log.behaviorContribution * 100
+            ).toFixed(2) + "%"
+        );
+
+        console.log(
+            "Age Contribution:",
+            (
+                log.ageContribution * 100
+            ).toFixed(2) + "%"
+        );
+
+        console.log(
+            "Sex Contribution:",
+            (
+                log.sexContribution * 100
+            ).toFixed(2) + "%"
+        );
+
+        console.log(
+            "------------------------------------"
+        );
+
+        console.log(
+            "FINAL MATCH SCORE:",
+            (
+                log.finalScore * 100
+            ).toFixed(2) + "%"
+        );
+
+        if (log.included) {
+
+            console.log(
+                `INCLUDED: ${log.petName} - ` +
+                `Final Match Score ` +
+                `${(
+                    log.finalScore * 100
+                ).toFixed(2)}% ` +
+                `passed the 40% threshold.`
+            );
+
+        } else {
+
+            console.log(
+                `EXCLUDED: ${log.petName} - ` +
+                `Final Match Score ` +
+                `${(
+                    log.finalScore * 100
+                ).toFixed(2)}% ` +
+                `is at or below the 40% threshold.`
+            );
+
+        }
+
+        console.log(
+            "====================================\n"
+        );
+    }
+
+
+    return {
+        matches,
+        repairedBehavior
+    };
 }
+
+
 // ==========================================================
 // REPAIR BEHAVIOR
 // ==========================================================
