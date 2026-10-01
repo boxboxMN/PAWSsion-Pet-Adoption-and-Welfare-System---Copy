@@ -428,6 +428,7 @@ router.patch('/applications/:id/status', async (req, res) => {
                 JOIN animals p ON app.animal_id = p.animal_id
                 WHERE app.application_id = ?
                 ON DUPLICATE KEY UPDATE status = 'For Update'
+                update_date = CURDATE()
             `, [id]);
 
             // =========================================================================
