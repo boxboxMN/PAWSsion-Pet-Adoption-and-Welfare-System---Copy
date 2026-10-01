@@ -487,16 +487,31 @@ router.patch('/applications/:id/status', async (req, res) => {
             status: status
         });
 
-    } catch (err) {
-        await connection.rollback();
-        connection.release();
+   } catch (err) {
+    console.error("========================================");
+    console.error("❌ FINISH INTERVIEW / STATUS UPDATE ERROR");
+    console.error("Message:", err.message);
+    console.error("Code:", err.code);
+    console.error("Errno:", err.errno);
+    console.error("SQL State:", err.sqlState);
+    console.error("SQL Message:", err.sqlMessage);
+    console.error("Stack:", err.stack);
+    console.error("========================================");
 
-        res.status(500).json({ 
-            success: false, 
-            message: "Failed to update application status due to a database error.",
-            details: err.message 
-        });
+    try {
+        await connection.rollback();
+    } catch (rollbackError) {
+        console.error("Rollback Error:", rollbackError);
     }
+
+    connection.release();
+
+    return res.status(500).json({  
+        success: false,  
+        message: "Failed to update application status due to a database error.", 
+        details: err.message  
+    }); 
+}
 });
 
 // POST: Save/Schedule Interview
