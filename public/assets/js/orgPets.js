@@ -320,11 +320,65 @@ modal.addEventListener("click", (e) => {
         closeModal();
     }
 });
+// ==========================================================
+// CHECK DUPLICATE PET DESCRIPTION
+// ==========================================================
+function normalizeDescription(text) {
+    return String(text || "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, " ");
+}
+
+function isDuplicatePetDescription(description, currentPetId = null) {
+    const normalizedDescription = normalizeDescription(description);
+
+    return allPets.some(pet => {
+        // When editing, don't compare the pet against itself
+        if (
+            currentPetId &&
+            Number(pet.animal_id) === Number(currentPetId)
+        ) {
+            return false;
+        }
+
+        const existingDescription = normalizeDescription(
+            pet.pet_description
+        );
+
+        return (
+            existingDescription &&
+            existingDescription === normalizedDescription
+        );
+    });
+}
 petForm.addEventListener("submit", async (e)=>{
 
     e.preventDefault();
     
     const formData = new FormData(petForm);
+    // =======================================================
+    // CHECK DUPLICATE PET DESCRIPTION
+    // =======================================================
+
+    const petDescription = petForm
+        .querySelector('[name="pet_description"]')
+        .value
+        .trim();
+
+    if (
+        isDuplicatePetDescription(
+            petDescription,
+            editingPetId
+        )
+    ) {
+        await showMessage(
+            "A pet with the same description already exists. Please provide a different pet description.",
+            "warning"
+        );
+
+        return;
+    }
     formData.append(
         "medical_history",
         JSON.stringify(medicalList)
