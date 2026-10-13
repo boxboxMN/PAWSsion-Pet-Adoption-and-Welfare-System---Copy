@@ -550,6 +550,7 @@ document.addEventListener(
         loadAnalytics();
     }
 );
+
 // =====================================================
 // ANALYTICS EXPORT
 // =====================================================
@@ -607,6 +608,31 @@ function getGeneratedDate() {
 
 
 // =====================================================
+// HELPERS - SAFE NUMBER FORMATTING
+// =====================================================
+
+// Convert anything to a safe finite number
+function toNumber(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+}
+
+// ASCII-safe currency string (no ₱ glyph — needed for PDF fonts)
+function formatCurrencyPHP(value) {
+    const n = toNumber(value);
+    return "PHP " + n.toLocaleString("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+// Integer with commas
+function formatInteger(value) {
+    return toNumber(value).toLocaleString("en-US");
+}
+
+
+// =====================================================
 // GET CURRENT ANALYTICS SUMMARY
 // =====================================================
 
@@ -615,22 +641,37 @@ function getAnalyticsExportData() {
     const periodLabel = getExportPeriodLabel();
     const organizationName = latestAnalyticsData?.organization?.name || "Organization";
 
+    const pets = latestAnalyticsData?.pets || {};
+    const cashTotal = toNumber(latestAnalyticsData?.cash?.total);
+    const inKindTotal = toNumber(latestAnalyticsData?.inKind?.totalQuantity);
+    const adoptionTotal = toNumber(latestAnalyticsData?.adoptions?.total);
+    const availableTotal = toNumber(pets.available);
+
     return {
         organizationName,
         period,
         periodLabel,
         generatedDate: getGeneratedDate(),
+
         pets: {
-            available: document.getElementById("petAvailable")?.textContent || "0",
-            pending: document.getElementById("petPending")?.textContent || "0",
-            adopted: document.getElementById("petAdopted")?.textContent || "0",
-            archived: document.getElementById("petArchived")?.textContent || "0",
-            total: document.getElementById("petTotal")?.textContent || "0"
+            available: toNumber(pets.available),
+            pending: toNumber(pets.pending),
+            adopted: toNumber(pets.adopted),
+            archived: toNumber(pets.archived),
+            total: toNumber(pets.total)
         },
-        cash: document.getElementById("summaryCash")?.textContent || "₱0.00",
-        inKind: document.getElementById("summaryInKind")?.textContent || "0",
-        adoptionTotal: document.getElementById("adoptedTotal")?.textContent || "0",
-        availableTotal: document.getElementById("availableTotal")?.textContent || "0"
+
+        // RAW numbers (Excel — kept numeric so they stay summable)
+        cash: cashTotal,
+        inKind: inKindTotal,
+        adoptionTotal: adoptionTotal,
+        availableTotal: availableTotal,
+
+        // PRE-FORMATTED strings (PDF — ASCII-safe, no ₱)
+        cashFormatted: formatCurrencyPHP(cashTotal),
+        inKindFormatted: `${formatInteger(inKindTotal)} item(s)`,
+        adoptionTotalFormatted: formatInteger(adoptionTotal),
+        availableTotalFormatted: formatInteger(availableTotal)
     };
 }
 
@@ -643,43 +684,39 @@ function exportAnalyticsToExcel() {
     const data = getAnalyticsExportData();
 
     // =================================================
-    // EXCEL DATA
+    // EXCEL DATA (numbers stay numbers, labels stay labels)
     // =================================================
 
     const rows = [
         // HEADER
         ["PAWPON SYSTEM ANALYTICS"],
-        ["Organization Name: ", data.organizationName],
+        ["Organization Name", data.organizationName],
         [],
-        ["Report Period: ", data.periodLabel],
-        ["Generated Date: ", data.generatedDate],
+        ["Report Period", data.periodLabel],
+        ["Generated Date", data.generatedDate],
         [],
         ["Generated from", "Pawpon System Analytics"],
         [],
 
         // PET OVERVIEW
         ["PET OVERVIEW", ""],
-        ["Available Pets: ", data.pets.available],
-        ["Pending Pets: ", data.pets.pending],
-        ["Adopted Pets: ", data.pets.adopted],
-        ["Archived Pets: ", data.pets.archived],
-        ["Total Pets: ", data.pets.total],
+        ["Available Pets", data.pets.available],
+        ["Pending Pets", data.pets.pending],
+        ["Adopted Pets", data.pets.adopted],
+        ["Archived Pets", data.pets.archived],
+        ["Total Pets", data.pets.total],
         [],
 
         // DONATION SUMMARY
         ["DONATION SUMMARY", ""],
-        ["Approved Cash Donations: ", data.cash],
-        ["Approved In-Kind Donations: ", data.inKind],
+        ["Approved Cash Donations (PHP)", data.cash],
+        ["Approved In-Kind Donations (items)", data.inKind],
         [],
 
         // ADOPTION SUMMARY
         ["ADOPTION SUMMARY", ""],
-        ["Approved Adoptions: ", data.adoptionTotal],
-        [],
-
-        // AVAILABLE PETS
-        ["AVAILABLE PETS", ""],
-        ["Currently Available: ", data.availableTotal]
+        ["Approved Adoptions", data.adoptionTotal],
+        ["Currently Available Pets", data.availableTotal]
     ];
 
     // =================================================
@@ -693,21 +730,26 @@ function exportAnalyticsToExcel() {
     // =================================================
 
     worksheet["!cols"] = [
-        { wch: 32 },
+        { wch: 36 },
         { wch: 30 }
     ];
+
+    // =================================================
+    // CURRENCY FORMAT ON CASH CELL
+    // Row 15 (1-indexed) is "Approved Cash Donations (PHP)"
+    // The value lives in B15.
+    // =================================================
+
+    if (worksheet["B15"]) {
+        worksheet["B15"].z = '"PHP "#,##0.00';
+    }
 
     // =================================================
     // CREATE WORKBOOK
     // =================================================
 
     const workbook = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(
-        workbook,
-        worksheet,
-        "Analytics"
-    );
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Analytics");
 
     // =================================================
     // FILE NAME
@@ -727,10 +769,7 @@ function exportAnalyticsToExcel() {
     // DOWNLOAD
     // =================================================
 
-    XLSX.writeFile(
-        workbook,
-        fileName
-    );
+    XLSX.writeFile(workbook, fileName);
 }
 
 
@@ -762,12 +801,10 @@ function exportAnalyticsToPDF() {
     doc.setFontSize(18);
     doc.text("PAWPON SYSTEM ANALYTICS", 14, 20);
 
-    // ORGANIZATION NAME
-    doc.setFontSize(13);
+    doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.text(`Organization Name: ${data.organizationName}`, 14, 29);
+    doc.text(`Organization: ${data.organizationName}`, 14, 29);
 
-    // REPORT DETAILS
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Report Period: ${data.periodLabel}`, 14, 37);
@@ -783,36 +820,27 @@ function exportAnalyticsToPDF() {
 
     doc.autoTable({
         startY: 59,
-        head: [
-            [
-                "Available",
-                "Pending",
-                "Adopted",
-                "Archived",
-                "Total"
-            ]
-        ],
-        body: [
-            [
-                data.pets.available,
-                data.pets.pending,
-                data.pets.adopted,
-                data.pets.archived,
-                data.pets.total
-            ]
-        ],
+        head: [["Available", "Pending", "Adopted", "Archived", "Total"]],
+        body: [[
+            data.pets.available,
+            data.pets.pending,
+            data.pets.adopted,
+            data.pets.archived,
+            data.pets.total
+        ]],
         theme: "grid",
         styles: {
             fontSize: 10,
             halign: "center"
         },
         headStyles: {
-            fontStyle: "bold"
+            fontStyle: "bold",
+            fillColor: [30, 64, 175]
         }
     });
 
     // =================================================
-    // DONATION SUMMARY
+    // DONATION SUMMARY (2-column layout, ASCII-safe values)
     // =================================================
 
     let currentY = doc.lastAutoTable.finalY + 15;
@@ -823,25 +851,22 @@ function exportAnalyticsToPDF() {
 
     doc.autoTable({
         startY: currentY + 4,
-        head: [
-            [
-                "Approved Cash Donations",
-                "Approved In-Kind Donations"
-            ]
-        ],
+        head: [["Donation Type", "Amount / Quantity"]],
         body: [
-            [
-                data.cash,
-                data.inKind
-            ]
+            ["Approved Cash Donations", data.cashFormatted],
+            ["Approved In-Kind Donations", data.inKindFormatted]
         ],
         theme: "grid",
         styles: {
-            fontSize: 10,
-            halign: "center"
+            fontSize: 10
         },
         headStyles: {
-            fontStyle: "bold"
+            fontStyle: "bold",
+            fillColor: [30, 64, 175]
+        },
+        columnStyles: {
+            0: { cellWidth: 100, halign: "left" },
+            1: { cellWidth: 80, halign: "right" }
         }
     });
 
@@ -857,25 +882,22 @@ function exportAnalyticsToPDF() {
 
     doc.autoTable({
         startY: currentY + 4,
-        head: [
-            [
-                "Approved Adoptions",
-                "Currently Available Pets"
-            ]
-        ],
+        head: [["Metric", "Value"]],
         body: [
-            [
-                data.adoptionTotal,
-                data.availableTotal
-            ]
+            ["Approved Adoptions", data.adoptionTotalFormatted],
+            ["Currently Available Pets", data.availableTotalFormatted]
         ],
         theme: "grid",
         styles: {
-            fontSize: 10,
-            halign: "center"
+            fontSize: 10
         },
         headStyles: {
-            fontStyle: "bold"
+            fontStyle: "bold",
+            fillColor: [30, 64, 175]
+        },
+        columnStyles: {
+            0: { cellWidth: 100, halign: "left" },
+            1: { cellWidth: 80, halign: "right" }
         }
     });
 

@@ -3028,6 +3028,7 @@ exports.getKamustahanUpdates = async (req, res) => {
             JOIN adopters a ON k.adopter_id = a.adopter_id
             WHERE k.organization_id = ?
             ORDER BY k.created_at DESC
+            
             `,
             [organization_id]
         );

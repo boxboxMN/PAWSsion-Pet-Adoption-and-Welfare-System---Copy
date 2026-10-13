@@ -172,46 +172,80 @@ router.get("/donations/in-kind", getInKindDonations);
 router.post("/donations/in-kind", uploadQR.single("proof"), addInKindDonation);
 router.put("/donations/in-kind/:id/status", updateInKindDonationStatus);
 // POST: Save or Update Drop-off Details
-router.post("/dropoff-info", uploadDropoff.single("dropoff_image"), async (req, res) => {
-  try {
-    const organizationId = req.session.accountId;
-    const { 
-      dropoff_location_name, 
-      dropoff_address, 
-      dropoff_hours, 
-      dropoff_notes 
-    } = req.body;
 
-    const dropoff_image = req.file ? `/uploads/${req.file.filename}` : null;
+router.post(
+    "/dropoff-info",
+    uploadDropoff.single("dropoff_image"),
+    async (req, res) => {
+        try {
+            const organizationId = req.session.accountId;
 
-    const query = `
-      INSERT INTO organization_dropoff_details 
-        (organization_id, dropoff_location_name, dropoff_address, dropoff_hours, dropoff_notes, dropoff_image)
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE
-        dropoff_location_name = VALUES(dropoff_location_name),
-        dropoff_address = VALUES(dropoff_address),
-        dropoff_hours = VALUES(dropoff_hours),
-        dropoff_notes = VALUES(dropoff_notes),
-        dropoff_image = COALESCE(VALUES(dropoff_image), dropoff_image),
-        updated_at = CURRENT_TIMESTAMP
-    `;
+            const {
+                dropoff_location_name,
+                dropoff_address,
+                dropoff_hours,
+                dropoff_notes
+            } = req.body;
 
-    await db.execute(query, [
-      organizationId,
-      dropoff_location_name || null,
-      dropoff_address,
-      dropoff_hours || null,
-      dropoff_notes || null,
-      dropoff_image
-    ]);
+            let dropoff_image = null;
 
-    res.json({ success: true, message: "Settings saved successfully!" });
-  } catch (error) {
-    console.error("Database save error:", error);
-    res.status(500).json({ success: false, error: "Failed to save settings." });
-  }
-});
+            if (req.file) {
+                const { uploadToCloudinary } = require(
+                    "../services/cloudinaryUpload"
+                );
+
+                dropoff_image = await uploadToCloudinary(
+                    req.file,
+                    "pawpon/dropoff"
+                );
+            }
+
+            const query = `
+                INSERT INTO organization_dropoff_details
+                (
+                    organization_id,
+                    dropoff_location_name,
+                    dropoff_address,
+                    dropoff_hours,
+                    dropoff_notes,
+                    dropoff_image
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    dropoff_location_name = VALUES(dropoff_location_name),
+                    dropoff_address = VALUES(dropoff_address),
+                    dropoff_hours = VALUES(dropoff_hours),
+                    dropoff_notes = VALUES(dropoff_notes),
+                    dropoff_image = COALESCE(
+                        VALUES(dropoff_image),
+                        dropoff_image
+                    ),
+                    updated_at = CURRENT_TIMESTAMP
+            `;
+
+            await pool.query(query, [
+                organizationId,
+                dropoff_location_name || null,
+                dropoff_address || null,
+                dropoff_hours || null,
+                dropoff_notes || null,
+                dropoff_image
+            ]);
+
+            return res.json({
+                success: true,
+                message: "Settings saved successfully!"
+            });
+        } catch (error) {
+            console.error("SAVE DROPOFF INFO ERROR:", error);
+
+            return res.status(500).json({
+                success: false,
+                message: "Failed to save drop-off settings."
+            });
+        }
+    }
+);
 
 // GET: Fetch Drop-off Details
 router.get("/dropoff-info", async (req, res) => {
@@ -1107,34 +1141,62 @@ router.get('/donations/export', async (req, res) => {
 
 // Palitan ang 'upload.single' ng 'uploadDropoff.single' 
 // Siguraduhin na ang string na ipapasa ('donation_image') ay tugma sa pangalan ng input field sa FormData sa frontend.
-router.post('/donation-settings/inkind', uploadDropoff.single('donation_image'), async (req, res) => {
-    try {
-        const locationName = req.body.location_name;
-        // Kunin ang file path kung merong in-upload na bagong image
-        const imagePath = req.file ? `/uploads/${req.file.filename}` : null;
 
-        let query = "UPDATE inkind_settings SET location_name = ?";
-        let params = [locationName];
+router.post(
+    "/donation-settings/inkind",
+    uploadDropoff.single("donation_image"),
+    async (req, res) => {
+        try {
+            const locationName = req.body.location_name;
 
-        if (imagePath) {
-            query += ", image_path = ?";
-            params.push(imagePath);
+            let imagePath = null;
+
+            if (req.file) {
+                const { uploadToCloudinary } = require(
+                    "../services/cloudinaryUpload"
+                );
+
+                imagePath = await uploadToCloudinary(
+                    req.file,
+                    "pawpon/inkind"
+                );
+            }
+
+            let query = `
+                UPDATE inkind_settings
+                SET location_name = ?
+            `;
+
+            const params = [locationName];
+
+            if (imagePath) {
+                query += ", image_path = ?";
+                params.push(imagePath);
+            }
+
+            query += " WHERE id = 1";
+
+            const [result] = await pool.query(query, params);
+
+            if (result.affectedRows === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: "In-kind settings were not found."
+                });
+            }
+
+            return res.json({
+                success: true,
+                message: "In-kind settings updated successfully!"
+            });
+        } catch (error) {
+            console.error("UPDATE IN-KIND SETTINGS ERROR:", error);
+
+            return res.status(500).json({
+                success: false,
+                message: "Failed to update in-kind settings."
+            });
         }
-        
-        query += " WHERE id = 1"; // o kung anomang identifier ng settings niyo
-
-        // Ginamit na natin ang 'pool' na promise-based sa halip na 'db' na gumagamit ng callback
-        const [result] = await pool.query(query, params);
-
-        if (result.affectedRows === 0) {
-           return res.status(404).json({ success: false, message: 'Settings record not found' });
-        }
-
-        res.json({ success: true, message: 'Saved successfully!' });
-
-    } catch (error) { 
-        console.error(error);
-        res.status(500).json({ success: false, message: 'Server error' });
     }
-});
+);
 module.exports = router;
