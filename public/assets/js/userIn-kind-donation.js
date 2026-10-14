@@ -105,16 +105,25 @@ document.addEventListener('DOMContentLoaded', async function() {
         return { valid: true };
     }
 
-    function getValidImageUrl(imagePath, fallbackUrl) {
-        if (!imagePath || imagePath.trim() === "" || imagePath === "null" || imagePath === "undefined") {
+    function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "/uploads/") {
+        if (typeof imagePath !== "string") {
             return fallbackUrl;
         }
-        if (!imagePath.startsWith("http") && !imagePath.startsWith("/")) {
-            return "/" + imagePath;
+        const image = imagePath.trim();
+        if (!image || image === "null" || image === "undefined") {
+            return fallbackUrl;
         }
-        return imagePath;
+        // Cloudinary and other complete URLs must be returned unchanged.
+        if (/^https?:\/\//i.test(image)) {
+            return image;
+        }
+        // Preserve paths that already begin with /uploads/, /assets/, etc.
+        if (image.startsWith("/")) {
+            return image;
+        }
+        // Only prepend the legacy folder to a bare filename.
+        return `${legacyFolder.replace(/\/+$/, "")}/${encodeURIComponent(image)}`;
     }
-
     async function loadOrganizations() {
         try {
             const response = await fetch("/api/organizations");
@@ -137,16 +146,18 @@ document.addEventListener('DOMContentLoaded', async function() {
             organizations.forEach(org => {
                 console.log("ORG PROFILE PIC:", org.organization_name, org.profile_pic);
                 
-                const profileImg = getValidImageUrl(org.profile_pic, "https://via.placeholder.com/64");
+                const profileImg = getValidImageUrl( org.profile_pic,"https://via.placeholder.com/64","/uploads/orgs");
 
                 container.innerHTML += `
                     <div class="org-card border rounded-xl p-4 relative cursor-pointer flex flex-col items-center text-center justify-between bg-white" data-id="${org.organization_id}">
                         <div class="checkmark absolute top-0 right-0 bg-blue-600 text-white text-xs px-2 py-1 rounded-bl-lg">✓</div>
                         <div class="w-full flex flex-col items-center pt-2">
-                            <img src="${profileImg}" 
-                                 onerror="this.onerror=null; this.src='https://via.placeholder.com/64';" 
-                                 class="w-16 h-16 rounded-full object-cover mb-3" 
-                                 alt="${org.organization_name}">
+                            <img
+                                src="${profileImg}"
+                                alt="${org.organization_name || 'Organization'}"
+                                onerror="this.onerror=null; this.src='https://via.placeholder.com/64';"
+                                class="w-16 h-16 rounded-full object-cover mb-3"
+                            >
                             <h3 class="font-semibold text-gray-800 mb-2">${org.organization_name}</h3>
                         </div>
                         <div class="w-full pt-3 border-t border-gray-100 mt-2">

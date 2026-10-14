@@ -187,11 +187,7 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
             organizations.forEach(org => {
                 console.log("ORG PROFILE PIC:", org.organization_name, org.profile_pic);
                 
-                const profileImg = getValidImageUrl(
-                    org.profile_pic,
-                    "https://via.placeholder.com/64",
-                    "/uploads/orgs"
-                );
+                const profileImg = getValidImageUrl(org.profile_pic, "https://via.placeholder.com/64","/uploads/orgs");
 
                 container.innerHTML += `
                     <div
@@ -593,20 +589,19 @@ function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "/uploads/
         return fallbackUrl;
     }
 
-    // Use Cloudinary and other complete URLs directly
+    // Cloudinary and other complete URLs must be returned unchanged.
     if (/^https?:\/\//i.test(image)) {
         return image;
     }
 
-    // Preserve existing absolute paths
+    // Preserve paths that already begin with /uploads/, /assets/, etc.
     if (image.startsWith("/")) {
         return image;
     }
 
-    // Handle old database records that contain only filenames
+    // Only prepend the legacy folder to a bare filename.
     return `${legacyFolder.replace(/\/+$/, "")}/${encodeURIComponent(image)}`;
 }
-
 
     if (receiptInput) {
         receiptInput.addEventListener("change", handleReceiptUpload);
