@@ -961,6 +961,32 @@ function renderMatches(matches, selectedType) {
     renderPetCards(allMatchResults);
     updateMatchResultCount( allMatchResults.length);
 }
+
+/**
+ * Returns the correct image URL for a pet.
+ * Supports Cloudinary URLs and legacy local image paths.
+ */
+function getPetImageUrl(imagePath) {
+    if (!imagePath) {
+        return "/images/default-pet.png";
+    }
+
+    const image = String(imagePath).trim();
+
+    // Cloudinary or another complete HTTP(S) URL
+    if (/^https?:\/\//i.test(image)) {
+        return image;
+    }
+
+    // Legacy paths already stored in the database
+    if (image.startsWith("/")) {
+        return image;
+    }
+
+    // Legacy filename only
+    return `/uploads/pets/${encodeURIComponent(image)}`;
+}
+
 // RENDER PET CARDS
 function renderPetCards(matches) {
     const container = document.getElementById("matchResultsContainer");
@@ -984,7 +1010,10 @@ function renderPetCards(matches) {
         <div class="group bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1.5 border border-slate-200/80 flex flex-col justify-between mx-auto w-full max-w-[420px]">
             <!-- IMAGE SECTION -->
             <div class="relative overflow-hidden bg-slate-100">
-                <img src="/uploads/pets/${pet.image_path || ''}" class="w-full h-60 object-cover transition-transform duration-500 group-hover:scale-105" alt="${pet.name || 'Pet'}">
+                <img src="${getPetImageUrl(pet.image_path)}" class="w-full h-60 object-cover transition-transform duration-500 group-hover:scale-105"
+                    alt="${pet.name || 'Pet'}"
+                    onerror="this.onerror=null; this.src='/images/default-pet.png';"
+                >
                 <div class="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-80"></div>
                 
                 <!-- Rank -->
@@ -1300,7 +1329,7 @@ function openMatchPetModal(pet, rank) {
     };
 
     // BASIC INFO=====
-    document.getElementById("modalImage").src =src="${getPetImageUrl(pet.image_path)}";
+    document.getElementById("modalImage").src = getPetImageUrl(pet.image_path);
     document.getElementById("modalName").textContent = pet.name;
     document.getElementById("modalSpecies").textContent = pet.species;
     document.getElementById("modalGender").textContent = pet.gender;
