@@ -136,67 +136,46 @@ const uploadOrgPic = multer({
     }
 });
 
-// ==========================================
-// QR CODES - LOCAL STORAGE
-// Kept as in your original code
-// ==========================================
-const qrStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, "uploads/qr/");
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix =
-            Date.now() + "-" + Math.round(Math.random() * 1E9);
-
-        cb(
-            null,
-            "qr-" +
-                (req.session?.accountId || "user") +
-                "-" +
-                uniqueSuffix +
-                path.extname(file.originalname)
-        );
+/* ==========================================
+   QR CODES - CLOUDINARY STORAGE
+========================================== */
+const qrCloudinaryStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: "pawpon/qr-codes",
+        allowed_formats: ["jpg", "jpeg", "png", "webp"],
+        resource_type: "image"
     }
 });
 
 const uploadQR = multer({
-    storage: qrStorage,
+    storage: qrCloudinaryStorage,
     fileFilter: imageFilter,
     limits: {
-        fileSize: 5 * 1024 * 1024
+        fileSize: 5 * 1024 * 1024 // 5 MB
     }
 });
 
-// ==========================================
-// DROP-OFF DETAILS - LOCAL STORAGE
-// Kept as in your original code
-// ==========================================
-const dropoffStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, "uploads/dropoff/");
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix =
-            Date.now() + "-" + Math.round(Math.random() * 1E9);
-
-        cb(
-            null,
-            "dropoff-" +
-                (req.session?.accountId || "user") +
-                "-" +
-                uniqueSuffix +
-                path.extname(file.originalname)
-        );
+/* ==========================================
+   DROP-OFF DETAILS - CLOUDINARY STORAGE
+========================================== */
+const dropoffCloudinaryStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: "pawpon/dropoff",
+        allowed_formats: ["jpg", "jpeg", "png", "webp"],
+        resource_type: "image"
     }
 });
 
 const uploadDropoff = multer({
-    storage: dropoffStorage,
+    storage: dropoffCloudinaryStorage,
     fileFilter: imageFilter,
     limits: {
-        fileSize: 5 * 1024 * 1024
+        fileSize: 5 * 1024 * 1024 // 5 MB
     }
 });
+
 
 // ==========================================
 // EXPORT UPLOAD MIDDLEWARE

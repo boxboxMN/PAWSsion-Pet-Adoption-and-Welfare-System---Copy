@@ -187,18 +187,7 @@ router.post(
                 dropoff_notes
             } = req.body;
 
-            let dropoff_image = null;
-
-            if (req.file) {
-                const { uploadToCloudinary } = require(
-                    "../services/cloudinaryUpload"
-                );
-
-                dropoff_image = await uploadToCloudinary(
-                    req.file,
-                    "pawpon/dropoff"
-                );
-            }
+            let dropoff_image = req.file ? req.file.path : null;
 
             const query = `
                 INSERT INTO organization_dropoff_details
@@ -262,6 +251,8 @@ router.get("/dropoff-info", async (req, res) => {
     res.status(500).json({ success: false, error: "Failed to fetch settings." });
   }
 });
+
+//5.adoption
 // GET Single Application Details Endpoint (Protected by Organization)
 router.get('/applications/:id', async (req, res) => {
     try {

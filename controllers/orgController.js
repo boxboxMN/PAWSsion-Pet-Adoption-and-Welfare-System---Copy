@@ -1093,7 +1093,6 @@ exports.getPaymentInfo = async (req, res) => {
     }
 };
 
-
 exports.updatePaymentInfo = async (req, res) => {
     try {
 
@@ -1263,54 +1262,32 @@ exports.updatePaymentInfo = async (req, res) => {
             existingDropoffRows.length
                 ? existingDropoffRows[0]
                 : null;
-
+        
         // =====================================================
-        // FILES
+        // FILES — SAVE CLOUDINARY URLS, NOT FILENAMES
         // =====================================================
 
         let gcashQrFile = null;
         let mayaQrFile = null;
         let dropoffImageFile = null;
 
-        // =====================================================
-        // GCASH QR
-        // =====================================================
-
-        if (
-            req.files &&
-            req.files["qr_code"] &&
-            req.files["qr_code"].length
-        ) {
-            gcashQrFile =
-                req.files["qr_code"][0].filename;
+        // GCash QR Code
+        if (req.files?.["qr_code"]?.length) {
+            const file = req.files["qr_code"][0];
+            gcashQrFile = file.path;
         }
 
-        // =====================================================
-        // MAYA QR
-        // =====================================================
-
-        if (
-            req.files &&
-            req.files["maya_qr_code"] &&
-            req.files["maya_qr_code"].length
-        ) {
-            mayaQrFile =
-                req.files["maya_qr_code"][0].filename;
+        // Maya QR Code
+        if (req.files?.["maya_qr_code"]?.length) {
+            const file = req.files["maya_qr_code"][0];
+            mayaQrFile = file.path;
         }
 
-        // =====================================================
-        // IN-KIND / LOCATION IMAGE
-        // =====================================================
-
-        if (
-            req.files &&
-            req.files["location_image"] &&
-            req.files["location_image"].length
-        ) {
-            dropoffImageFile =
-                req.files["location_image"][0].filename;
+        // In-Kind / Drop-Off Location Image
+        if (req.files?.["location_image"]?.length) {
+            const file = req.files["location_image"][0];
+            dropoffImageFile = file.path;
         }
-
         // =====================================================
         // NORMALIZE PAYMENT VALUES
         // =====================================================
@@ -1961,7 +1938,7 @@ exports.addInKindDonation = async (req, res) => {
         const organization_id = org[0].organization_id;
 
         // 2. Kunin ang proof of donation / receipt image kung may file upload
-        let proof_path = req.file ? req.file.filename : null;
+        let proof_path = req.file ? req.file.path : null;
 
         // 3. I-save sa database
         const [result] = await pool.query(
