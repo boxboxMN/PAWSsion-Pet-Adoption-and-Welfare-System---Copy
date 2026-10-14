@@ -579,30 +579,24 @@ function showToast(message, type = "error") {
 }
 
 function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "/uploads/") {
-    if (typeof imagePath !== "string") {
-        return fallbackUrl;
+        if (typeof imagePath !== "string") {
+            return fallbackUrl;
+        }
+        const image = imagePath.trim();
+        if (!image || image === "null" || image === "undefined") {
+            return fallbackUrl;
+        }
+        // Cloudinary and other complete URLs must be returned unchanged.
+        if (/^https?:\/\//i.test(image)) {
+            return image;
+        }
+        // Preserve paths that already begin with /uploads/, /assets/, etc.
+        if (image.startsWith("/")) {
+            return image;
+        }
+        // Only prepend the legacy folder to a bare filename.
+        return `${legacyFolder.replace(/\/+$/, "")}/${encodeURIComponent(image)}`;
     }
-
-    const image = imagePath.trim();
-
-    if (!image || image === "null" || image === "undefined") {
-        return fallbackUrl;
-    }
-
-    // Cloudinary and other complete URLs must be returned unchanged.
-    if (/^https?:\/\//i.test(image)) {
-        return image;
-    }
-
-    // Preserve paths that already begin with /uploads/, /assets/, etc.
-    if (image.startsWith("/")) {
-        return image;
-    }
-
-    // Only prepend the legacy folder to a bare filename.
-    return `${legacyFolder.replace(/\/+$/, "")}/${encodeURIComponent(image)}`;
-}
-
     if (receiptInput) {
         receiptInput.addEventListener("change", handleReceiptUpload);
     }
