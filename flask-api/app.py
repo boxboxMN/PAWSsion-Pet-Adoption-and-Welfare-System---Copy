@@ -25,21 +25,12 @@ app = Flask(__name__)
 # ==========================================================
 
 print("Loading Sentence Transformer model...")
-
-model = SentenceTransformer(
-    "sentence-transformers/paraphrase-MiniLM-L12-v2",
-    device="cpu"
-)
-
+model = SentenceTransformer(MODEL_NAME)
 print("Sentence Transformer model loaded!")
-
-# Get the actual loaded model information
-model_name = model._modules["0"].auto_model.config._name_or_path
-
-print("MODEL:", model_name)
-print("Embedding dimension:", model.get_embedding_dimension())
-
-
+print("MODEL:", MODEL_NAME)
+print("Embedding dimension:", model.encode(
+    ["test"], convert_to_numpy=True
+).shape[1])
 # ==========================================================
 # TEXT NORMALIZATION
 # ==========================================================
