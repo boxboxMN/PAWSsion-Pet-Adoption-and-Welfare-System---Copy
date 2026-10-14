@@ -5,7 +5,7 @@ const { createNotification } = require("./adminController");
 const { uploadToCloudinary } = require("../services/cloudinaryUpload");
 
 /**
- * Kunin ang listahan ng mga approved organizations para sa public landing page / donation selector
+ * 
  */
 exports.getOrganizations = async (req, res) => {
     try {

@@ -298,7 +298,7 @@ function openEditModal(item) {
     document.getElementById('editUpdateId').value = item.id || item.update_id;
     document.getElementById('editUpdateText').value = item.update_text;
     
-    // I-reset at ipakita ang kasalukuyang larawan
+    // Idfgfdgfdgdfgdfggdfgdf
     selectedEditFile = null;
     document.getElementById('editPhotoInput').value = '';
     

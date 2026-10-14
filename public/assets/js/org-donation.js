@@ -1043,7 +1043,7 @@ function viewReceiptDirect(receiptPathRaw) {
 }
 
 /**
- * Closes the receipt preview modal[cite: 5].
+ * vvdfdsdsfdsfdfsfdsfdsf
  */
 function closeReceiptModal() {
     const modal = document.getElementById("receiptModal");
