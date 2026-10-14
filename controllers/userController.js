@@ -11,6 +11,39 @@ const regions = require("../public/data/regions.json");
 const provinces = require("../public/data/provinces.json");
 const cities = require("../public/data/cities.json");
 const barangays = require("../public/data/barangays.json");
+
+function normalizeImagePath(imagePath, legacyFolder, fallback = "") {
+    if (typeof imagePath !== "string") {
+        return fallback;
+    }
+
+    const image = imagePath.trim();
+    if (!image || image === "null" || image === "undefined") {
+        return fallback;
+    }
+
+    const cloudinaryMatch = image.match(
+        /https?:\/\/res\.cloudinary\.com\/[^\s"'<>]+/i
+    );
+    if (cloudinaryMatch) {
+        return cloudinaryMatch[0];
+    }
+
+    if (/^https?:\/\//i.test(image)) {
+        return image;
+    }
+
+    const localPath = image.replace(/\\/g, "/");
+    if (localPath.startsWith("/")) {
+        return localPath;
+    }
+    if (localPath.startsWith("uploads/")) {
+        return `/${localPath}`;
+    }
+
+    return `${legacyFolder.replace(/\/+$/, "")}/${encodeURIComponent(localPath)}`;
+}
+
 // =====================================================
 // addsdsdsddasd
 // =====================================================
@@ -626,32 +659,6 @@ exports.getAvailablePets = async (req, res) => {
             WHERE o.verification_status = 'Approved'
         `);
         
-        function normalizeImagePath(imagePath, legacyFolder, fallback = "") {
-            if (typeof imagePath !== "string") {
-                return fallback;
-            }
-            const image = imagePath.trim();
-            if (!image || image === "null" || image === "undefined") {
-                return fallback;
-            }
-            // Recover a Cloudinary URL even if /uploads/ was accidentally added before it.
-            const cloudinaryMatch = image.match(
-                /https?:\/\/res\.cloudinary\.com\/[^\s"'<>]+/i
-            );
-            if (cloudinaryMatch) {
-                return cloudinaryMatch[0];
-            }
-            // Preserve other complete URLs.
-            if (/^https?:\/\//i.test(image)) {
-                return image;
-            }
-            // Preserve existing local paths.
-            if (image.startsWith("/")) {
-                return image;
-            }
-            // Handle legacy records containing only a filename.
-            return `${legacyFolder.replace(/\/+$/, "")}/${image}`;
-        }
         const formattedOrgs = organizations.map(org => {
             const profilePic = normalizeImagePath(org.profile_pic, "/uploads/orgs","/uploads/default-org.png");
 
@@ -2139,9 +2146,13 @@ exports.getOrganizationById = async (req, res) => {
         const [rows] = await pool.query(
             `SELECT 
                 o.*, 
-                accounts.email 
+                accounts.email,
+                p.qr_code,
+                p.maya_qr_code
              FROM organizations o
              JOIN accounts ON o.account_id = accounts.account_id
+             LEFT JOIN organization_payment_details p
+                ON o.organization_id = p.organization_id
              WHERE o.organization_id = ?`, 
             [orgId]
         );
@@ -2155,6 +2166,14 @@ exports.getOrganizationById = async (req, res) => {
             organization.profile_pic,
             "/uploads/orgs",
             "/uploads/default-org.png"
+        );
+        organization.qr_code = normalizeImagePath(
+            organization.qr_code,
+            "/uploads/qr"
+        );
+        organization.maya_qr_code = normalizeImagePath(
+            organization.maya_qr_code,
+            "/uploads/qr"
         );
 
         res.json(organization);

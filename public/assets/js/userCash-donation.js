@@ -381,14 +381,31 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
                 if (orgEmail) orgEmail.textContent = fullOrg.email || fullOrg.org_email || "N/A";
                 if (orgMission) orgMission.textContent = fullOrg.description || fullOrg.mission || "No description available.";
 
-                const logoElement = document.getElementById("modalOrgLogo");
-                const logoPath = fullOrg.logo || fullOrg.avatar || fullOrg.image || org.profile_pic || org.logo;
+                let logoElement = document.getElementById("modalOrgLogo");
+                const logoPath = fullOrg.profile_pic || fullOrg.logo || fullOrg.avatar || fullOrg.image || org.profile_pic || org.logo;
+                const validLogoUrl = getValidImageUrl(
+                    logoPath,
+                    "/uploads/default-org.png",
+                    "/uploads/orgs"
+                );
 
-                if (logoElement && logoPath) {
-                    const validLogoUrl = getValidImageUrl(logoPath, "");
-                    logoElement.outerHTML = `<img id="modalOrgLogo" src="${validLogoUrl}" alt="Org Logo" class="w-full h-full object-cover rounded-full">`;
-                } else if (logoElement) {
-                    logoElement.outerHTML = `<i id="modalOrgLogo" class="fa-solid fa-building-user"></i>`;
+                if (logoElement && validLogoUrl) {
+                    if (logoElement.tagName.toLowerCase() !== "img") {
+                        const logoImage = document.createElement("img");
+                        logoImage.id = "modalOrgLogo";
+                        logoImage.alt = "Organization logo";
+                        logoImage.className = "w-full h-full object-cover rounded-full";
+                        logoElement.replaceWith(logoImage);
+                        logoElement = logoImage;
+                    }
+                    logoElement.onerror = function () {
+                        this.onerror = null;
+                        const fallbackIcon = document.createElement("i");
+                        fallbackIcon.id = "modalOrgLogo";
+                        fallbackIcon.className = "fa-solid fa-building-user";
+                        this.replaceWith(fallbackIcon);
+                    };
+                    logoElement.src = validLogoUrl;
                 }
             }
         } catch (err) {
@@ -579,24 +596,31 @@ function showToast(message, type = "error") {
 }
 
 function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "/uploads/") {
-        if (typeof imagePath !== "string") {
-            return fallbackUrl;
-        }
-        const image = imagePath.trim();
-        if (!image || image === "null" || image === "undefined") {
-            return fallbackUrl;
-        }
-        // Cloudinary and other complete URLs must be returned unchanged.
-        if (/^https?:\/\//i.test(image)) {
-            return image;
-        }
-        // Preserve paths that already begin with /uploads/, /assets/, etc.
-        if (image.startsWith("/")) {
-            return image;
-        }
-        // Only prepend the legacy folder to a bare filename.
-        return `${legacyFolder.replace(/\/+$/, "")}/${encodeURIComponent(image)}`;
+    if (typeof imagePath !== "string") {
+        return fallbackUrl;
     }
+    const image = imagePath.trim();
+    if (!image || image === "null" || image === "undefined") {
+        return fallbackUrl;
+    }
+
+    const cloudinaryMatch = image.match(/https?:\/\/res\.cloudinary\.com\/[^\s"'<>]+/i);
+    if (cloudinaryMatch) {
+        return cloudinaryMatch[0];
+    }
+    if (/^https?:\/\//i.test(image)) {
+        return image;
+    }
+
+    const localPath = image.replace(/\\/g, "/");
+    if (localPath.startsWith("/")) {
+        return localPath;
+    }
+    if (localPath.startsWith("uploads/")) {
+        return `/${localPath}`;
+    }
+    return `${legacyFolder.replace(/\/+$/, "")}/${encodeURIComponent(localPath)}`;
+}
     if (receiptInput) {
         receiptInput.addEventListener("change", handleReceiptUpload);
     }
