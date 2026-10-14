@@ -8,7 +8,7 @@ const userController = require("../controllers/userController");
 const matchmakerController = require("../controllers/matchmakerController");
 const { matchPets } = require("../controllers/matchmakerController");
 const pool = require('../config/database');
-
+const { uploadAdoptionDocument } = require("../config/upload");
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -269,21 +269,23 @@ router.post('/api/user/donation/in-kind', checkUserSession, userController.submi
 router.get("/api/user/approved-pets", checkUserSession, userController.getApprovedAdoptedPets);
 router.get("/api/user/kamustahan-history", checkUserSession, userController.getKamustahanHistory);
 router.post("/api/user/kamustahan", checkUserSession, uploadKamustahan.single("photos"), userController.submitKamustahanUpdate);
+
 router.post(
-  '/api/adoptions/submit-application', checkUserSession,
-  (req, res, next) => {
-    uploadDoc.single('document')(req, res, (err) => {
-      if (err) {
-        // Huliin at ibalik ang eksaktong Multer validation error
-        return res.status(400).json({
-          status: 'error',
-          message: err.message || 'Invalid file format uploaded.'
+    "/api/adoptions/submit-application",
+    checkUserSession,
+    (req, res, next) => {
+        uploadAdoptionDocument.single("document")(req, res, (err) => {
+            if (err) {
+                return res.status(400).json({
+                    status: "error",
+                    message: err.message || "Invalid file uploaded."
+                });
+            }
+
+            next();
         });
-      }
-      next();
-    });
-  }, 
-  userController.submitAdoptionApplication
+    },
+    userController.submitAdoptionApplication
 );
 
 router.get('/check-applied/:petId', checkUserSession, userController.checkAppliedStatus);

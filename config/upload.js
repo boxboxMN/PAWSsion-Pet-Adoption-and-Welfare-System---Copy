@@ -35,6 +35,45 @@ const uploadPet = multer({
     }
 });
 
+/* ==========================================
+   ADOPTION ID PROOFS - CLOUDINARY STORAGE
+========================================== */
+
+const adoptionDocumentFilter = (req, file, cb) => {
+    const allowedTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "application/pdf"
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
+        cb(null, true);
+    } else {
+        cb(
+            new Error("ID proof must be a JPG, PNG, WEBP, or PDF file."),
+            false
+        );
+    }
+};
+
+const adoptionDocumentStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: "pawpon/adoption-documents",
+        resource_type: "auto",
+        allowed_formats: ["jpg", "jpeg", "png", "webp", "pdf"]
+    }
+});
+
+const uploadAdoptionDocument = multer({
+    storage: adoptionDocumentStorage,
+    fileFilter: adoptionDocumentFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024 // 5 MB
+    }
+});
+
 // ==========================================
 // ORGANIZATION PROFILE PICTURES - LOCAL STORAGE
 // Kept as in your original code
@@ -135,5 +174,6 @@ module.exports = {
     uploadPet,
     uploadOrgPic,
     uploadQR,
-    uploadDropoff
+    uploadDropoff,
+    uploadAdoptionDocument
 };

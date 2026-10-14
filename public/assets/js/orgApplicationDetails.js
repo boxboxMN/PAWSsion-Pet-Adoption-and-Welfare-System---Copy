@@ -251,32 +251,62 @@ function populateDetailsUI(app) {
     document.getElementById("emergencyName").textContent = val(app.emergency_name);
     document.getElementById("emergencyPhone").textContent = val(app.emergency_phone);
     document.getElementById("emergencyRelation").textContent = val(app.emergency_relation);
+    
+    // 7. ID PROOF DOCUMENT
+    const idImg = document.getElementById("idProofImg");
+    const placeholder = document.getElementById("idProofPlaceholder");
+    const fileNameEl = document.getElementById("idProofFileName");
 
-    // 7. Document Path / ID Proof
-    if (app.document_path) {
-        const idImg = document.getElementById("idProofImg");
+    if (idImg && placeholder) {
+        const savedPath = String(app.document_path || "").trim();
 
-        let cleanPath = app.document_path.replace(/\\/g, '/');
+        if (savedPath) {
+            let imageUrl = savedPath.replace(/\\/g, "/");
 
-        if (!cleanPath.startsWith('/') && !cleanPath.startsWith('http')) {
-            cleanPath = '/' + cleanPath;
-        }
+            // Cloudinary: use the saved URL directly.
+            // Legacy local uploads: convert to the existing uploads path.
+            if (!/^https?:\/\//i.test(imageUrl)) {
+                imageUrl = imageUrl.replace(/^\/+/, "");
 
-        if (!cleanPath.startsWith('/uploads/')) {
-            if (cleanPath.startsWith('/documents/')) {
-                cleanPath = '/uploads' + cleanPath;
-            } else {
-                cleanPath = '/uploads/documents' + cleanPath;
+                if (imageUrl.startsWith("documents/")) {
+                    imageUrl = `/uploads/${imageUrl}`;
+                } else if (imageUrl.startsWith("uploads/")) {
+                    imageUrl = `/${imageUrl}`;
+                } else {
+                    imageUrl = `/uploads/documents/${imageUrl}`;
+                }
+            }
+
+            idImg.onerror = () => {
+                idImg.classList.add("hidden");
+                placeholder.classList.remove("hidden");
+                if (fileNameEl) {
+                    fileNameEl.textContent = "Unable to load ID proof";
+                }
+            };
+
+            idImg.onload = () => {
+                idImg.classList.remove("hidden");
+                placeholder.classList.add("hidden");
+            };
+
+            idImg.src = imageUrl;
+
+            if (fileNameEl) {
+                fileNameEl.textContent =
+                    imageUrl.split("/").pop().split("?")[0] || "ID Proof";
+            }
+        } else {
+            idImg.removeAttribute("src");
+            idImg.classList.add("hidden");
+            placeholder.classList.remove("hidden");
+
+            if (fileNameEl) {
+                fileNameEl.textContent = "No ID proof uploaded";
             }
         }
-
-        idImg.src = cleanPath;
-        idImg.classList.remove("hidden");
-        document.getElementById("idProofPlaceholder").classList.add("hidden");
-
-        const filename = cleanPath.split('/').pop();
-        document.getElementById("idProofFileName").textContent = filename || "ID_PROOF.PNG";
     }
+
 
     // 8. Render Status Action Box
     renderApplicationStatusDetails(app, isPastInterview);

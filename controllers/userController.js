@@ -1070,7 +1070,8 @@ exports.submitAdoptionApplication = async (req, res) => {
         // =====================================================
         // 3. UPLOADED FILE
         // =====================================================
-        const documentPath = req.file ? req.file.filename : null;
+        // Save the Cloudinary URL, not the Cloudinary public ID.
+        const documentPath = req.file ? (req.file.path || req.file.secure_url || null) : null;
 
         const {
             animal_id,
