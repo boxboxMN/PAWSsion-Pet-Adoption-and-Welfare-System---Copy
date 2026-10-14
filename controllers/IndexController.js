@@ -36,17 +36,43 @@ exports.getOrganizations = async (req, res) => {
       )
 `);
         const formattedOrgs = organizations.map(org => {
+            const normalizeQrCode = imagePath => {
+                if (typeof imagePath !== 'string') {
+                    return '';
+                }
+
+                const image = imagePath.trim();
+                if (!image || image === 'null' || image === 'undefined') {
+                    return '';
+                }
+
+                const cloudinaryMatch = image.match(
+                    /https?:\/\/res\.cloudinary\.com\/[^\s"'<>]+/i
+                );
+                if (cloudinaryMatch) {
+                    return cloudinaryMatch[0];
+                }
+                if (/^https?:\/\//i.test(image)) {
+                    return image;
+                }
+
+                const localPath = image.replace(/\\/g, '/');
+                if (localPath.startsWith('/')) {
+                    return localPath;
+                }
+                if (localPath.startsWith('uploads/')) {
+                    return `/${localPath}`;
+                }
+                return `/uploads/qr/${encodeURIComponent(localPath)}`;
+            };
+
             const profilePic = (org.profile_pic && org.profile_pic.trim() !== '')
                 ? (org.profile_pic.startsWith('/') ? org.profile_pic : `/uploads/${org.profile_pic}`)
                 : '/uploads/default-org.png';
 
-            const qrCode = (org.qr_code && org.qr_code.trim() !== '' && org.qr_code !== '/uploads/qr/')
-                ? (org.qr_code.startsWith('/') ? org.qr_code : `/uploads/qr/${org.qr_code}`)
-                : '';
+            const qrCode = normalizeQrCode(org.qr_code);
 
-            const mayaQrCode = (org.maya_qr_code && org.maya_qr_code.trim() !== '' && org.maya_qr_code !== '/uploads/qr/')
-                ? (org.maya_qr_code.startsWith('/') ? org.maya_qr_code : `/uploads/qr/${org.maya_qr_code}`)
-                : '';
+            const mayaQrCode = normalizeQrCode(org.maya_qr_code);
 
             let dropoffImg = (org.dropoff_image && org.dropoff_image.trim() !== '') ? org.dropoff_image.trim() : '';
 
