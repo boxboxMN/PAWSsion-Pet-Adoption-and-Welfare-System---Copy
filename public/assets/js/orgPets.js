@@ -605,19 +605,29 @@ function renderTrashPets(pets) {
     `;
 }
 
+
 function getPetImageUrl(imagePath) {
-    if (!imagePath) {
+    if (!imagePath || typeof imagePath !== "string") {
         return "/assets/images/no-image.png";
     }
 
-    // Use Cloudinary URL directly
-    if (imagePath.startsWith("http")) {
-        return imagePath;
+    let path = imagePath.trim();
+
+    // Remove accidental Markdown link formatting if stored in the database
+    const markdownMatch = path.match(/^\[(https?:\/\/[^\]]+)\]\((https?:\/\/[^)]+)\)$/i);
+    if (markdownMatch) {
+        path = markdownMatch[2];
     }
 
-    // Support older records that store only the filename
-    return `/uploads/pets/${imagePath}`;
+    // Use Cloudinary URLs directly
+    if (/^https?:\/\//i.test(path)) {
+        return path;
+    }
+
+    // Legacy local image filename
+    return `/uploads/pets/${encodeURIComponent(path)}`;
 }
+
 
 function createTrashCard(pet) {
     const image = getPetImageUrl(pet.image_path);

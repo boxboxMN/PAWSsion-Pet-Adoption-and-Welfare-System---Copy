@@ -8,15 +8,11 @@ app.set("trust proxy", 1);
 app.disable("x-powered-by");
 
 
-// Anti-clickjacking security headers
+
+ // Anti-clickjacking security headers
 app.use((req, res, next) => {
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader(
-    "Content-Security-Policy",
-    "frame-ancestors 'none'",
-     "font-src 'self'"
-  );
-  next();
+    res.setHeader("X-Frame-Options", "DENY");
+    next();
 });
 
 const path = require('path');
@@ -61,7 +57,7 @@ app.use(
         "https://fonts.gstatic.com",
         "https://cdnjs.cloudflare.com"
       ],
-      imgSrc: ["'self'", "data:", "blob:", "https://cdnjs.cloudflare.com", "https://via.placeholder.com"],
+      imgSrc: ["'self'", "data:", "blob:", "https://cdnjs.cloudflare.com", "https://via.placeholder.com", "https://res.cloudinary.com"],
       // 1. Payagan ang network connections/fetches sa jsDelivr (para sa Tesseract.js data & maps)
       connectSrc: ["'self'", "data:", "blob:", "https://cdn.jsdelivr.net",  "https://cdnjs.cloudflare.com"],
       // 2. Payagan ang Web Workers at Blob URLs na ginagamit ng Tesseract.js
