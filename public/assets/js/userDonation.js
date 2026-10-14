@@ -421,8 +421,6 @@ function viewReceiptDirect(receiptPathRaw) {
     modal.classList.remove("opacity-0", "pointer-events-none");
     modal.querySelector("div").classList.remove("scale-95");
 }
-
-
 function closeReceiptModal() {
     const modal = document.getElementById("receiptModal");
     modal.classList.add("opacity-0", "pointer-events-none");

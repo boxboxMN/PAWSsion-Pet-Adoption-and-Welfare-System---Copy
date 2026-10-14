@@ -306,14 +306,21 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
             
             if (nameEl) nameEl.textContent = org.maya_name ? org.maya_name : "N/A";
             if (numEl) numEl.textContent = org.maya_number ? org.maya_number : "N/A";
-
+            
             if (qrEl) {
-                if (org.maya_qr_code && org.maya_qr_code.trim() !== "") {
-                    qrEl.src = org.maya_qr_code;
+                const qrUrl = getValidImageUrl(  org.maya_qr_code, "","/uploads/qr");
+                if (qrUrl) {
+                    qrEl.onerror = function () {
+                        this.onerror = null;
+                        this.classList.add("hidden");
+                        showToast("The organization's Maya QR code could not be loaded.", "error");
+                    };
+                    qrEl.src = qrUrl;
                     qrEl.classList.remove("hidden");
                 } else {
+                    qrEl.onerror = null;
                     qrEl.removeAttribute("src");
-                    qrEl.classList.remove("hidden");
+                    qrEl.classList.add("hidden");
                 }
             }
         } else {
@@ -322,14 +329,20 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
             
             if (nameEl) nameEl.textContent = org.gcash_name ? org.gcash_name : "N/A";
             if (numEl) numEl.textContent = org.gcash_number ? org.gcash_number : "N/A";
-
             if (qrEl) {
-                if (org.qr_code && org.qr_code.trim() !== "") {
-                    qrEl.src = org.qr_code;
+                const qrUrl = getValidImageUrl( org.qr_code, "", "/uploads/qr");
+                if (qrUrl) {
+                    qrEl.onerror = function () {
+                        this.onerror = null;
+                        this.classList.add("hidden");
+                        showToast("The organization's GCash QR code could not be loaded.", "error");
+                    };
+                    qrEl.src = qrUrl;
                     qrEl.classList.remove("hidden");
                 } else {
+                    qrEl.onerror = null;
                     qrEl.removeAttribute("src");
-                    qrEl.classList.remove("hidden");
+                    qrEl.classList.add("hidden");
                 }
             }
         }
@@ -566,15 +579,36 @@ function showToast(message, type = "error") {
     }, 4000);
 }
 
-function getValidImageUrl(imagePath, fallbackUrl) {
-    if (!imagePath || imagePath.trim() === "" || imagePath === "null" || imagePath === "undefined") {
+
+function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "") {
+    if (typeof imagePath !== "string") {
         return fallbackUrl;
     }
-    if (!imagePath.startsWith("http") && !imagePath.startsWith("/")) {
-        return "/" + imagePath;
+
+    const image = imagePath.trim();
+
+    if (!image || image === "null" || image === "undefined") {
+        return fallbackUrl;
     }
-    return imagePath;
+
+    // Cloudinary URLs must be used as-is
+    if (/^https?:\/\//i.test(image)) {
+        return image;
+    }
+
+    // Existing absolute paths, such as /uploads/qr/example.png
+    if (image.startsWith("/")) {
+        return image;
+    }
+
+    // Legacy filename: use the appropriate old upload folder
+    if (legacyFolder) {
+        return `${legacyFolder.replace(/\/+$/, "")}/${encodeURIComponent(image)}`;
+    }
+
+    return fallbackUrl;
 }
+
     if (receiptInput) {
         receiptInput.addEventListener("change", handleReceiptUpload);
     }
