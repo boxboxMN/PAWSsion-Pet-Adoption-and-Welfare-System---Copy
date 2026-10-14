@@ -189,7 +189,8 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
                 
                 const profileImg = getValidImageUrl(
                     org.profile_pic,
-                    "https://via.placeholder.com/64"
+                    "https://via.placeholder.com/64",
+                    "/uploads/orgs"
                 );
 
                 container.innerHTML += `
@@ -206,6 +207,8 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
                         <div class="w-full flex flex-col items-center">
                             <img
                                 src="${profileImg}"
+                                alt="${org.organization_name || 'Organization'}"
+                                onerror="this.onerror=null; this.src='https://via.placeholder.com/64';"
                                 class="w-16 h-16 rounded-full object-cover mb-3"
                             >
                             <h3 class="font-semibold text-gray-800 mb-2">
@@ -579,8 +582,7 @@ function showToast(message, type = "error") {
     }, 4000);
 }
 
-
-function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "") {
+function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "/uploads/") {
     if (typeof imagePath !== "string") {
         return fallbackUrl;
     }
@@ -591,23 +593,20 @@ function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "") {
         return fallbackUrl;
     }
 
-    // Cloudinary URLs must be used as-is
+    // Use Cloudinary and other complete URLs directly
     if (/^https?:\/\//i.test(image)) {
         return image;
     }
 
-    // Existing absolute paths, such as /uploads/qr/example.png
+    // Preserve existing absolute paths
     if (image.startsWith("/")) {
         return image;
     }
 
-    // Legacy filename: use the appropriate old upload folder
-    if (legacyFolder) {
-        return `${legacyFolder.replace(/\/+$/, "")}/${encodeURIComponent(image)}`;
-    }
-
-    return fallbackUrl;
+    // Handle old database records that contain only filenames
+    return `${legacyFolder.replace(/\/+$/, "")}/${encodeURIComponent(image)}`;
 }
+
 
     if (receiptInput) {
         receiptInput.addEventListener("change", handleReceiptUpload);
