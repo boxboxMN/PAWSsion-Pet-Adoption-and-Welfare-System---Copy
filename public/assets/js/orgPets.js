@@ -605,10 +605,22 @@ function renderTrashPets(pets) {
     `;
 }
 
+function getPetImageUrl(imagePath) {
+    if (!imagePath) {
+        return "/assets/images/no-image.png";
+    }
+
+    // Use Cloudinary URL directly
+    if (imagePath.startsWith("http")) {
+        return imagePath;
+    }
+
+    // Support older records that store only the filename
+    return `/uploads/pets/${imagePath}`;
+}
+
 function createTrashCard(pet) {
-    const image = pet.image_path
-        ? `/uploads/pets/${pet.image_path}`
-        : "/assets/images/no-image.png";
+    const image = getPetImageUrl(pet.image_path);
 
     const daysLeft = pet.days_left != null ? Math.max(0, pet.days_left) : "—";
 
@@ -727,9 +739,7 @@ function createPetCard(pet) {
         Cat: "bg-orange-500"
     };
 
-    const image = pet.image_path
-        ? `/uploads/pets/${pet.image_path}`
-        : "/assets/images/no-image.png";
+    const image = getPetImageUrl(pet.image_path);
 
 
     return `
@@ -1030,7 +1040,7 @@ function openPetDetailsModal(pet){
     // Keep existing image unless user selects a new one
     petImageInput.value = "";
     if (pet.image_path) {
-        petImagePreview.src = `/uploads/pets/${pet.image_path}`;
+        petImagePreview.src = getPetImageUrl(pet.image_path);
         petImagePreview.classList.remove("hidden");
         uploadPlaceholder.classList.add("hidden");
         selectedFileName.textContent = "Current profile picture";
@@ -1094,9 +1104,7 @@ function openPetDetailsModal(pet){
     const viewModal = document.getElementById("viewPetModal");
 
     document.getElementById("viewPetImage").src =
-        pet.image_path
-            ? `/uploads/pets/${pet.image_path}`
-            : "/assets/images/no-image.png";
+    getPetImageUrl(pet.image_path);
 
     document.getElementById("viewName").textContent = pet.name;
 

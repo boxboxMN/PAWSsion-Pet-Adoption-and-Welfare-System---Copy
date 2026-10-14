@@ -1,71 +1,139 @@
+
 const multer = require("multer");
 const path = require("path");
-
-// Storage Config para sa Pets
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, "uploads/pets");
-    },
-    filename: (req, file, cb) => {
-        const unique = Date.now() + "-" + Math.round(Math.random() * 999999);
-        cb(null, unique + path.extname(file.originalname));
-    }
-});
-
-const upload = multer({ storage: storage });
-
-// Storage Config para sa Org Profile Pics
-const orgStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'public/uploads/orgs/'); 
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'org-' + (req.session?.accountId || 'user') + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
-
-// Storage Config para sa QR Codes
-const qrStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/qr/'); 
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'qr-' + (req.session?.accountId || 'user') + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
+const { CloudinaryStorage } = require("multer-storage-cloudinary-v2");
+const cloudinary = require("./cloudinary");
 
 // ==========================================
-// NEW: Storage Config para sa Dropoff Details
+// IMAGE FILE FILTER
 // ==========================================
-const dropoffStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, 'uploads/dropoff/'); 
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, 'dropoff-' + (req.session?.accountId || 'user') + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
-
 const imageFilter = (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
+    if (file.mimetype && file.mimetype.startsWith("image/")) {
         cb(null, true);
     } else {
-        cb(new Error('Only images are allowed!'), false);
+        cb(new Error("Only images are allowed!"), false);
     }
 };
 
-const uploadOrgPic = multer({ storage: orgStorage, fileFilter: imageFilter });
-const uploadQR = multer({ storage: qrStorage, fileFilter: imageFilter });
+// ==========================================
+// PET IMAGES - CLOUDINARY STORAGE
+// ==========================================
+const petCloudinaryStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: "pawpon/pets",
+        allowed_formats: ["jpg", "jpeg", "png", "webp"],
+        resource_type: "image"
+    }
+});
 
-// NEW: Multer instance para sa Dropoff
-const uploadDropoff = multer({ storage: dropoffStorage, fileFilter: imageFilter });
+const uploadPet = multer({
+    storage: petCloudinaryStorage,
+    fileFilter: imageFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024 // Maximum 5 MB
+    }
+});
 
+// ==========================================
+// ORGANIZATION PROFILE PICTURES - LOCAL STORAGE
+// Kept as in your original code
+// ==========================================
+const orgStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, "public/uploads/orgs/");
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix =
+            Date.now() + "-" + Math.round(Math.random() * 1E9);
+
+        cb(
+            null,
+            "org-" +
+                (req.session?.accountId || "user") +
+                "-" +
+                uniqueSuffix +
+                path.extname(file.originalname)
+        );
+    }
+});
+
+const uploadOrgPic = multer({
+    storage: orgStorage,
+    fileFilter: imageFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024
+    }
+});
+
+// ==========================================
+// QR CODES - LOCAL STORAGE
+// Kept as in your original code
+// ==========================================
+const qrStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, "uploads/qr/");
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix =
+            Date.now() + "-" + Math.round(Math.random() * 1E9);
+
+        cb(
+            null,
+            "qr-" +
+                (req.session?.accountId || "user") +
+                "-" +
+                uniqueSuffix +
+                path.extname(file.originalname)
+        );
+    }
+});
+
+const uploadQR = multer({
+    storage: qrStorage,
+    fileFilter: imageFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024
+    }
+});
+
+// ==========================================
+// DROP-OFF DETAILS - LOCAL STORAGE
+// Kept as in your original code
+// ==========================================
+const dropoffStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, "uploads/dropoff/");
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix =
+            Date.now() + "-" + Math.round(Math.random() * 1E9);
+
+        cb(
+            null,
+            "dropoff-" +
+                (req.session?.accountId || "user") +
+                "-" +
+                uniqueSuffix +
+                path.extname(file.originalname)
+        );
+    }
+});
+
+const uploadDropoff = multer({
+    storage: dropoffStorage,
+    fileFilter: imageFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024
+    }
+});
+
+// ==========================================
+// EXPORT UPLOAD MIDDLEWARE
+// ==========================================
 module.exports = {
-    uploadPet: upload,
-    uploadOrgPic: uploadOrgPic,
-    uploadQR: uploadQR,
-    uploadDropoff: uploadDropoff // <--- Naka-export na rito
+    uploadPet,
+    uploadOrgPic,
+    uploadQR,
+    uploadDropoff
 };

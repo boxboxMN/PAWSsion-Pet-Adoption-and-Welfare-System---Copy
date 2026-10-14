@@ -46,9 +46,15 @@ async function loadPets() {
         organization_id: pet.organization_id,
         organization_logo: pet.profile_pic,
         medical_history: pet.medical_history || [],
+        
         img: pet.image_path
-            ? `/uploads/pets/${pet.image_path}`
+            ? (
+                pet.image_path.startsWith("http")
+                    ? pet.image_path
+                    : `/uploads/pets/${pet.image_path}`
+            )
             : "/assets/images/no-image.png"
+
     }));
 
     filteredPets = [...petsData];
@@ -1056,7 +1062,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             const petImg = document.getElementById("selectedPetImage");
             if (petImg) {
-                petImg.src = pet.image_path ? `/uploads/pets/${pet.image_path}` : "/assets/images/no-image.png";
+            petImg.src = pet.image_path
+                ? (
+                    pet.image_path.startsWith("http")
+                        ? pet.image_path
+                        : `/uploads/pets/${pet.image_path}`
+                )
+                : "/assets/images/no-image.png";
             }
 
             const petName = document.getElementById("selectedPetName");

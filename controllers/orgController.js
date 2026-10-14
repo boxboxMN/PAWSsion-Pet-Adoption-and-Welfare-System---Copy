@@ -80,7 +80,7 @@ exports.addPet = async (req, res) => {
         let image_path = null;
 
         if (req.file) {
-            image_path = req.file.filename;
+            image_path = req.file.path;
         }
 
         // ==========================================
@@ -498,7 +498,7 @@ exports.updatePet = async (req, res) => {
             updateSQL += `,
                 image_path = ?
             `;
-            values.push(req.file.filename);
+            values.push(req.file.path);
         }
         updateSQL += `
             WHERE animal_id = ?
