@@ -24,13 +24,35 @@ app = Flask(__name__)
 # LOAD SENTENCE TRANSFORMER MODEL
 # ==========================================================
 
+# ========================================
+# SENTENCE TRANSFORMER MODEL
+# ========================================
+
+MODEL_NAME = "sentence-transformers/paraphrase-MiniLM-L12-v2"
+
 print("Loading Sentence Transformer model...")
-model = SentenceTransformer(MODEL_NAME)
+
+model = SentenceTransformer(
+    MODEL_NAME,
+    device="cpu"
+)
+
 print("Sentence Transformer model loaded!")
-print("MODEL:", MODEL_NAME)
-print("Embedding dimension:", model.encode(
-    ["test"], convert_to_numpy=True
-).shape[1])
+
+# Get the actual loaded model information
+model_name = model._modules["0"].auto_model.config._name_or_path
+
+print("MODEL:", model_name)
+
+# Get embedding dimension without get_embedding_dimension()
+embedding_dimension = model.encode(
+    ["test"],
+    convert_to_numpy=True
+).shape[1]
+
+print("Embedding dimension:", embedding_dimension)
+
+
 # ==========================================================
 # TEXT NORMALIZATION
 # ==========================================================
