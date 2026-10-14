@@ -1085,8 +1085,11 @@ function openReviewModal(id) {
     
     let receiptPath = "";
     if (donation.receipt_path) {
-        receiptPath = donation.receipt_path.startsWith('/') 
-            ? donation.receipt_path 
+        receiptPath = (
+            donation.receipt_path.startsWith('/') ||
+            donation.receipt_path.startsWith('http')
+        )
+            ? donation.receipt_path
             : `/uploads/receipts/${donation.receipt_path}`;
     } else {
         receiptPath = NO_QR_PLACEHOLDER;

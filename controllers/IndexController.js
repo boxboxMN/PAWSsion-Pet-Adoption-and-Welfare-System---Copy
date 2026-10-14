@@ -2,6 +2,7 @@
 const pool = require("../config/database");
 const { logActivity } = require("./adminController");
 const { createNotification } = require("./adminController");
+const { uploadToCloudinary } = require("../services/cloudinaryUpload");
 
 /**
  * Kunin ang listahan ng mga approved organizations para sa public landing page / donation selector
@@ -188,7 +189,11 @@ exports.submitCashDonation = async (req, res) => {
             }
         }
 
-        const receipt_path = `/uploads/receipts/${req.file.filename}`;
+        // Upload receipt to Cloudinary
+        const receipt_path = await uploadToCloudinary(
+            req.file,
+            "pawpon/donation-receipts"
+        );
 
         let adopter_id = null;
         if (accountId) {

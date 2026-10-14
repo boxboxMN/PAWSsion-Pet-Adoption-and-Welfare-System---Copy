@@ -236,17 +236,14 @@
                 container.innerHTML = '';
                 validUpdates.forEach(item => {
                     let imageUrl = '';
+
                     if (item.photos) {
                         try {
                             const parsed = JSON.parse(item.photos);
                             imageUrl = Array.isArray(parsed) ? parsed[0] : parsed;
-                        } catch(e) {
-                            imageUrl = item.photos; 
+                        } catch (e) {
+                            imageUrl = item.photos;
                         }
-                    }
-
-                    if (imageUrl && !imageUrl.startsWith('http')) {
-                        imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
                     }
 
                     let photosHtml = imageUrl 
@@ -306,16 +303,14 @@ function openEditModal(item) {
     document.getElementById('editPhotoInput').value = '';
     
     let imageUrl = '';
+
     if (item.photos) {
         try {
             const parsed = JSON.parse(item.photos);
             imageUrl = Array.isArray(parsed) ? parsed[0] : parsed;
-        } catch(e) {
-            imageUrl = item.photos; 
+        } catch (e) {
+            imageUrl = item.photos;
         }
-    }
-    if (imageUrl && !imageUrl.startsWith('http')) {
-        imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
     }
     
     document.getElementById('editCurrentPhotoPreview').src = imageUrl || '';

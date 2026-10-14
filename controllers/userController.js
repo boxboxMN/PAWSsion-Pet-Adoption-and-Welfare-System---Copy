@@ -5,6 +5,7 @@ const validator = require('validator');
 const AdoptionModel = require('../models/userModel');
 const { logActivity } = require("./adminController");
 const { createNotification, notifyAllAdmins } = require("./adminController");
+const { uploadToCloudinary } = require("../services/cloudinaryUpload");
 
 const regions = require("../public/data/regions.json");
 const provinces = require("../public/data/provinces.json");
@@ -716,7 +717,10 @@ exports.submitCashDonation = async (req, res) => {
             }
         }
 
-        const receipt_path = `/uploads/receipts/${req.file.filename}`;
+        const receipt_path = await uploadToCloudinary(
+            req.file,
+            "pawpon/donation-receipts"
+        );
 
         const [adopterRows] = await pool.query(
             `SELECT adopter_id FROM adopters WHERE account_id = ?`,
