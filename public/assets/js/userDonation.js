@@ -24,6 +24,33 @@ let currentFilteredData = [];        // filtered list para sa pagination
     await fetchUserDonations();
 });
 
+function getReceiptImageUrl(receiptPath) {
+    const fallback = "/assets/images/no-image.png";
+
+    if (!receiptPath || typeof receiptPath !== "string") {
+        return "";
+    }
+
+    const image = receiptPath.trim();
+
+    if (!image || image === "null" || image === "undefined") {
+        return "";
+    }
+
+    // Cloudinary or another complete image URL
+    if (/^https?:\/\//i.test(image)) {
+        return image;
+    }
+
+    // Existing absolute local path
+    if (image.startsWith("/")) {
+        return image;
+    }
+
+    // Legacy local receipt filename
+    return `/uploads/receipts/${encodeURIComponent(image)}`;
+}
+
 async function fetchUserDonations() {
     try {
         const response = await fetch('/api/user/donations');
@@ -307,14 +334,18 @@ function viewDetails(type, id) {
     }
 
     const proofSection = document.getElementById("modalProofSection");
-    if (donation.receipt_path) {
+    const receiptUrl = getReceiptImageUrl(donation.receipt_path);
+    if (receiptUrl) {
         proofSection.classList.remove("hidden");
-        let fullPath = donation.receipt_path.startsWith('/') 
-            ? donation.receipt_path 
-            : `/uploads/receipts/${donation.receipt_path}`;
-        
-        currentActiveReceiptPath = fullPath;
-        document.getElementById("modalReceiptPreview").src = fullPath;
+
+        currentActiveReceiptPath = receiptUrl;
+
+        const preview = document.getElementById("modalReceiptPreview");
+        preview.onerror = function () {
+            this.onerror = null;
+            this.src = "/assets/images/no-image.png";
+        };
+        preview.src = receiptUrl;
     } else {
         proofSection.classList.add("hidden");
         currentActiveReceiptPath = "";
@@ -369,18 +400,20 @@ function viewDetails(type, id) {
 }
 
 function viewReceiptDirect(receiptPathRaw) {
-    let fullPath = "https://via.placeholder.com/400x600?text=No+Receipt+Uploaded";
-    if (receiptPathRaw) {
-        fullPath = receiptPathRaw.startsWith('/') 
-            ? receiptPathRaw 
-            : `/uploads/receipts/${receiptPathRaw}`;
-    }
+    const fullPath = getReceiptImageUrl(receiptPathRaw)
+        || "/assets/images/no-image.png";
 
     const modalImg = document.getElementById("modalReceiptImg");
     const downloadBtn = document.getElementById("downloadReceiptBtn");
     const openBtn = document.getElementById("openReceiptExternal");
 
+    modalImg.onerror = function () {
+        this.onerror = null;
+        this.src = "/assets/images/no-image.png";
+    };
+
     modalImg.src = fullPath;
+
     downloadBtn.href = fullPath;
     openBtn.href = fullPath;
 
@@ -388,6 +421,7 @@ function viewReceiptDirect(receiptPathRaw) {
     modal.classList.remove("opacity-0", "pointer-events-none");
     modal.querySelector("div").classList.remove("scale-95");
 }
+
 
 function closeReceiptModal() {
     const modal = document.getElementById("receiptModal");

@@ -96,10 +96,36 @@ function getStatusClass(status) {
     }
 }
 
+function getPetImageUrl(imagePath) {
+    const fallback = "/assets/images/no-image.png";
+
+    if (!imagePath || typeof imagePath !== "string") {
+        return fallback;
+    }
+
+    const image = imagePath.trim();
+
+    if (!image || image === "null" || image === "undefined") {
+        return fallback;
+    }
+
+    // Cloudinary or another complete image URL
+    if (/^https?:\/\//i.test(image)) {
+        return image;
+    }
+
+    // Existing absolute path
+    if (image.startsWith("/")) {
+        return image;
+    }
+
+    // Legacy filename stored in the database
+    return `/uploads/pets/${encodeURIComponent(image)}`;
+}
+
 // =====================================================
 // LOAD APPLICATIONS FROM DATABASE
 // =====================================================
-
 async function loadApplications() {
     try {
         // ---------------------------------------------
@@ -164,7 +190,7 @@ async function loadApplications() {
             gender: app.gender || "N/A",
             petAge: app.pet_age || "N/A",
             petAdoptionStatus: app.pet_adoption_status || "Available",
-            image: app.image_path ? `/uploads/pets/${app.image_path}` : "/assets/images/no-image.png",
+            image: getPetImageUrl(app.image_path),
             organization: app.organization_name || "Unknown Organization",
             organizationId: app.organization_id || app.org_id || null, 
             status: app.status === "Pending" ? "Under Review" : (app.status || "Under Review"),
@@ -221,7 +247,6 @@ async function loadApplications() {
         `;
     }
 }
-
 // =====================================================
 // RENDER APPLICATION TABLE
 // =====================================================
