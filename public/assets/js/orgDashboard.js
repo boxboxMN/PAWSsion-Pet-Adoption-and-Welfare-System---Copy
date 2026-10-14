@@ -59,7 +59,17 @@ async function loadDashboardStats() {
     }
 
 }
+function getPetImageUrl(imagePath) {
+    if (!imagePath) {
+        return "/assets/images/no-image.png";
+    }
 
+    if (imagePath.startsWith("http")) {
+        return imagePath;
+    }
+
+    return `/uploads/pets/${imagePath}`;
+}
 //NEWLY ADDED PETS
 async function loadNewestPets() {
     try {
