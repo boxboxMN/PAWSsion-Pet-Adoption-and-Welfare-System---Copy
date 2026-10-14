@@ -627,20 +627,29 @@ exports.getAvailablePets = async (req, res) => {
         `);
         
         function normalizeImagePath(imagePath, legacyFolder, fallback = "") {
-            if (typeof imagePath !== "string") { return fallback;}
-            let image = imagePath.trim();
-            if (!image || image === "null" || image === "undefined") {return fallback;}
-
-            // Repair malformed values such as /uploads/https://res.cloudinary.com/...
-            const cloudinaryIndex = image.indexOf("https://res.cloudinary.com/");
-            if (cloudinaryIndex !== -1) { image = image.substring(cloudinaryIndex); }
-
-            // Keep Cloudinary and other complete URLs unchanged.
-            if (/^https?:\/\//i.test(image)) {return image; }
-
-            // Preserve existing local absolute paths.
-            if (image.startsWith("/")) { return image; }
-            // Old database records that contain only a filename.
+            if (typeof imagePath !== "string") {
+                return fallback;
+            }
+            const image = imagePath.trim();
+            if (!image || image === "null" || image === "undefined") {
+                return fallback;
+            }
+            // Recover a Cloudinary URL even if /uploads/ was accidentally added before it.
+            const cloudinaryMatch = image.match(
+                /https?:\/\/res\.cloudinary\.com\/[^\s"'<>]+/i
+            );
+            if (cloudinaryMatch) {
+                return cloudinaryMatch[0];
+            }
+            // Preserve other complete URLs.
+            if (/^https?:\/\//i.test(image)) {
+                return image;
+            }
+            // Preserve existing local paths.
+            if (image.startsWith("/")) {
+                return image;
+            }
+            // Handle legacy records containing only a filename.
             return `${legacyFolder.replace(/\/+$/, "")}/${image}`;
         }
         const formattedOrgs = organizations.map(org => {
@@ -2141,7 +2150,14 @@ exports.getOrganizationById = async (req, res) => {
             return res.status(404).json({ error: "Organization not found" });
         }
 
-        res.json(rows[0]);
+        const organization = rows[0];
+        organization.profile_pic = normalizeImagePath(
+            organization.profile_pic,
+            "/uploads/orgs",
+            "/uploads/default-org.png"
+        );
+
+        res.json(organization);
     } catch (err) {
         console.error("Error fetching organization profile:", err);
         res.status(500).json({ error: "Server error" });
