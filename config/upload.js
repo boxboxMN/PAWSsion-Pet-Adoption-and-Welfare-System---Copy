@@ -36,6 +36,37 @@ const uploadPet = multer({
 });
 
 /* ==========================================
+   ADOPTER AVATARS - CLOUDINARY STORAGE
+========================================== */
+
+const avatarFilter = (req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png"];
+
+    if (allowedTypes.includes(file.mimetype)) {
+        return cb(null, true);
+    }
+
+    cb(new Error("Avatar must be a JPG or PNG image."), false);
+};
+
+const avatarCloudinaryStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: "pawpon/avatars",
+        allowed_formats: ["jpg", "jpeg", "png"],
+        resource_type: "image"
+    }
+});
+
+const uploadAvatar = multer({
+    storage: avatarCloudinaryStorage,
+    fileFilter: avatarFilter,
+    limits: {
+        fileSize: 2 * 1024 * 1024 // 2 MB
+    }
+});
+
+/* ==========================================
    ADOPTION ID PROOFS - CLOUDINARY STORAGE
 ========================================== */
 
@@ -175,5 +206,6 @@ module.exports = {
     uploadOrgPic,
     uploadQR,
     uploadDropoff,
-    uploadAdoptionDocument
+    uploadAdoptionDocument,
+    uploadAvatar
 };

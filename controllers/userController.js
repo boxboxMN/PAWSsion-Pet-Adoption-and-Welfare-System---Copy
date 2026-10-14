@@ -481,49 +481,71 @@ exports.updatePassword = async (req, res) => {
     }
 };
 
+
 exports.updateAvatar = async (req, res) => {
-    
-    const accountId = req.session?.accountId; 
-    
+    const accountId = req.session?.accountId;
+
     if (!accountId) {
-        return res.status(401).json({ success: false, error: "Unauthorized access. Please re-login." });
+        return res.status(401).json({
+            success: false,
+            error: "Unauthorized access. Please re-login."
+        });
     }
 
-   
     if (!req.file) {
-        return res.status(400).json({ success: false, error: "No image file provided or file type invalid." });
+        return res.status(400).json({
+            success: false,
+            error: "No image file provided or file type invalid."
+        });
     }
 
-    
-    const profilePictureUrl = `/uploads/avatars/${req.file.filename}`;
+    // Cloudinary returns the hosted image URL here.
+    const profilePictureUrl = req.file?.path;
+    if (
+        typeof profilePictureUrl !== "string" ||
+        !/^https?:\/\//i.test(profilePictureUrl)
+    ) {
+        return res.status(500).json({
+            success: false,
+            error: "Cloudinary did not return a valid avatar URL."
+        });
+    }
 
     try {
-      
-        const queryText = `UPDATE adopters SET profile_picture = ? WHERE account_id = ?`;
-        
-        
-        const [infoHeader] = await pool.query(queryText, [profilePictureUrl, accountId]);
+        const queryText = `
+            UPDATE adopters
+            SET profile_picture = ?
+            WHERE account_id = ?
+        `;
 
-      
-        if (infoHeader && infoHeader.affectedRows === 0) {
-            return res.status(404).json({ success: false, error: "Adopter profile record not found." });
+        const [result] = await pool.query(queryText, [
+            profilePictureUrl,
+            accountId
+        ]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({
+                success: false,
+                error: "Adopter profile record not found."
+            });
         }
 
-        return res.json({ 
-            success: true, 
+        return res.json({
+            success: true,
             message: "Profile picture saved successfully!",
-            avatarUrl: profilePictureUrl 
+            avatarUrl: profilePictureUrl
         });
 
     } catch (error) {
-        console.error("EXACT DATABASE CRASH ERROR:", error);
-        
-        return res.status(500).json({ 
-            success: false, 
-            error: "Internal Server Database Error: " + error.message 
+        console.error("Avatar update error:", error);
+
+        return res.status(500).json({
+            success: false,
+            error: "Failed to save profile picture."
         });
     }
 };
+
 // ==========================================
 // PET & ORGANIZATION FEEDS
 // ==========================================
