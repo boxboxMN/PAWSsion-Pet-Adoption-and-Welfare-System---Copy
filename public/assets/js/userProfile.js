@@ -153,6 +153,29 @@ function setAvatarEditMode(editable) {
     }
 }
 
+function getProfileImageUrl(profilePicture) {
+    const fallback = "/images/default-avatar.png"; // Replace with your actual default image path
+
+    if (!profilePicture || !String(profilePicture).trim()) {
+        return fallback;
+    }
+
+    const image = String(profilePicture).trim();
+
+    // Cloudinary URL or another complete image URL
+    if (/^https?:\/\//i.test(image)) {
+        return image;
+    }
+
+    // Existing local image path
+    if (image.startsWith("/")) {
+        return image;
+    }
+
+    // Legacy local filename
+    return `/uploads/profiles/${encodeURIComponent(image)}`;
+}
+
 async function fetchProfileData() {
     try {
         const response = await fetch('/api/user/profile');
@@ -262,12 +285,14 @@ async function fetchProfileData() {
         if (zipDisplayEl) zipDisplayEl.textContent = data.zip_code || 'N/A';
         if (zipInputEl) zipInputEl.value = data.zip_code || '';
 
-       const avatarDisplayEl = document.getElementById('avatarDisplay');
+        const avatarDisplayEl = document.getElementById('avatarDisplay');
         if (avatarDisplayEl) {
-            avatarDisplayEl.innerHTML = `<img src="${data.profile_picture}" alt="Profile Picture" class="w-full h-full object-cover rounded-full">`;
-        } else {
-            avatarDisplayEl.innerHTML = `<i class="fas fa-user"></i>`;
+            const imageUrl = getProfileImageUrl(data.profile_picture);
+            avatarDisplayEl.innerHTML = `
+                <img src="${imageUrl}" alt="Profile Picture" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null; this.src='/images/default-avatar.png';">
+            `;
         }
+
     } catch (error) {
         console.error("Error loading profile:", error);
     }
@@ -678,17 +703,18 @@ avatarInput?.addEventListener('change', async function() {
         }
 
         const result = await response.json();
-
         if (result.success) {
-            showProfileModal('Your profile picture has been uploaded successfully!');
-            avatarDisplay.innerHTML = `<img src="${result.avatarUrl}" alt="Profile Picture" class="w-full h-full object-cover rounded-full">`;
-            
-            // if (typeof loadComponent === "function") {
-            //     loadComponent("header", "/user/userHeader.html");
-            // }
-        } else {
-            showProfileModal('Failed to upload: ' + result.error, 'error');
-        }
+                showProfileModal('Your profile picture has been uploaded successfully!');
+                const imageUrl = getProfileImageUrl(result.avatarUrl);
+                if (avatarDisplay) {
+                    avatarDisplay.innerHTML = `
+                        <img src="${imageUrl}" alt="Profile Picture" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null; this.src='/images/default-avatar.png';" >
+                    `;
+                }
+                await refreshTopbarAvatar();
+            } else {
+                showProfileModal('Failed to upload: ' + result.error, 'error');
+            }
     } catch (error) {
         console.error("Avatar upload error detailed:", error);
         alert('A network error occurred: ' + error.message);
@@ -718,17 +744,15 @@ async function refreshTopbarAvatar() {
         const avatarContainer = document.getElementById("topbarAvatarContainer");
 
         if (!avatarContainer) return;
-
+        
         if (userData.profile_picture) {
             avatarContainer.innerHTML = `
-                <img src="${userData.profile_picture}" 
-                     alt="Profile" 
-                     class="w-full h-full object-cover rounded-full">
+                <img src="${getProfileImageUrl(userData.profile_picture)}" alt="Profile"  class="w-full h-full object-cover rounded-full"
+                    onerror="this.onerror=null; this.src='/images/default-avatar.png';"
+                >
             `;
         } else {
-            avatarContainer.innerHTML = `
-                <i class="fas fa-user-circle text-2xl text-gray-500"></i>
-            `;
+            avatarContainer.innerHTML = `<i class="fas fa-user-circle text-2xl text-gray-500"></i> `;
         }
 
     } catch (error) {
