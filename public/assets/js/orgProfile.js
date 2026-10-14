@@ -1,31 +1,61 @@
-// para makita sa lahat ng pages yung profile pic
+function getOrgProfileImageUrl(profilePic) {
+    if (!profilePic || !String(profilePic).trim()) {
+        return "";
+    }
+    const image = String(profilePic).trim();
+    // Cloudinary or another complete image URL
+    if (/^https?:\/\//i.test(image)) {
+        return image;
+    }
+    // Existing absolute local path
+    if (image.startsWith("/")) {
+        return image;
+    }
+    // Legacy local filename
+    return `/uploads/org-profiles/${encodeURIComponent(image)}`;
+}
+
+
 async function syncHeaderProfilePic() {
-    const imgTag = document.getElementById('headerProfilePic');
-    const iconTag = document.getElementById('headerProfileIcon');
+    const imgTag = document.getElementById("headerProfilePic");
+    const iconTag = document.getElementById("headerProfileIcon");
 
     if (!imgTag || !iconTag) return false;
 
     try {
-        // Kunin ang data direkta mula sa server session/profile ng kasalukuyang naka-log-in
-        const response = await fetch("/api/organization/profile");
-        if (response.ok) {
-            const data = await response.json();
-            
-            if (data.profile_pic) {
-                imgTag.src = data.profile_pic;
-                imgTag.classList.remove('hidden'); // Ipakita ang larawan
-                iconTag.classList.add('hidden');    // Itago ang default icon
-                return true;
-            } else {
-                imgTag.classList.add('hidden');
-                iconTag.classList.remove('hidden');
-                return true;
-            }
+        const response = await fetch("/api/organization/profile", {
+            credentials: "include"
+        });
+
+        if (!response.ok) return false;
+
+        const data = await response.json();
+        const imageUrl = getOrgProfileImageUrl(data.profile_pic);
+
+        if (!imageUrl) {
+            imgTag.removeAttribute("src");
+            imgTag.classList.add("hidden");
+            iconTag.classList.remove("hidden");
+            return true;
         }
+
+        imgTag.onerror = () => {
+            imgTag.classList.add("hidden");
+            iconTag.classList.remove("hidden");
+        };
+
+        imgTag.onload = () => {
+            imgTag.classList.remove("hidden");
+            iconTag.classList.add("hidden");
+        };
+
+        imgTag.src = imageUrl;
+
+        return true;
     } catch (error) {
         console.error("Error syncing header profile pic:", error);
+        return false;
     }
-    return false;
 }
 
 // 1. Subukan patakbuhin agad pagka-load ng DOM
@@ -36,15 +66,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // 2. WATCHDOG (MutationObserver): Babantayan ang buong page. 
 // Sa oras na i-inject ng orgTopbar.js ang header sa HTML, huli agad siya nito!
-const observer = new MutationObserver((mutations, obs) => {
-    const isSynced = syncHeaderProfilePic();
-    if (isSynced) {
-        obs.disconnect(); // Patayin ang observer para hindi bumigat ang browser kapag tapos na
-        console.log("🛑 Observer disconnected.");
+
+let isSyncingHeaderProfilePic = false;
+
+const observer = new MutationObserver(async (mutations, obs) => {
+    const imgTag = document.getElementById("headerProfilePic");
+    const iconTag = document.getElementById("headerProfileIcon");
+
+    if (!imgTag || !iconTag || isSyncingHeaderProfilePic) {
+        return;
+    }
+
+    isSyncingHeaderProfilePic = true;
+
+    try {
+        const isSynced = await syncHeaderProfilePic();
+
+        if (isSynced) {
+            obs.disconnect();
+            console.log("Organization header profile picture synced.");
+        }
+    } finally {
+        isSyncingHeaderProfilePic = false;
     }
 });
 
-// Simulan ang pagbabantay sa HTML container
 observer.observe(document.documentElement, {
     childList: true,
     subtree: true
@@ -92,18 +138,30 @@ try {
         }
 
         const defaultIcon = document.getElementById("defaultUserIcon");
-        const orgLogo = document.getElementById("orgLogo");
+        const orgLogo = document.getElementById("orgLogo");      
+        const imageUrl = getOrgProfileImageUrl(data.profile_pic);
 
-        if (data.profile_pic) {
-           if (orgLogo) {
-                orgLogo.src = data.profile_pic;
+        if (imageUrl && orgLogo) {
+            orgLogo.onerror = () => {
+                orgLogo.classList.add("hidden");
+                defaultIcon?.classList.remove("hidden");
+            };
+
+            orgLogo.onload = () => {
                 orgLogo.classList.remove("hidden");
-            }
-            if (defaultIcon) defaultIcon.classList.add("hidden");
+                defaultIcon?.classList.add("hidden");
+            };
+
+            orgLogo.src = imageUrl;
         } else {
-            if (defaultIcon) defaultIcon.classList.remove("hidden");
-            if (orgLogo) orgLogo.classList.add("hidden");
+            if (orgLogo) {
+                orgLogo.removeAttribute("src");
+                orgLogo.classList.add("hidden");
+            }
+
+            defaultIcon?.classList.remove("hidden");
         }
+
 
         // ----------------------------------------------------
         // BASIC INFO
@@ -435,12 +493,19 @@ openEditModalBtn?.addEventListener("click", async () => {
 
     await setEditAddressValues();
 
-    // I-pre-fill ang Image base kung may lumang profile pic
-    if (currentOrgData.profile_pic) {
-        editModalPreview.src = currentOrgData.profile_pic;
-        editModalPreview.classList.remove("hidden");
-        editModalIcon.classList.add("hidden");
+    const imageUrl = getOrgProfileImageUrl(currentOrgData.profile_pic);
+    if (imageUrl) {
+        editModalPreview.onerror = () => {
+            editModalPreview.classList.add("hidden");
+            editModalIcon.classList.remove("hidden");
+        };
+        editModalPreview.onload = () => {
+            editModalPreview.classList.remove("hidden");
+            editModalIcon.classList.add("hidden");
+        };
+        editModalPreview.src = imageUrl;
     } else {
+        editModalPreview.removeAttribute("src");
         editModalPreview.classList.add("hidden");
         editModalIcon.classList.remove("hidden");
     }
