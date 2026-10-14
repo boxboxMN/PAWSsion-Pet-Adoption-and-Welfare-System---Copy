@@ -549,7 +549,6 @@ exports.updateAvatar = async (req, res) => {
 // ==========================================
 // PET & ORGANIZATION FEEDS
 // ==========================================
-
 exports.getAvailablePets = async (req, res) => {
     try {
 
@@ -626,36 +625,37 @@ exports.getAvailablePets = async (req, res) => {
             LEFT JOIN organization_dropoff_details d ON o.organization_id = d.organization_id
             WHERE o.verification_status = 'Approved'
         `);
+        
+        function normalizeImagePath(imagePath, legacyFolder, fallback = "") {
+            if (typeof imagePath !== "string") { return fallback;}
+            let image = imagePath.trim();
+            if (!image || image === "null" || image === "undefined") {return fallback;}
 
+            // Repair malformed values such as /uploads/https://res.cloudinary.com/...
+            const cloudinaryIndex = image.indexOf("https://res.cloudinary.com/");
+            if (cloudinaryIndex !== -1) { image = image.substring(cloudinaryIndex); }
+
+            // Keep Cloudinary and other complete URLs unchanged.
+            if (/^https?:\/\//i.test(image)) {return image; }
+
+            // Preserve existing local absolute paths.
+            if (image.startsWith("/")) { return image; }
+            // Old database records that contain only a filename.
+            return `${legacyFolder.replace(/\/+$/, "")}/${image}`;
+        }
         const formattedOrgs = organizations.map(org => {
-            const profilePic = (org.profile_pic && org.profile_pic.trim() !== '')
-                ? (org.profile_pic.startsWith('/') ? org.profile_pic : `/uploads/${org.profile_pic}`)
-                : '/uploads/default-org.png';
+            const profilePic = normalizeImagePath(org.profile_pic, "/uploads/orgs","/uploads/default-org.png");
 
-            const qrCode = (org.qr_code && org.qr_code.trim() !== '' && org.qr_code !== '/uploads/qr/')
-                ? (org.qr_code.startsWith('/') ? org.qr_code : `/uploads/qr/${org.qr_code}`)
-                : '';
+            const qrCode = normalizeImagePath(  org.qr_code, "/uploads/qr","" );
 
-            // IDINAGDAG: Maya QR Code formatting katulad ng sa GCash
-            const mayaQrCode = (org.maya_qr_code && org.maya_qr_code.trim() !== '' && org.maya_qr_code !== '/uploads/qr/')
-                ? (org.maya_qr_code.startsWith('/') ? org.maya_qr_code : `/uploads/qr/${org.maya_qr_code}`)
-                : '';
+            const mayaQrCode = normalizeImagePath(org.maya_qr_code, "/uploads/qr","");
 
-            let dropoffImg = (org.dropoff_image && org.dropoff_image.trim() !== '') ? org.dropoff_image.trim() : '';
-
-            if (dropoffImg && !dropoffImg.startsWith('/') && !dropoffImg.startsWith('http')) {
-                if (dropoffImg.startsWith('qr-')) {
-                    dropoffImg = `/uploads/qr/${dropoffImg}`;
-                } else {
-                    dropoffImg = `/uploads/${dropoffImg}`;
-                }
-            }
-
+            const dropoffImg = normalizeImagePath( org.dropoff_image,"/uploads", "" );
             return {
                 ...org,
                 profile_pic: profilePic,
                 qr_code: qrCode,
-                maya_qr_code: mayaQrCode, // Isinama na sa returned object
+                maya_qr_code: mayaQrCode,
                 dropoff_image: dropoffImg
             };
         });
