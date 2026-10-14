@@ -1300,7 +1300,7 @@ function openMatchPetModal(pet, rank) {
     };
 
     // BASIC INFO=====
-    document.getElementById("modalImage").src = `/uploads/pets/${pet.image_path}`;
+    document.getElementById("modalImage").src =src="${getPetImageUrl(pet.image_path)}";
     document.getElementById("modalName").textContent = pet.name;
     document.getElementById("modalSpecies").textContent = pet.species;
     document.getElementById("modalGender").textContent = pet.gender;

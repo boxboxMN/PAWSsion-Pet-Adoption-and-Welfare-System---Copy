@@ -92,8 +92,11 @@ async function loadNewestPets() {
                    class="flex flex-col items-center p-4 rounded-xl bg-slate-50 border border-slate-100 hover:bg-blue-50 hover:border-blue-200 hover:shadow-sm transition group text-center">
 
                     <img
-                    src="/uploads/pets/${pet.image_path}"
-                    class="w-14 h-14 rounded-full object-cover border shadow-sm mb-2.5 group-hover:scale-105 transition">
+                        src="${getPetImageUrl(pet.image_path)}"
+                        alt="${pet.name}"
+                        class="w-14 h-14 rounded-full object-cover border shadow-sm mb-2.5 group-hover:scale-105 transition"
+                        onerror="this.onerror=null; this.src='/assets/images/no-image.png';"
+                    >
                     <span class="text-sm font-bold text-gray-800 group-hover:text-blue-900"> ${pet.name}</span>
                     <span class="text-[11px] font-medium text-gray-400 mt-1 bg-gray-100 px-2 py-0.5 rounded-full"> ${pet.species} • ${age}</span>
                 </a>
