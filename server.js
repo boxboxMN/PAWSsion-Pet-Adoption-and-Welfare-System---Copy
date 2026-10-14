@@ -734,14 +734,13 @@ app.put("/api/organization/update-profile", uploadOrgPic.single('profile_pic'), 
         barangay: sanitize(barangay),
         zip_code: sanitize(zip_code),
         description: sanitize(description),
-        profile_pic: null // Naka-null muna by default
+        profile_pic: req.file ? req.file.path : null
       };
 
-      // 2. Kung may piniling bagong larawan ang user at sinalo ito ng Multer
-      if (req.file) {
-          // Ito ang web path na ise-save sa DB para ma-access ng <img src="...">
-          profileData.profile_pic = `/uploads/orgs/${req.file.filename}`;
-      }
+      // 2. Save the Cloudinary URL when a new profile picture is uploaded
+        if (req.file) {
+            profileData.profile_pic = req.file.path;
+        }
 
       // 3. Tawagin ang model function natin para mag-execute ng UPDATE query sa DB
       const success = await Organization.updateProfile(req.session.accountId, profileData);

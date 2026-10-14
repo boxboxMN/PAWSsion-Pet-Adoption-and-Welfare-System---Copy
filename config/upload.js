@@ -87,7 +87,6 @@ const adoptionDocumentFilter = (req, file, cb) => {
         );
     }
 };
-
 const adoptionDocumentStorage = new CloudinaryStorage({
     cloudinary,
     params: {
@@ -105,37 +104,24 @@ const uploadAdoptionDocument = multer({
     }
 });
 
-// ==========================================
-// ORGANIZATION PROFILE PICTURES - LOCAL STORAGE
-// Kept as in your original code
-// ==========================================
-const orgStorage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, "public/uploads/orgs/");
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix =
-            Date.now() + "-" + Math.round(Math.random() * 1E9);
-
-        cb(
-            null,
-            "org-" +
-                (req.session?.accountId || "user") +
-                "-" +
-                uniqueSuffix +
-                path.extname(file.originalname)
-        );
+/* ==========================================
+   ORGANIZATION PROFILE PICTURES - CLOUDINARY
+========================================== */
+const orgCloudinaryStorage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: "pawpon/org-profiles",
+        allowed_formats: ["jpg", "jpeg", "png", "webp"],
+        resource_type: "image"
     }
 });
-
 const uploadOrgPic = multer({
-    storage: orgStorage,
+    storage: orgCloudinaryStorage,
     fileFilter: imageFilter,
     limits: {
-        fileSize: 5 * 1024 * 1024
+        fileSize: 5 * 1024 * 1024 // 5 MB
     }
 });
-
 /* ==========================================
    QR CODES - CLOUDINARY STORAGE
 ========================================== */
