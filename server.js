@@ -33,37 +33,75 @@ app.use(
   helmet.contentSecurityPolicy({
     directives: {
       defaultSrc: ["'self'"],
-      
-      // DAGDAG DITO: Harangan ang kahit anong site na i-frame ang app mo (Clickjacking Protection)
-      frameAncestors: ["'none'"], 
 
+      // Clickjacking protection
+      frameAncestors: ["'none'"],
+
+      // Scripts, including Google Identity Services
       scriptSrc: [
-        "'self'", 
+        "'self'",
         "'wasm-unsafe-eval'",
         "https://cdn.tailwindcss.com",
         "https://cdn.jsdelivr.net",
-        "https://cdnjs.cloudflare.com"
+        "https://cdnjs.cloudflare.com",
+        "https://accounts.google.com",
       ],
-      // 1. Payagan ang inline event handlers tulad ng onclick="..."
+
+      // Inline event handlers
       scriptSrcAttr: ["'unsafe-inline'"],
+
+      // Styles
       styleSrc: [
-        "'self'", 
+        "'self'",
         "'unsafe-inline'",
         "https://fonts.googleapis.com",
-        "https://cdnjs.cloudflare.com"
-     ],
-      fontSrc: [
-        "'self'", 
-        "https://fonts.gstatic.com",
-        "https://cdnjs.cloudflare.com"
+        "https://cdnjs.cloudflare.com",
+        "https://accounts.google.com/gsi/style",
       ],
-      imgSrc: ["'self'", "data:", "blob:", "https://cdnjs.cloudflare.com", "https://via.placeholder.com", "https://res.cloudinary.com"],
-      // 1. Payagan ang network connections/fetches sa jsDelivr (para sa Tesseract.js data & maps)
-      connectSrc: ["'self'", "data:", "blob:", "https://cdn.jsdelivr.net",  "https://cdnjs.cloudflare.com"],
-      // 2. Payagan ang Web Workers at Blob URLs na ginagamit ng Tesseract.js
-      workerSrc: ["'self'", "blob:", "https://cdn.jsdelivr.net"],
 
-      // Siguraduhing pinapayagan din ang upgrade requests na naka-off muna sa localhost
+      // Fonts
+      fontSrc: [
+        "'self'",
+        "data:",
+        "https://fonts.gstatic.com",
+        "https://cdnjs.cloudflare.com",
+      ],
+
+      // Images, including Cloudinary and Google sign-in assets
+      imgSrc: [
+        "'self'",
+        "data:",
+        "blob:",
+        "https://cdnjs.cloudflare.com",
+        "https://via.placeholder.com",
+        "https://res.cloudinary.com",
+        "https://*.googleusercontent.com",
+        "https://*.gstatic.com",
+      ],
+
+      // Network requests
+      connectSrc: [
+        "'self'",
+        "data:",
+        "blob:",
+        "https://cdn.jsdelivr.net",
+        "https://cdnjs.cloudflare.com",
+        "https://accounts.google.com",
+      ],
+
+      // Google sign-in popup/iframe
+      frameSrc: [
+        "'self'",
+        "https://accounts.google.com",
+      ],
+
+      // Web Workers for Tesseract.js
+      workerSrc: [
+        "'self'",
+        "blob:",
+        "https://cdn.jsdelivr.net",
+      ],
+
       upgradeInsecureRequests: null,
     },
   })
