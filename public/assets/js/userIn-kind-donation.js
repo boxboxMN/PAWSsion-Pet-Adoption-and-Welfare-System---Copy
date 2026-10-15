@@ -113,16 +113,23 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (!image || image === "null" || image === "undefined") {
             return fallbackUrl;
         }
-        // Cloudinary and other complete URLs must be returned unchanged.
+
+        const cloudinaryMatch = image.match(/https?:\/\/res\.cloudinary\.com\/[^\s"'<>]+/i);
+        if (cloudinaryMatch) {
+            return cloudinaryMatch[0];
+        }
         if (/^https?:\/\//i.test(image)) {
             return image;
         }
-        // Preserve paths that already begin with /uploads/, /assets/, etc.
-        if (image.startsWith("/")) {
-            return image;
+
+        const localPath = image.replace(/\\/g, "/");
+        if (localPath.startsWith("/")) {
+            return localPath;
         }
-        // Only prepend the legacy folder to a bare filename.
-        return `${legacyFolder.replace(/\/+$/, "")}/${encodeURIComponent(image)}`;
+        if (localPath.startsWith("uploads/")) {
+            return `/${localPath}`;
+        }
+        return `${legacyFolder.replace(/\/+$/, "")}/${encodeURIComponent(localPath)}`;
     }
     async function loadOrganizations() {
         try {
