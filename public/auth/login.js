@@ -6,6 +6,15 @@ window.openModal = function () {
     }
 };
 
+// GLOBAL FUNCTION PARA SA CLOSE BUTTON
+window.closeModal = function () {
+    const modal = document.getElementById("registerModal");
+
+    if (modal) {
+        modal.style.display = "none";
+    }
+};
+
 document.addEventListener('DOMContentLoaded', async () => {
 
     const form = document.getElementById('loginForm');
@@ -170,13 +179,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const reason = params.get('reason');
     if (reason) {
         const reasonMessages = {
-    suspended: 'Your account was suspended while you were logged in. Please contact support for details.',
-    banned: 'Your account was permanently banned while you were logged in.',
-    disabled: 'Your account was deactivated while you were logged in.',
-    session_expired: 'Your session has expired. Please log in again.',
-    logged_in_elsewhere: 'Your account was signed in on another device. You have been logged out here.',
-    account_switched: 'A different account was signed in on this browser. This tab has been logged out.'
-};
+            suspended: 'Your account was suspended while you were logged in. Please contact support for details.',
+            banned: 'Your account was permanently banned while you were logged in.',
+            disabled: 'Your account was deactivated while you were logged in.',
+            session_expired: 'Your session has expired. Please log in again.',
+            logged_in_elsewhere: 'Your account was signed in on another device. You have been logged out here.',
+            account_switched: 'A different account was signed in on this browser. This tab has been logged out.'
+        };
     }
 
     // ==========================================
@@ -251,5 +260,101 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
     });
+});
 
+window.addEventListener("load", async () => {
+    if (!window.google?.accounts?.id) {
+        console.error("Google Identity Services is not available.");
+        return;
+    }
+
+    let googleConfig;
+
+    try {
+        const response = await fetch("/api/config/google", {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            },
+            credentials: "same-origin"
+        });
+
+        if (!response.ok) {
+            throw new Error("Failed to load Google configuration.");
+        }
+
+        googleConfig = await response.json();
+
+        if (!googleConfig.clientId) {
+            throw new Error("Google Client ID is missing.");
+        }
+    } catch (error) {
+        console.error("Google configuration error:", error);
+        return;
+    }
+    
+    console.log("GIS initialize reached");
+    google.accounts.id.initialize({
+      client_id: googleConfig.clientId,
+      callback: async (response) => {
+        console.log("Google callback fired");
+        try {
+            const csrfResponse = await fetch("/auth/csrf-token", {
+                method: "GET",
+                credentials: "same-origin"
+            });
+
+            if (!csrfResponse.ok) {
+                throw new Error("Could not get security token.");
+            }
+      
+            const csrfData = await csrfResponse.json();
+        
+            const googleResponse = await fetch("/auth/google-login", {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": csrfData.token
+                },
+                body: JSON.stringify({
+                credential: response.credential
+                })
+            });
+        
+            const result = await googleResponse.json();
+        
+            if (!googleResponse.ok) {
+                throw new Error(result.message || "Google sign-in failed.");
+            }
+      
+            // For now, confirm that Google verification worked.
+            if (!result.redirectUrl) {
+                throw new Error("Sign-in succeeded, but no redirect was provided.");
+            }
+            
+            window.location.href = result.redirectUrl;
+
+            } catch (error) {
+            console.error("Google sign-in error:", error);
+            alert(error.message || "Unable to sign in with Google.");
+            }
+        },
+    });
+    
+    const googleButton = document.getElementById("googleSignInButton");
+
+    if (!googleButton) {
+    console.error("Google Sign-In button container not found.");
+    return;
+    }
+
+    console.log("renderButton reached");
+    google.accounts.id.renderButton(googleButton, {
+        theme: "outline",
+        size: "large",
+        text: "continue_with",
+        shape: "rectangular",
+        width: 400
+    });
 });

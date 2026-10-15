@@ -6,10 +6,11 @@
     <link rel="icon" type="image/png" href="../assets/images/Pawpon_logo.png">
     <title>PAWPON – Login </title>
    
-    <link rel="stylesheet" href="/css/tailwind.css">
-    <link rel="stylesheet" href="/assets/css/login.css">
+    <link rel="stylesheet" href="../css/tailwind.css">
+    <link rel="stylesheet" href="../assets/css/login.css">
  
     <link rel="stylesheet" href="/css/fontawesome/all.min.css">
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body>
@@ -60,89 +61,91 @@
             </div>
 
             <!-- LOGIN FORM -->
-<form
-    id="loginForm"
-    class="form-section"
-    method="POST"
-    action="/auth/login"
->
-    <input type="hidden" name="csrfToken" value="">
-
-    <!-- EMAIL -->
-    <div class="input mb-4">
-        <label for="email">Email</label>
-        <div class="input-with-icon">
-            <i class="fa-regular fa-envelope icon" style="color: #1656ff;"></i>
-            <input
-                id="email"
-                type="email"
-                name="email"
-                placeholder="Enter your Email"
-                required
+            <form
+                id="loginForm"
+                class="form-section"
+                method="POST"
+                action="/auth/login"
             >
-        </div>
-    </div>
+                <input type="hidden" name="csrfToken" value="">
 
-    <!-- PASSWORD -->
-    <div class="input mb-4">
-        <label for="password">Password</label>
-        <div class="input-with-icon">
-            <i class="fa-solid fa-lock icon" style="color:#1656ff;"></i>
-            <input
-                id="password"
-                type="password"
-                name="password"
-                placeholder="Enter your Password"
-                required
-            >
-            <button
-                type="button"
-                class="toggle-password"
-                id="togglePassword"
-                aria-label="Show password"
-            >
-                <i class="fa-solid fa-eye" style="color:#1656ff;"></i>
-            </button>
-        </div>
-    </div>
+                <!-- EMAIL -->
+                <div class="input mb-4">
+                    <label for="email">Email</label>
+                    <div class="input-with-icon">
+                        <i class="fa-regular fa-envelope icon" style="color: #1656ff;"></i>
+                        <input
+                            id="email"
+                            type="email"
+                            name="email"
+                            placeholder="Enter your Email"
+                            required
+                        >
+                    </div>
+                </div>
 
-    <!-- FORGOT PASSWORD -->
-    <div class="flex justify-center mb-4 mt-2">
-        <a
-            href="forgot_password.html"
-            class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold text-[#1656ff] hover:text-[#0d3dcc] hover:underline transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#1656ff]/20 rounded-md"
-        >
-            <i class="fa-solid fa-key text-[11px]"></i>
-            Forgot Password?
-        </a>
-    </div>
+                <!-- PASSWORD -->
+                <div class="input mb-4">
+                    <label for="password">Password</label>
+                    <div class="input-with-icon">
+                        <i class="fa-solid fa-lock icon" style="color:#1656ff;"></i>
+                        <input
+                            id="password"
+                            type="password"
+                            name="password"
+                            placeholder="Enter your Password"
+                            required
+                        >
+                        <button
+                            type="button"
+                            class="toggle-password"
+                            id="togglePassword"
+                            aria-label="Show password"
+                        >
+                            <i class="fa-solid fa-eye" style="color:#1656ff;"></i>
+                        </button>
+                    </div>
+                </div>
 
-    <!-- LOGIN ERROR -->
-    <div
-        id="loginError"
-        class="hidden w-full mb-4 px-4 py-3 rounded-xl bg-red-50 text-red-700 border border-red-200/80 text-xs leading-relaxed shadow-sm"
-    ></div>
+                <!-- FORGOT PASSWORD -->
+                <div class="flex justify-center mb-4 mt-2">
+                    <a
+                        href="forgot_password.html"
+                        class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold text-[#1656ff] hover:text-[#0d3dcc] hover:underline transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-[#1656ff]/20 rounded-md"
+                    >
+                        <i class="fa-solid fa-key text-[11px]"></i>
+                        Forgot Password?
+                    </a>
+                </div>
 
-    <!-- SUCCESS MESSAGE -->
-    <div
-        id="successMessage"
-        class="hidden w-full mb-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-xs leading-relaxed shadow-sm"
-    >
-        <i class="fa-solid fa-circle-check mr-2 text-emerald-600"></i>
-        Account created successfully! Please sign in.
-    </div>
+                <!-- LOGIN ERROR -->
+                <div
+                    id="loginError"
+                    class="hidden w-full mb-4 px-4 py-3 rounded-xl bg-red-50 text-red-700 border border-red-200/80 text-xs leading-relaxed shadow-sm"
+                ></div>
 
-  
-    <!-- SUBMIT BUTTON -->
-<button
-    type="submit"
-    class="py-3 px-4 rounded-xl bg-[#1656ff] hover:bg-[#0d3dcc] active:scale-[0.99] text-white text-sm font-bold tracking-wide shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/35 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer border-0"
->
-    <span>Login</span>
-    <i class="fa-solid fa-arrow-right text-xs"></i>
-</button>
-</form>
-             
+                <!-- SUCCESS MESSAGE -->
+                <div
+                    id="successMessage"
+                    class="hidden w-full mb-4 px-4 py-3 rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200/80 text-xs leading-relaxed shadow-sm"
+                >
+                    <i class="fa-solid fa-circle-check mr-2 text-emerald-600"></i>
+                    Account created successfully! Please sign in.
+                </div>
+
+            
+                <!-- SUBMIT BUTTON -->
+                <button
+                    type="submit"
+                    class="py-3 px-4 rounded-xl bg-[#1656ff] hover:bg-[#0d3dcc] active:scale-[0.99] text-white text-sm font-bold tracking-wide shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/35 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer border-0"
+                >
+                    <span>Login</span>
+                    <i class="fa-solid fa-arrow-right text-xs"></i>
+                </button>
+            </form>
+
+            <!-- GOOGLE SIGN-IN BUTTON -->
+            <div id="googleSignInButton" class="google-signin-section"></div>
 
             <!-- CREATE ACCOUNT LINK -->
             <div class="register-section mt-6">
@@ -184,6 +187,15 @@
         id="registerModal"
     >
         <div class="modal-box">
+            <!-- CLOSE BUTTON -->
+            <button
+                type="button"
+                class="modal-close"
+                onclick="closeModal()"
+                aria-label="Close"
+            >
+                &times;
+            </button>
             <img
                 src="/assets/images/Pawpon_logo.png"
                 class="modal-logo"

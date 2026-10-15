@@ -5,7 +5,7 @@ const multer = require("multer");
 const path = require("path");
 const crypto = require("crypto");
 const fs = require("fs");
-const fileType = require('file-type');
+const { fileTypeFromFile } = require("file-type");
 const authController = require("../controllers/AuthController");
 const pool = require("../config/database");
 const redirectAuthenticated = require("../middleware/redirectAuthenticated");
@@ -68,7 +68,7 @@ async function validateUploadedFile(file) {
         return false;
     }
 
-    const detectedType = await fileType.fromFile(file.path);
+    const detectedType = await fileTypeFromFile(file.path);
 
     if (!detectedType) {
         return false;
@@ -248,9 +248,9 @@ router.get("/create-account", (req, res) => {
         const csrfToken = generateToken(req);
 
         const htmlWithCsrf = html.replace(
-    /<input\s+type="hidden"\s+name="csrfToken"\s+value="">/i,
-    `<input type="hidden" name="csrfToken" value="${csrfToken}">`
-);
+            /<input\s+type="hidden"\s+name="csrfToken"\s+value="">/i,
+            `<input type="hidden" name="csrfToken" value="${csrfToken}">`
+        );
 
         res.send(htmlWithCsrf);
     });
@@ -262,21 +262,53 @@ router.get("/create-account", (req, res) => {
 // ==========================================
 
 router.get("/organization-signup", (req, res) => {
-    res.sendFile(
-        path.join(
-            __dirname,
-            "../public/auth/organization_signup.html"
-        )
+    const organizationSignupPath = path.join(
+        __dirname,
+        "../public/auth/organization_signup.html"
     );
+
+    fs.readFile(organizationSignupPath, "utf8", (err, html) => {
+        if (err) {
+            console.error(
+                "Error loading organization signup page:",
+                err
+            );
+
+            return res
+                .status(500)
+                .send("Unable to load organization signup page.");
+        }
+
+        const csrfToken = generateToken(req);
+
+        const htmlWithCsrf = html.replace(
+            /<input\s+type="hidden"\s+name="csrfToken"\s+value="">/i,
+            `<input type="hidden" name="csrfToken" value="${csrfToken}">`
+        );
+
+        res.send(htmlWithCsrf);
+    });
 });
 
 
 // ==========================================
 // AUTHENTICATION ROUTES
 // ==========================================
+router.post(
+    "/registration/send-otp",
+    csrfSynchronisedProtection,
+    authController.sendRegistrationOtp
+);
+
+router.post(
+    "/registration/verify-otp",
+    csrfSynchronisedProtection,
+    authController.verifyRegistrationOtp
+);
 
 router.post(
     "/register",
+    csrfSynchronisedProtection,
     authController.register
 );
 
@@ -284,6 +316,16 @@ router.post(
     "/login",
     //csrfSynchronisedProtection, - comment ko muna while nag testing ako sa postman
     authController.login
+);
+
+router.post(
+    "/google", 
+    authController.googleSignIn
+);
+
+router.post(
+    "/google-login",
+    authController.googleLogin
 );
 
 router.post(
@@ -366,6 +408,7 @@ router.post(
         });
     },
 
+    csrfSynchronisedProtection,
     authController.registerOrganization
 );
 

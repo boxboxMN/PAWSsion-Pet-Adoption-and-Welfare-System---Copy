@@ -7,12 +7,54 @@ const emailValidatorRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const zipRegex = /^\d{4}$/;
 const streetAddressInput = document.getElementById("streetAddress");
+const addressSuggestions = document.getElementById("addressSuggestions");
 const regionSelect = document.getElementById("region");
 const provinceSelect = document.getElementById("province");
 const citySelect = document.getElementById("city");
 const barangaySelect = document.getElementById("barangay");
 const zipCodeInput = document.getElementById("zipCode");
+const streetAddressRegex = /^[A-Za-zÀ-ÖØ-öø-ÿ0-9 .,#()\/-]{5,150}$/;
 const zipHelper = document.getElementById("zipHelper");
+
+async function searchAddressSuggestions() {
+    const street = streetAddressInput.value.trim();
+    const barangay = barangaySelect.value.trim();
+    const city = citySelect.value.trim();
+    const province = provinceSelect.value.trim();
+
+    if (street.length < 2 || !barangay || !city || !province) {
+        addressSuggestions.hidden = true;
+        addressSuggestions.innerHTML = "";
+        return;
+    }
+
+    try {
+        const params = new URLSearchParams({
+            text: street,
+            barangay,
+            city,
+            province
+        });
+
+        const response = await fetch(
+            `/api/address/search?${params.toString()}`,
+            { credentials: "same-origin" }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Unable to search addresses.");
+        }
+
+        renderAddressSuggestions(data.results || []);
+    } catch (error) {
+        console.error("Address autocomplete error:", error);
+        addressSuggestions.hidden = true;
+        addressSuggestions.innerHTML = "";
+    }
+}
+
 // Organization description: letters, numbers, spaces, and common punctuation
 const descriptionRegex = /^[A-Za-zÀ-ÖØ-öø-ÿ0-9\s.,'"()&\-\/#]+$/;
 const MAX_DESCRIPTION_LENGTH = 100;
@@ -45,6 +87,227 @@ zipCodeInput.addEventListener("input", function() {
     }
 });
 
+async function updateZipCodeFromLocation() {
+    const province = provinceSelect.value.trim();
+    const city = citySelect.value.trim();
+
+    if (!province || !city) {
+        zipCodeInput.value = "";
+        zipCodeInput.readOnly = true;
+
+        zipHelper.className = "input-helper-text";
+        zipHelper.innerHTML = "";
+
+        validateStep2();
+        return;
+    }
+
+    // Keep ZIP locked while retrieving the correct value
+    zipCodeInput.readOnly = true;
+
+    try {
+        const response = await fetch(
+            `/api/address/zip?province=${encodeURIComponent(province)}&city=${encodeURIComponent(city)}`,
+            {
+                credentials: "same-origin"
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok && response.status !== 404) {
+            throw new Error(
+                data.message || "Unable to retrieve ZIP code."
+            );
+        }
+
+        if (data.found && data.zip_code) {
+            zipCodeInput.value = String(data.zip_code);
+            zipCodeInput.readOnly = true;
+
+            zipHelper.className = "input-helper-text success";
+            zipHelper.innerHTML =
+                "<i class='fa-solid fa-circle-check'></i> " +
+                "ZIP code automatically filled.";
+        } else {
+            zipCodeInput.value = "";
+            zipCodeInput.readOnly = false;
+
+            zipHelper.className = "input-helper-text error";
+            zipHelper.innerHTML =
+                "<i class='fa-solid fa-circle-xmark'></i> " +
+                "No ZIP code was found for the selected city. " +
+                "Please enter your ZIP code manually.";
+        }
+
+        validateStep2();
+
+    } catch (error) {
+        console.error("ZIP API error:", error);
+
+        zipCodeInput.value = "";
+        zipCodeInput.readOnly = false;
+
+        zipHelper.className = "input-helper-text error";
+        zipHelper.innerHTML =
+            "<i class='fa-solid fa-circle-xmark'></i> " +
+            "Unable to retrieve ZIP code. " +
+            "Please enter it manually.";
+
+        validateStep2();
+    }
+}
+
+function renderAddressSuggestions(results) {
+    addressSuggestions.innerHTML = "";
+
+    const addressResults = results.filter(result =>
+        String(result.street || "").trim() !== "" ||
+        String(result.name || "").trim() !== ""
+    );
+
+    if (!addressResults.length) {
+        addressSuggestions.hidden = true;
+        return;
+    }
+
+    addressSuggestions.hidden = false;
+
+    addressResults.forEach((result) => {
+        const item = document.createElement("div");
+        item.className = "address-suggestion-item";
+
+        const title = document.createElement("div");
+        title.className = "address-suggestion-title";
+        title.textContent = result.street || result.name || "Address result";
+
+        const details = document.createElement("div");
+        details.className = "address-suggestion-details";
+
+        const detailsParts = [
+            result.suburb,
+            result.district,
+            result.city,
+            result.state,
+            result.postcode
+        ].filter(Boolean);
+
+        details.textContent = detailsParts.join(", ");
+
+        item.appendChild(title);
+        item.appendChild(details);
+
+        item.addEventListener("mousedown", (event) => {
+            event.preventDefault();
+            selectAddressSuggestion(result);
+        });
+
+        addressSuggestions.appendChild(item);
+    });
+}
+
+function selectAddressSuggestion(result) {
+    const addressName = String(
+        result.street || result.name || ""
+    ).trim();
+
+    if (!addressName) return;
+
+    const currentValue = streetAddressInput.value.trim();
+    const houseNumberMatch = currentValue.match(/^\s*(\d+[A-Za-z0-9-]*)\s+/);
+
+    streetAddressInput.value = houseNumberMatch
+        ? `${houseNumberMatch[1]} ${addressName}`
+        : addressName;
+
+    streetAddressHelper.className = "input-helper-text success";
+    streetAddressHelper.textContent = "Address selected from suggestions.";
+
+    addressSuggestions.hidden = true;
+    addressSuggestions.innerHTML = "";
+
+    validateStep2();
+}
+
+function validateStreetAddress() {
+    const value = streetAddressInput.value.trim();
+    const helper = document.getElementById("streetAddressHelper");
+
+    const showError = (message) => {
+        if (helper) {
+            helper.className = "input-helper-text error";
+            helper.textContent = message;
+        }
+    };
+
+    const showSuccess = (message) => {
+        if (helper) {
+            helper.className = "input-helper-text success";
+            helper.textContent = message;
+        }
+    };
+
+    // Street address is optional
+    if (value === "") {
+        if (helper) {
+            helper.textContent = "";
+            helper.className = "input-helper-text";
+        }
+        return true;
+    }
+
+    if (value.length < 5) {
+        showError("Please enter a complete street address.");
+        return false;
+    }
+
+    if (value.length > 150) {
+        showError("Street address must not exceed 150 characters.");
+        return false;
+    }
+
+    if (!streetAddressRegex.test(value)) {
+        showError("Use only letters, numbers, spaces, and common address characters.");
+        return false;
+    }
+
+    if (!/[aeiouáéíóúàèìòù]/i.test(value)) {
+        showError("Please enter a valid street address.");
+        return false;
+    }
+
+    if (!/[A-Za-zÀ-ÖØ-öø-ÿ]/.test(value)) {
+        showError("Street address must contain at least one letter.");
+        return false;
+    }
+
+    if (/(.)\1{4,}/.test(value)) {
+        showError("Please enter a valid street address.");
+        return false;
+    }
+
+    const compact = value.toLowerCase().replace(/\s/g, "");
+    const keyboardPatterns = [
+        "asdf", "asdfgh", "qwer", "qwerty",
+        "zxcv", "zxcvb", "poiuy", "lkjh", "mnbv"
+    ];
+
+    if (keyboardPatterns.some(pattern => compact.includes(pattern))) {
+        showError("Please enter a valid street address.");
+        return false;
+    }
+
+    const lettersOnly = compact.replace(/[^a-zá-öø-ÿ]/g, "");
+
+    if (/(.{2,3})\1{2,}/i.test(lettersOnly)) {
+        showError("Please enter a valid street address.");
+        return false;
+    }
+
+    showSuccess("Street address entered manually.");
+    return true;
+}
+
 // Cascading Loaders
 async function loadRegions() {
     try {
@@ -76,6 +339,9 @@ regionSelect.addEventListener('change', async function() {
     citySelect.disabled = true;
     barangaySelect.innerHTML = '<option value="">Select Barangay</option>';
     barangaySelect.disabled = true;
+
+    updateAddressFieldsState();
+    updateZipCodeFromLocation();
 
     if (!regCode) {
         provinceSelect.innerHTML = '<option value="">Select Province</option>';
@@ -119,6 +385,9 @@ provinceSelect.addEventListener('change', async function() {
     barangaySelect.innerHTML = '<option value="">Select Barangay</option>';
     barangaySelect.disabled = true;
 
+    updateAddressFieldsState();
+    updateZipCodeFromLocation();
+
     if (!provCode) return;
 
     try {
@@ -127,7 +396,13 @@ provinceSelect.addEventListener('change', async function() {
             citiesData = await res.json();
         }
 
-        const filtered = citiesData.filter(c => c.province_code === provCode || c.region_desc === regCode);
+        const filtered = citiesData.filter(c => {
+            if (String(provCode) === String(regCode)) {
+                return String(c.region_desc) === String(regCode);
+            }
+        
+            return String(c.province_code) === String(provCode);
+        });
         filtered.sort((a, b) => a.city_name.localeCompare(b.city_name));
 
         citySelect.innerHTML = '<option value="">Select City / Municipality</option>';
@@ -151,6 +426,9 @@ citySelect.addEventListener('change', async function() {
     barangaySelect.innerHTML = '<option value="">Loading barangays...</option>';
     barangaySelect.disabled = true;
 
+    updateAddressFieldsState();
+    updateZipCodeFromLocation();
+    
     if (!cityCode) return;
 
     try {
@@ -212,8 +490,297 @@ const phoneHelper = document.getElementById("phoneHelper");
 const orgNameInput = document.getElementById("organizationName");
 const orgNameHelper = document.getElementById("orgNameHelper");
 
+// Email OTP verification
+const manualOtpSection = document.getElementById("manualOtpSection");
+const otpModal = document.getElementById("otpModal");
+const closeOtpModalButton = document.getElementById("closeOtpModal");
+const emailOtpInput = document.getElementById("emailOtp");
+const otpHelper = document.getElementById("otpHelper");
+const sendOtpButton = document.getElementById("sendOtpButton");
+const verifyOtpButton = document.getElementById("verifyOtpButton");
+const emailOtpStatus = document.getElementById("emailOtpStatus");
+const openOtpModalButton = document.getElementById("openOtpModalButton");
+const changeEmailButton = document.getElementById("changeEmailButton");
+const resendOtpButton = document.getElementById("resendOtpButton");
+
+let resendCountdownTimer = null;
+
 let isEmailValidAndAvailable = false; 
+let isRegistrationEmailOtpVerified = false;
 let isOrgNameAvailable = false;
+
+// kapag empty ang email hindi makikita ang verify email button until may email
+function updateManualOtpVisibility() {
+    const emailIsEmpty = emailInput.value.trim() === "";
+    const emailIsUnavailable = !isEmailValidAndAvailable;
+
+    manualOtpSection.hidden =
+        emailInput.readOnly || emailIsEmpty || emailIsUnavailable;
+
+    if (emailInput.readOnly || emailIsEmpty || emailIsUnavailable) {
+        emailOtpInput.value = "";
+        otpHelper.textContent = "";
+    }
+}
+
+closeOtpModalButton.addEventListener("click", () => {
+    otpModal.hidden = true;
+});
+
+changeEmailButton.addEventListener("click", () => {
+    clearInterval(resendCountdownTimer);
+    resendCountdownTimer = null;
+
+    emailInput.readOnly = false;
+    emailInput.value = "";
+    emailInput.focus();
+
+    isRegistrationEmailOtpVerified = false;
+    isEmailValidAndAvailable = false;
+
+    emailHelper.className = "input-helper-text";
+    emailHelper.textContent = "";
+
+    emailOtpStatus.className = "input-helper-text";
+    emailOtpStatus.textContent = "";
+
+    changeEmailButton.hidden = true;
+
+    updateManualOtpVisibility();
+    validateStep1();
+});
+
+openOtpModalButton.addEventListener("click", async () => {
+    const email = emailInput.value.trim().toLowerCase();
+
+    if (!emailValidatorRegex.test(email)) {
+        emailHelper.className = "input-helper-text error";
+        emailHelper.textContent = "Please enter a valid email address.";
+        return;
+    }
+
+    await verifyEmailUniqueness();
+
+    if (!isEmailValidAndAvailable) {
+        return;
+    }
+
+    // Reset OTP modal to its initial state
+    clearInterval(resendCountdownTimer);
+    resendCountdownTimer = null;
+
+    isRegistrationEmailOtpVerified = false;
+
+    otpHelper.className = "input-helper-text";
+    otpHelper.textContent = "";
+
+    emailOtpInput.value = "";
+    emailOtpInput.disabled = false;
+
+    sendOtpButton.hidden = false;
+    sendOtpButton.disabled = false;
+    sendOtpButton.textContent = "Send Code";
+
+    otpInputSection.hidden = true;
+
+    verifyOtpButton.hidden = false;
+    verifyOtpButton.disabled = true;
+    verifyOtpButton.textContent = "Verify Code";
+
+    resendOtpButton.hidden = true;
+    resendOtpButton.disabled = true;
+    resendOtpButton.textContent = "Resend Code";
+
+    otpModal.hidden = false;
+});
+
+function startResendCountdown(seconds = 60) {
+    clearInterval(resendCountdownTimer);
+
+    resendOtpButton.hidden = false;
+    resendOtpButton.disabled = true;
+
+    let remaining = seconds;
+
+    resendOtpButton.textContent = `Resend Code in ${remaining}s`;
+
+    resendCountdownTimer = setInterval(() => {
+        remaining--;
+
+        if (remaining <= 0) {
+            clearInterval(resendCountdownTimer);
+            resendCountdownTimer = null;
+
+            resendOtpButton.disabled = false;
+            resendOtpButton.textContent = "Resend Code";
+            return;
+        }
+
+        resendOtpButton.textContent = `Resend Code in ${remaining}s`;
+    }, 1000);
+}
+
+sendOtpButton.addEventListener("click", async () => {
+    const email = emailInput.value.trim().toLowerCase();
+
+    if (emailInput.readOnly) {
+        return;
+    }
+
+    if (!emailValidatorRegex.test(email)) {
+        otpHelper.className = "input-helper-text error";
+        otpHelper.textContent = "Please enter a valid email address first.";
+        return;
+    }
+
+    await verifyEmailUniqueness();
+
+    if (!isEmailValidAndAvailable) {
+        otpHelper.className = "input-helper-text error";
+        otpHelper.textContent = "Please use an available email address.";
+        return;
+    }
+
+    const csrfToken = document.querySelector(
+        '#organizationSignupForm input[name="csrfToken"]'
+    )?.value;
+
+    if (!csrfToken) {
+        otpHelper.className = "input-helper-text error";
+        otpHelper.textContent =
+            "Security token missing. Please reload the page.";
+        return;
+    }
+
+    sendOtpButton.disabled = true;
+    sendOtpButton.textContent = "Sending...";
+    otpHelper.className = "input-helper-text";
+    otpHelper.textContent = "";
+
+    try {
+        const response = await fetch("/auth/registration/send-otp", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": csrfToken
+            },
+            body: JSON.stringify({ email })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                result.message || "Could not send the verification code."
+            );
+        }
+
+        sendOtpButton.hidden = true;
+
+        otpInputSection.hidden = false;
+
+        otpHelper.className = "input-helper-text success";
+        otpHelper.textContent =
+            result.message || "Code sent. Check your email.";
+
+        emailOtpInput.value = "";
+        emailOtpInput.disabled = false;
+
+        verifyOtpButton.hidden = false;
+        verifyOtpButton.disabled = true;
+        verifyOtpButton.textContent = "Verify Code";
+
+        resendOtpButton.hidden = false;
+        resendOtpButton.disabled = true;
+
+        startResendCountdown(60);
+
+        emailOtpInput.focus();
+
+    } catch (error) {
+        otpHelper.className = "input-helper-text error";
+        otpHelper.textContent =
+            error.message ||
+            "Unable to send the code. Please try again.";
+    } finally {
+        sendOtpButton.disabled = false;
+        sendOtpButton.textContent = "Send Code";
+    }
+});
+
+resendOtpButton.addEventListener("click", async () => {
+    const email = emailInput.value.trim().toLowerCase();
+
+    if (resendOtpButton.disabled) {
+        return;
+    }
+
+    const csrfToken = document.querySelector(
+        '#organizationSignupForm input[name="csrfToken"]'
+    )?.value;
+
+    if (!csrfToken) {
+        otpHelper.className = "input-helper-text error";
+        otpHelper.textContent =
+            "Security token missing. Please reload the page.";
+        return;
+    }
+
+    resendOtpButton.disabled = true;
+    resendOtpButton.textContent = "Sending...";
+
+    try {
+        const response = await fetch("/auth/registration/send-otp", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": csrfToken
+            },
+            body: JSON.stringify({ email })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                result.message || "Could not resend the verification code."
+            );
+        }
+
+        isRegistrationEmailOtpVerified = false;
+
+        otpHelper.className = "input-helper-text success";
+        otpHelper.textContent =
+            result.message || "A new verification code has been sent.";
+
+        emailOtpInput.value = "";
+        verifyOtpButton.disabled = true;
+
+        startResendCountdown(60);
+
+        emailOtpInput.focus();
+
+    } catch (error) {
+        otpHelper.className = "input-helper-text error";
+        otpHelper.textContent =
+            error.message || "Unable to resend the code. Please try again.";
+
+        resendOtpButton.disabled = false;
+        resendOtpButton.textContent = "Resend Code";
+    }
+});
+
+emailOtpInput.addEventListener("input", () => {
+    const otp = emailOtpInput.value.trim();
+
+    // Allow numbers only and limit to 6 digits
+    emailOtpInput.value = otp.replace(/\D/g, "").slice(0, 6);
+
+    // Enable Verify Code only when exactly 6 digits are entered
+    verifyOtpButton.disabled = emailOtpInput.value.length !== 6;
+});
 
 // Async validation for Email Uniqueness
 async function verifyEmailUniqueness() {
@@ -246,8 +813,8 @@ async function verifyEmailUniqueness() {
             emailHelper.innerHTML = "<i class='fa-solid fa-circle-xmark'></i> Email address is already registered.";
             isEmailValidAndAvailable = false;
         } else {
-            emailHelper.className = "input-helper-text success";
-            emailHelper.innerHTML = "<i class='fa-solid fa-circle-check'></i> Email is available.";
+            emailHelper.className = "input-helper-text";
+            emailHelper.innerHTML = "";
             isEmailValidAndAvailable = true;
         }
     } catch (err) {
@@ -256,6 +823,7 @@ async function verifyEmailUniqueness() {
         isEmailValidAndAvailable = true; 
     }
 
+    updateManualOtpVisibility();
     validateStep1();
 }
 
@@ -276,6 +844,107 @@ emailInput.addEventListener("input", () => {
     }
 
     validateStep1();
+});
+
+emailInput.addEventListener("input", () => {
+    if (!emailInput.readOnly) {
+        isEmailValidAndAvailable = false;
+        isRegistrationEmailOtpVerified = false;
+    }
+
+    updateManualOtpVisibility();
+});
+
+updateManualOtpVisibility();
+
+verifyOtpButton.addEventListener("click", async () => {
+    const email = emailInput.value.trim().toLowerCase();
+    const otp = emailOtpInput.value.trim();
+
+    if (!/^\d{6}$/.test(otp)) {
+        otpHelper.className = "input-helper-text error";
+        otpHelper.textContent = "Please enter the 6-digit code.";
+        return;
+    }
+
+    const csrfToken = document.querySelector(
+        '#organizationSignupForm input[name="csrfToken"]'
+    )?.value;
+
+    if (!csrfToken) {
+        otpHelper.className = "input-helper-text error";
+        otpHelper.textContent =
+            "Security token missing. Please reload the page.";
+        return;
+    }
+
+    verifyOtpButton.disabled = true;
+    verifyOtpButton.textContent = "Verifying...";
+
+    try {
+        const response = await fetch("/auth/registration/verify-otp", {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": csrfToken
+            },
+            body: JSON.stringify({ email, otp })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                result.message || "Could not verify the code."
+            );
+        }
+
+        isRegistrationEmailOtpVerified = true;
+
+        // Lock the verified email
+        emailInput.readOnly = true;
+        changeEmailButton.hidden = false;
+
+        emailHelper.className = "input-helper-text";
+        emailHelper.textContent = "";
+
+        updateManualOtpVisibility();
+        validateStep1();
+
+        otpHelper.className = "input-helper-text success";
+        otpHelper.textContent =
+            result.message || "Email verified successfully.";
+
+        emailOtpInput.value = "";
+        emailOtpInput.disabled = true;
+        verifyOtpButton.disabled = true;
+        verifyOtpButton.textContent = "Verified";
+
+        emailOtpStatus.className = "input-helper-text success";
+        emailOtpStatus.textContent =
+            result.message || "Email verified successfully.";
+
+        setTimeout(() => {
+            otpModal.hidden = true;
+
+            emailOtpInput.disabled = false;
+            verifyOtpButton.disabled = false;
+            verifyOtpButton.textContent = "Verify Code";
+            otpHelper.textContent = "";
+        }, 1800);
+
+    } catch (error) {
+        otpHelper.className = "input-helper-text error";
+        otpHelper.textContent =
+            error.message ||
+            "Verification failed. Please try again.";
+    } finally {
+        if (!isRegistrationEmailOtpVerified) {
+            verifyOtpButton.disabled = false;
+            verifyOtpButton.textContent = "Verify Code";
+        }
+    }
 });
 
 // Async validation for Organization Name Uniqueness
@@ -312,7 +981,10 @@ async function verifyOrgNameUniqueness() {
             isOrgNameAvailable = true;
         }
     } catch (err) {
-        isOrgNameAvailable = true; 
+        isOrgNameAvailable = false;
+        orgNameHelper.className = "input-helper-text error";
+        orgNameHelper.textContent =
+            "Could not verify organization name. Please try again.";
     }
 }
 
@@ -471,7 +1143,10 @@ function validateStep1() {
 
     // I-enable ang button base sa format at local validation.
     // Ang async email uniqueness check ay gagawin sa pag-click ng Next.
-    const isValid = isEmailFormatValid && isPassValid && isConfirmMatch;
+    const isEmailVerified =
+    emailInput.readOnly || isRegistrationEmailOtpVerified;
+
+    const isValid = isEmailFormatValid && isEmailVerified && isPassValid && isConfirmMatch;
     next1Btn.disabled = !isValid;
 }
 
@@ -527,25 +1202,53 @@ const next2Btn = document.getElementById("next2");
 const orgTypeSelect = document.getElementById("organizationType");
 const contactPersonInput = document.getElementById("contactPerson");
 
+function updateAddressFieldsState() {
+    const hasRegion = regionSelect.value !== "";
+    const hasProvince = provinceSelect.value !== "";
+    const hasCity = citySelect.value !== "";
+    const hasBarangay = barangaySelect.value !== "";
+
+    // Street Address becomes available after Barangay is selected
+    streetAddressInput.disabled = !(hasRegion && hasProvince && hasCity && hasBarangay);
+
+    // ZIP becomes available after Region, Province, and City are selected
+    zipCodeInput.disabled = !(hasRegion && hasProvince && hasCity);
+
+    // Clear values when the required location selection is incomplete
+    if (streetAddressInput.disabled) {
+        streetAddressInput.value = "";
+        validateStreetAddress();
+    }
+
+    if (zipCodeInput.disabled) {
+        zipCodeInput.value = "";
+        zipHelper.textContent = "";
+        zipHelper.className = "input-helper-text";
+    }
+
+    validateStep2();
+}
+
 function validateStep2() {
-    const isOrgNameValid = orgNameInput.value.trim().length >= 3;
+    const orgNameLength = orgNameInput.value.trim().length;
+    const isOrgNameValid = orgNameLength >= 3 && orgNameLength <= 50;
     const isTypeSelected = orgTypeSelect.value !== "";
     const isContactPersonValid = contactPersonInput.value.trim() !== "";
     const isPhoneValid = phoneRegex.test(phoneInput.value.trim());
 
-    const isStreetValid = streetAddressInput.value.trim() !== "";
     const isRegionValid = regionSelect.value !== "";
     const isProvinceValid = provinceSelect.value !== "";
     const isCityValid = citySelect.value !== "";
     const isBarangayValid = barangaySelect.value !== "";
     const isZipValid = zipRegex.test(zipCodeInput.value.trim());
+    const isStreetAddressValid = validateStreetAddress();
 
     const isValid = 
         isOrgNameValid &&
         isTypeSelected &&
         isContactPersonValid &&
         isPhoneValid &&
-        isStreetValid &&
+        isStreetAddressValid &&
         isRegionValid &&
         isProvinceValid &&
         isCityValid &&
@@ -554,6 +1257,26 @@ function validateStep2() {
 
     next2Btn.disabled = !isValid;
 }
+
+streetAddressInput.addEventListener("input", validateStep2);
+
+let addressSearchTimer;
+
+streetAddressInput.addEventListener("input", function () {
+    clearTimeout(addressSearchTimer);
+
+    const value = this.value.trim();
+
+    if (value.length < 2) {
+        addressSuggestions.hidden = true;
+        addressSuggestions.innerHTML = "";
+        return;
+    }
+
+    addressSearchTimer = setTimeout(() => {
+        searchAddressSuggestions();
+    }, 300);
+});
 
 [orgNameInput, orgTypeSelect, contactPersonInput, phoneInput, streetAddressInput, zipCodeInput].forEach(el => {
     el.addEventListener("input", validateStep2);
@@ -564,6 +1287,7 @@ function validateStep2() {
     el.addEventListener("change", validateStep2);
 });
 
+barangaySelect.addEventListener("change", updateAddressFieldsState);
 
 document.getElementById("next2").addEventListener("click", async () => {
     const contactNumber = phoneInput.value.trim();
@@ -594,10 +1318,12 @@ document.getElementById("next2").addEventListener("click", async () => {
         showCustomAlert("Please enter a valid 11-digit mobile number starting with 09.");
         return;
     }
-    if (streetAddressInput.value.trim() === "") {
-        showCustomAlert("Street address / House number is required.");
+
+    if (!validateStreetAddress()) {
+        showCustomAlert("Please enter a valid street address or leave it blank.");
         return;
     }
+
     if (regionSelect.value === "") {
         showCustomAlert("Please select your region.");
         return;
@@ -703,9 +1429,15 @@ document.getElementById("organizationSignupForm").addEventListener("submit", asy
     formData.append("description", document.getElementById("description").value.trim());
     formData.append("document", document.getElementById("document").files[0]);
 
+    const csrfResponse = await fetch("/auth/csrf-token");
+    const csrfData = await csrfResponse.json();
+
     try {
         const response = await fetch("/auth/register-organization", {
             method: "POST",
+            headers: {
+                "X-CSRF-Token": csrfData.token
+            },
             body: formData
         });
 
@@ -722,4 +1454,109 @@ document.getElementById("organizationSignupForm").addEventListener("submit", asy
         console.error(err);
         showCustomAlert("Unable to submit application.");
     }
+});
+
+// ================================
+// GOOGLE VERIFICATION FOR ORG SIGNUP
+// ================================
+window.addEventListener("load", async () => {
+    if (!window.google?.accounts?.id) {
+        console.error("Google Identity Services is not available.");
+        return;
+    }
+
+    let googleConfig;
+
+    try {
+        const response = await fetch("/api/config/google", {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            },
+            credentials: "same-origin"
+        });
+
+        if (!response.ok) {
+            throw new Error("Failed to load Google configuration.");
+        }
+
+        googleConfig = await response.json();
+
+        if (!googleConfig.clientId) {
+            throw new Error("Google Client ID is missing.");
+        }
+    } catch (error) {
+        console.error("Google configuration error:", error);
+        return;
+    }
+
+    google.accounts.id.initialize({
+        client_id: googleConfig.clientId,
+        callback: async (response) => {
+            try {
+                const csrfResponse = await fetch("/auth/csrf-token", {
+                    method: "GET",
+                    credentials: "same-origin"
+                });
+
+                if (!csrfResponse.ok) {
+                    throw new Error("Could not get security token.");
+                }
+
+                const csrfData = await csrfResponse.json();
+
+                const googleResponse = await fetch("/auth/google", {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-CSRF-Token": csrfData.token
+                    },
+                    body: JSON.stringify({
+                        credential: response.credential
+                    })
+                });
+
+                const result = await googleResponse.json();
+
+                if (!googleResponse.ok) {
+                    throw new Error(result.message || "Google verification failed.");
+                }
+
+                emailInput.value = result.email;
+                emailInput.readOnly = true;
+                emailInput.dispatchEvent(new Event("input", { bubbles: true }));
+
+                emailHelper.className = "input-helper-text success";
+                emailHelper.textContent = "Google email verified.";
+
+                isEmailValidAndAvailable = true;
+                validateStep1();
+
+                showCustomAlert(
+                    "Google email verified. Continue completing your organization registration."
+                );
+            } catch (error) {
+                console.error("Google verification error:", error);
+                showCustomAlert(
+                    error.message || "Unable to verify your Google account.",
+                    "error"
+                );
+            }
+        }
+    });
+
+    const googleButton = document.getElementById("orgGoogleSignInButton");
+
+    if (!googleButton) {
+        console.error("Organization Google button container not found.");
+        return;
+    }
+
+    google.accounts.id.renderButton(googleButton, {
+        theme: "outline",
+        size: "large",
+        text: "continue_with",
+        shape: "rectangular"
+    });
 });

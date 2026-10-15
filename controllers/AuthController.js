@@ -7,6 +7,9 @@ const provinces = require('../public/data/provinces.json');
 const cities = require('../public/data/cities.json');
 const barangays = require('../public/data/barangays.json');
 
+const { OAuth2Client } = require('google-auth-library');
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
 function normalizeAddress(value) {
     return String(value || '').trim().toLowerCase();
 }
@@ -20,10 +23,191 @@ const transporter = require("../config/email");
 const { logActivity, createNotification, notifyAllAdmins } = require("./adminController");
 const loginAttempts = new Map(); // Map<accountId, { attempts: number, lockedUntil: number|null }>
 
-exports.register = async (req, res) => {
-  console.log("=== REGISTER START ===");
-  console.log(req.body);
+// ==========================================
+// SEND OTP FOR MANUAL REGISTRATION
+// ==========================================
+exports.sendRegistrationOtp = async (req, res) => {
+    const email = (req.body.email || "").trim().toLowerCase();
 
+    if (!validator.isEmail(email)) {
+        return res.status(400).json({
+            message: "Please enter a valid email address."
+        });
+    }
+
+    try {
+        // Don't send a registration OTP to an email already in use.
+        const [existingAccounts] = await pool.query(
+            "SELECT account_id FROM accounts WHERE email = ? LIMIT 1",
+            [email]
+        );
+
+        if (existingAccounts.length > 0) {
+            return res.status(409).json({
+                message: "An account with this email already exists."
+            });
+        }
+
+        // Prevent frequent resend requests.
+        const [existingOtp] = await pool.query(
+            `SELECT id
+             FROM registration_email_otps
+             WHERE email = ? AND resend_after > NOW()
+             LIMIT 1`,
+            [email]
+        );
+
+        if (existingOtp.length > 0) {
+            return res.status(429).json({
+                message: "Please wait 60 seconds before requesting another code."
+            });
+        }
+
+        // Generate a 6-digit code and store only its bcrypt hash.
+        const otp = String(crypto.randomInt(100000, 1000000));
+        const otpHash = await bcrypt.hash(otp, 10);
+
+        // Replace any older, unverified code for this email.
+        await pool.query(
+            "DELETE FROM registration_email_otps WHERE email = ?",
+            [email]
+        );
+
+        await pool.query(
+            `INSERT INTO registration_email_otps
+                (email, otp_hash, expires_at, resend_after)
+             VALUES
+                (?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE),
+                      DATE_ADD(NOW(), INTERVAL 60 SECOND))`,
+            [email, otpHash]
+        );
+
+        try {
+            await transporter.sendMail({
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: "PAWSsion Email Verification Code",
+                text: `Your PAWSsion registration verification code is ${otp}. It expires in 10 minutes. If you did not request this, you can ignore this email.`,
+                html: `
+                    <p>Your PAWSsion registration verification code is:</p>
+                    <h2>${otp}</h2>
+                    <p>This code expires in 10 minutes.</p>
+                    <p>If you did not request this, you can ignore this email.</p>
+                `
+            });
+        } catch (emailError) {
+            // Remove the unused code if the email could not be sent.
+            await pool.query(
+                "DELETE FROM registration_email_otps WHERE email = ?",
+                [email]
+            );
+
+            throw emailError;
+        }
+
+        return res.json({
+            message: "Verification code sent. Please check your email."
+        });
+
+    } catch (error) {
+        console.error("sendRegistrationOtp error:", error.message);
+
+        return res.status(500).json({
+            message: "Unable to send the verification code right now. Please try again later."
+        });
+    }
+};
+
+// ==========================================
+// VERIFY OTP FOR MANUAL REGISTRATION
+// ==========================================
+exports.verifyRegistrationOtp = async (req, res) => {
+    const email = (req.body.email || "").trim().toLowerCase();
+    const otp = String(req.body.otp || "").trim();
+
+    if (!validator.isEmail(email) || !/^\d{6}$/.test(otp)) {
+        return res.status(400).json({
+            message: "Enter a valid email address and 6-digit verification code."
+        });
+    }
+
+    try {
+        const [rows] = await pool.query(
+            `SELECT id, otp_hash, expires_at, attempts, verified_at
+             FROM registration_email_otps
+             WHERE email = ?
+             ORDER BY id DESC
+             LIMIT 1`,
+            [email]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({
+                message: "No verification code found. Please request a new one."
+            });
+        }
+
+        const record = rows[0];
+
+        if (record.verified_at) {
+            return res.json({
+                message: "Email already verified. You can continue registration."
+            });
+        }
+
+        if (record.attempts >= 5) {
+            return res.status(429).json({
+                message: "Too many incorrect attempts. Please request a new code."
+            });
+        }
+
+        if (new Date(record.expires_at) <= new Date()) {
+            await pool.query(
+                "DELETE FROM registration_email_otps WHERE id = ?",
+                [record.id]
+            );
+
+            return res.status(400).json({
+                message: "This code has expired. Please request a new one."
+            });
+        }
+
+        const isMatch = await bcrypt.compare(otp, record.otp_hash);
+
+        if (!isMatch) {
+            await pool.query(
+                `UPDATE registration_email_otps
+                 SET attempts = attempts + 1
+                 WHERE id = ?`,
+                [record.id]
+            );
+
+            return res.status(400).json({
+                message: "Incorrect verification code. Please check and try again."
+            });
+        }
+
+        await pool.query(
+            `UPDATE registration_email_otps
+             SET verified_at = NOW()
+             WHERE id = ?`,
+            [record.id]
+        );
+
+        return res.json({
+            message: "Email verified. You can continue registration."
+        });
+
+    } catch (error) {
+        console.error("verifyRegistrationOtp error:", error.message);
+
+        return res.status(500).json({
+            message: "Unable to verify the code right now. Please try again."
+        });
+    }
+};
+
+exports.register = async (req, res) => {
   try {
     const firstName = (req.body.firstName || '').trim();
     const lastName = (req.body.lastName || '').trim();
@@ -38,12 +222,24 @@ exports.register = async (req, res) => {
     const province = (req.body.province || '').trim();
     const zipCode = (req.body.zipCode || '').toString().trim().replace(/\D/g, '');
     const phoneNumber = (req.body.phoneNumber || '').trim();
-    const email = (req.body.email || '').trim().toLowerCase();
+    const googleSignup = req.session.googleSignup || null;
+
+    if (
+        googleSignup &&
+        (!googleSignup.googleSub || !googleSignup.email)
+    ) {
+        return res.status(401).send("Google verification session is invalid. Please verify your Google account again.");
+    }
+    
+    const email = googleSignup
+    ? googleSignup.email.trim().toLowerCase()
+    : (req.body.email || '').trim().toLowerCase();
+
     const password = req.body.password || '';
     const confirmPassword = req.body.confirmPassword || '';
     
 
-    if (!firstName || !lastName || !birthday || !streetAddress || !region || !barangay || !city || !province || !zipCode || !phoneNumber || !email || !password || !confirmPassword) {
+    if (!firstName || !lastName || !birthday || !region || !barangay || !city || !province || !zipCode || !phoneNumber || !email || !password || !confirmPassword) {
         return res.status(400).send('Please fill out all required fields.');
     }
 
@@ -146,9 +342,31 @@ exports.register = async (req, res) => {
 
     try {
       await connection.beginTransaction();
+
+      // Manual registration must have a verified, unexpired OTP.
+      if (!googleSignup) {
+        const [verifiedOtps] = await connection.execute(
+        `SELECT id
+        FROM registration_email_otps
+        WHERE email = ?
+            AND verified_at IS NOT NULL
+            AND expires_at > NOW()
+        ORDER BY verified_at DESC
+        LIMIT 1`,
+        [email]
+        );
+    
+        if (verifiedOtps.length === 0) {
+        await connection.rollback();
+        return res.status(403).send(
+            'Please verify your email with the code before registering.'
+        );
+        }
+      }
+
       const [accountResult] = await connection.execute(
-        'INSERT INTO accounts (email, password_hash, role, status, email_verified) VALUES (?, ?, ?, ?, ?)',
-        [email, passwordHash, 'adopter', 'active', 1]
+        'INSERT INTO accounts (email, password_hash, role, status, email_verified, google_sub) VALUES (?, ?, ?, ?, ?, ?)',
+        [email, passwordHash, 'adopter', 'active', 1, googleSignup ? googleSignup.googleSub : null]
       );
 
       await connection.execute(
@@ -162,7 +380,18 @@ exports.register = async (req, res) => {
           ]
       );
 
+      if (!googleSignup) {
+        await connection.execute(
+          'DELETE FROM registration_email_otps WHERE email = ?',
+          [email]
+        );
+      }
+      
       await connection.commit();
+
+      if (googleSignup) {
+        delete req.session.googleSignup;
+      }
 
       await logActivity(accountResult.insertId, "account_registered", "user", accountResult.insertId, `Adopter: ${firstName} ${lastName}`);
 
@@ -178,6 +407,7 @@ exports.register = async (req, res) => {
     return res.status(500).send('Unable to create account right now.');
   }
 };
+
 exports.login = async (req, res) => {
   try {
     const email = (req.body.email || '').trim().toLowerCase();
@@ -194,7 +424,7 @@ exports.login = async (req, res) => {
     }
 
     const [rows] = await pool.query(
-      'SELECT account_id, email, password_hash, status, role FROM accounts WHERE email = ? LIMIT 1',
+      'SELECT account_id, email, password_hash, status, role, last_login FROM accounts WHERE email = ? LIMIT 1',
       [email]
     );
     const genericAuthError = 'Invalid credentials. Please check your email and password.';
@@ -308,6 +538,9 @@ exports.login = async (req, res) => {
     // ✅ LOGIN SUCCESS
     // ==========================================
 
+    // Check before updating last_login
+    const isFirstLogin = !account.last_login;
+
     // 1. Update last_login
     await pool.query(
       `UPDATE accounts SET last_login = NOW() WHERE account_id = ?`,
@@ -325,6 +558,7 @@ exports.login = async (req, res) => {
     // 3. Set session data
     req.session.accountId = account.account_id;
     req.session.role = account.role;
+    req.session.isFirstLogin = isFirstLogin;
 
     // 4. ⭐ SAVE session ID to DB (Single Active Session)
     await pool.query(
@@ -408,34 +642,89 @@ exports.logout = (req, res) => {
         });
     });
 };
+
 exports.registerOrganization = async (req, res) => {
     try {
         // Sanitize and validate inputs on the server-side
-        const email = (req.body.email || '').trim().toLowerCase();
+        const googleSignup = req.session.googleSignup || null;
+
+        if (
+            googleSignup &&
+            (!googleSignup.googleSub || !googleSignup.email)
+        ) {
+            return res.status(401).send("Google verification session is invalid. Please verify your Google account again.");
+        }
+        
+        const email = googleSignup
+            ? googleSignup.email.trim().toLowerCase()
+            : (req.body.email || '').trim().toLowerCase();
+
         const password = req.body.password || '';
         const confirmPassword = req.body.confirmPassword || '';
         const organizationName = (req.body.organizationName || '').trim();
         const organizationType = (req.body.organizationType || '').trim();
         const contactPerson = (req.body.contactPerson || '').trim();
         const contactNumber = (req.body.contactNumber || '').trim();
-        const streetAddress = (req.body.streetAddress || req.body.address || '').trim();
+       const streetAddress = (req.body.streetAddress || '').trim();
         const region = (req.body.region || '').trim();
         const province = (req.body.province || '').trim();
         const city = (req.body.city || '').trim();
         const barangay = (req.body.barangay || '').trim();
-        const zipCode = (req.body.zipCode || '').toString().trim();
+        const zipCode = (req.body.zipCode || '').toString().trim().replace(/\D/g, '');
         const description = (req.body.description || '').trim();
 
         if (
             !email || !password || !confirmPassword || !organizationName || 
             !organizationType || !contactPerson || !contactNumber || 
-            !streetAddress || !region || !province || !city || !barangay || !zipCode
+            !region || !province || !city || !barangay || !zipCode
         ) {
             return res.status(400).send("Please complete all required fields.");
         }
+
+
         if (!zipRegex.test(zipCode)) {
             return res.status(400).send("Please enter a valid 4-digit Philippine ZIP code.");
         }
+
+        const selectedRegion = regions.find(
+            r => normalizeAddress(r.region_name) === normalizeAddress(region)
+        );
+        
+        if (!selectedRegion) {
+            return res.status(400).send("Please select a valid region.");
+        }
+        
+        const selectedProvince = provinces.find(
+            p =>
+                normalizeAddress(p.province_name) === normalizeAddress(province) &&
+                p.region_code === selectedRegion.region_code
+        );
+        
+        if (!selectedProvince) {
+            return res.status(400).send("Please select a valid province for the selected region.");
+        }
+        
+        const selectedCity = cities.find(
+            c =>
+                normalizeAddress(c.city_name) === normalizeAddress(city) &&
+                c.province_code === selectedProvince.province_code
+        );
+        
+        if (!selectedCity) {
+            return res.status(400).send("Please select a valid city or municipality for the selected province.");
+        }
+        
+        const selectedBarangay = barangays.find(
+            b =>
+                normalizeAddress(b.brgy_name) === normalizeAddress(barangay) &&
+                b.city_code === selectedCity.city_code &&
+                b.province_code === selectedProvince.province_code
+        );
+        
+        if (!selectedBarangay) {
+            return res.status(400).send("Please select a valid barangay for the selected city or municipality.");
+        }
+        
         if (!validator.isEmail(email)) {
             return res.status(400).send("Please enter a valid email address.");
         }
@@ -468,9 +757,31 @@ exports.registerOrganization = async (req, res) => {
         try {
             await connection.beginTransaction();
 
+            // Manual organization registration requires verified email OTP.
+            if (!googleSignup) {
+                const [verifiedOtps] = await connection.query(
+                    `SELECT id
+                    FROM registration_email_otps
+                    WHERE email = ?
+                    AND verified_at IS NOT NULL
+                    AND expires_at > NOW()
+                    ORDER BY verified_at DESC
+                    LIMIT 1`,
+                    [email]
+                );
+
+                if (verifiedOtps.length === 0) {
+                    await connection.rollback();
+
+                    return res.status(403).send(
+                        "Please verify your email with the code before registering."
+                    );
+                }
+            }
+
             const [accountResult] = await connection.query(
-                `INSERT INTO accounts (email, password_hash, role, status, email_verified) VALUES (?, ?, ?, ?, ?)`,
-                [email, passwordHash, "organization", "pending", 0]
+                `INSERT INTO accounts (email, password_hash, role, status, email_verified, google_sub) VALUES (?, ?, ?, ?, ?, ?)`,
+                [email, passwordHash, "organization", "pending", 1, googleSignup ? googleSignup.googleSub : null]
             );
 
             const accountId = accountResult.insertId;
@@ -495,7 +806,18 @@ exports.registerOrganization = async (req, res) => {
                 [organizationId, req.file.originalname, req.file.filename]
             );
 
+            if (!googleSignup) {
+                await connection.query(
+                    "DELETE FROM registration_email_otps WHERE email = ?",
+                    [email]
+                );
+            }
+            
             await connection.commit();
+
+            if (googleSignup) {
+                delete req.session.googleSignup;
+            }
 
             await logActivity(accountId, "account_registered", "user", accountId, `Organization: ${organizationName}`);
 
@@ -789,5 +1111,273 @@ exports.resetPassword = async (req, res) => {
         return res.status(500).send(
             "Unable to reset password right now."
         );
+    }
+};
+
+// GOOGLE SIGN-IN: VERIFY CREDENTIAL AND STAGE NEW REGISTRATION
+exports.googleSignIn = async (req, res) => {
+    try {
+        const credential = req.body?.credential;
+
+        if (!credential) {
+            return res.status(400).json({
+                success: false,
+                message: "Google credential is required."
+            });
+        }
+
+        const ticket = await googleClient.verifyIdToken({
+            idToken: credential,
+            audience: process.env.GOOGLE_CLIENT_ID
+        });
+
+        const payload = ticket.getPayload();
+
+        if (
+            !payload ||
+            !payload.sub ||
+            !payload.email ||
+            payload.email_verified !== true
+        ) {
+            return res.status(401).json({
+                success: false,
+                message: "Google account verification failed."
+            });
+        }
+
+        const email = payload.email.trim().toLowerCase();
+
+        // Check if this Google account is already linked
+        const [googleAccounts] = await pool.query(
+            `SELECT account_id
+             FROM accounts
+             WHERE google_sub = ?
+             LIMIT 1`,
+            [payload.sub]
+        );
+
+        if (googleAccounts.length > 0) {
+            return res.status(409).json({
+                success: false,
+                message: "This Google account is already registered. Account sign-in will be handled in the next step."
+            });
+        }
+
+        // Prevent creating a second account with an existing email
+        const [existingAccounts] = await pool.query(
+            `SELECT account_id
+             FROM accounts
+             WHERE email = ?
+             LIMIT 1`,
+            [email]
+        );
+
+        if (existingAccounts.length > 0) {
+            return res.status(409).json({
+                success: false,
+                message: "An account with this email already exists. Please sign in using your existing account."
+            });
+        }
+
+        // Keep verified Google details temporarily for the registration flow
+        req.session.googleSignup = {
+            googleSub: payload.sub,
+            email,
+            firstName: payload.given_name || "",
+            lastName: payload.family_name || ""
+        };
+
+        return res.status(200).json({
+            success: true,
+            next: "choose_role",
+            email,
+            firstName: payload.given_name || "",
+            lastName: payload.family_name || ""
+        });
+
+    } catch (error) {
+        console.error("Google sign-in verification error:", error);
+
+        return res.status(401).json({
+            success: false,
+            message: "Unable to verify your Google account. Please try again."
+        });
+    }
+};
+
+// GOOGLE LOGIN: VERIFY GOOGLE ACCOUNT AND SIGN IN EXISTING USER
+exports.googleLogin = async (req, res) => {
+    try {
+        const credential = req.body?.credential;
+
+        if (!credential) {
+            return res.status(400).json({
+                success: false,
+                message: "Google credential is required."
+            });
+        }
+
+        const ticket = await googleClient.verifyIdToken({
+            idToken: credential,
+            audience: process.env.GOOGLE_CLIENT_ID
+        });
+
+        const payload = ticket.getPayload();
+
+        if (
+            !payload ||
+            !payload.sub ||
+            !payload.email ||
+            payload.email_verified !== true
+        ) {
+            return res.status(401).json({
+                success: false,
+                message: "Google account verification failed."
+            });
+        }
+
+        // First, find an account already linked to this Google identity.
+        let [rows] = await pool.query(
+            `SELECT account_id, email, role, status, google_sub, last_login
+            FROM accounts
+            WHERE google_sub = ?
+            LIMIT 1`,
+            [payload.sub]
+        );
+
+        // If not linked yet, check whether the verified Google email
+        // belongs to an existing PAWSsion account.
+        if (rows.length === 0) {
+            const [emailRows] = await pool.query(
+                `SELECT account_id, email, role, status, google_sub
+                FROM accounts
+                WHERE LOWER(email) = LOWER(?)
+                LIMIT 1`,
+                [payload.email]
+            );
+
+            if (emailRows.length === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: "No PAWSsion account is linked to this Google account. Please register first."
+                });
+            }
+
+            const existingAccount = emailRows[0];
+
+            // Do not replace a Google identity already linked to another account.
+            if (existingAccount.google_sub) {
+                return res.status(409).json({
+                    success: false,
+                    message: "This PAWSsion account is already linked to a different Google account."
+                });
+            }
+
+            // Link only if the account is still unlinked.
+            const [updateResult] = await pool.query(
+                `UPDATE accounts
+                SET google_sub = ?
+                WHERE account_id = ?
+                AND google_sub IS NULL`,
+                [payload.sub, existingAccount.account_id]
+            );
+
+            if (updateResult.affectedRows !== 1) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Unable to link this Google account. Please try again."
+                });
+            }
+
+            rows = [existingAccount];
+        }
+
+        const account = rows[0];
+
+        if (account.status === "disabled") {
+            return res.status(403).json({ success: false, message: "This account has been disabled." });
+        }
+        if (account.status === "suspended") {
+            return res.status(403).json({ success: false, message: "This account has been suspended." });
+        }
+        if (account.status === "banned") {
+            return res.status(403).json({ success: false, message: "This account has been permanently banned." });
+        }
+        if (account.status === "rejected") {
+            return res.status(403).json({ success: false, message: "Your account has been rejected." });
+        }
+
+        // Regenerate session ID before signing in.
+        await new Promise((resolve, reject) => {
+            req.session.regenerate((err) => {
+                if (err) return reject(err);
+                resolve();
+            });
+        });
+
+        req.session.accountId = account.account_id;
+        req.session.role = account.role;
+        req.session.isFirstLogin = !account.last_login;
+
+        let redirectUrl = "";
+
+        if (account.role === "admin") {
+            redirectUrl = "/admin/dashboard";
+        } else if (account.role === "adopter") {
+            const [adopterRows] = await pool.query(
+                "SELECT first_name, last_name FROM adopters WHERE account_id = ? LIMIT 1",
+                [account.account_id]
+            );
+
+            req.session.displayName = adopterRows.length
+                ? `${adopterRows[0].first_name} ${adopterRows[0].last_name}`.trim()
+                : account.email;
+
+            redirectUrl = "/dashboard";
+        } else if (account.role === "organization") {
+            const [orgRows] = await pool.query(
+                "SELECT organization_name FROM organizations WHERE account_id = ? LIMIT 1",
+                [account.account_id]
+            );
+
+            req.session.displayName = orgRows.length
+                ? orgRows[0].organization_name
+                : account.email;
+
+            redirectUrl = account.status === "pending"
+                ? "/org/pending"
+                : "/org/dashboard";
+        } else {
+            return res.status(403).json({
+                success: false,
+                message: "Unknown account role."
+            });
+        }
+
+        await pool.query(
+            "UPDATE accounts SET last_login = NOW(), current_session_id = ? WHERE account_id = ?",
+            [req.sessionID, account.account_id]
+        );
+
+        await logActivity(
+            account.account_id,
+            "login_success",
+            "auth",
+            account.account_id,
+            "Google login"
+        );
+
+        return res.status(200).json({
+            success: true,
+            redirectUrl
+        });
+
+    } catch (error) {
+        console.error("Google login error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to sign in with Google right now. Please try again."
+        });
     }
 };

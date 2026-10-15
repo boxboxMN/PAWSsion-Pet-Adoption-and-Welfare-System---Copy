@@ -6,8 +6,7 @@
     <link rel="icon" type="image/png" href="../assets/images/Pawpon_logo.png">
     <title>PAWPON – Create Account </title>
     <link rel="stylesheet" href="/assets/css/create_account.css">
- <!-- Local Font Awesome -->
-<link rel="stylesheet" href="/css/fontawesome/all.min.css">
+    <link rel="stylesheet" href="/css/fontawesome/all.min.css">
 </head>
 
 <body>
@@ -29,6 +28,7 @@
 <div class="left">
     <div class="form-box">
         <form id="createAccountForm">
+            <input type="hidden" name="csrfToken" value="">
             <h1>Create an Account</h1>
             <p class="subtitle">Sign up as an Adopter or Donor to get started.</p>
             <div class="line"></div>
@@ -105,18 +105,7 @@
 
             <!-- STEP 2: HOME ADDRESS -->
             <div class="form-step" id="step2">
-                <div class="full">
-                    <label>Street Address <span class="required">*</span></label>
-                    <input id="streetAddress"
-                        name="streetAddress"
-                        type="text"
-                        placeholder="e.g., 255 Villanueva Street (House No. / Street)"
-                        maxlength="50"
-                        required>
-                    <div id="streetAddressHelper" class="input-helper-text"></div>
-                </div>
-                
-                <div class="row">
+                 <div class="row">
                     <div class="field">
                         <label>Region <span class="required">*</span></label>
                         <select id="region" name="region" required>
@@ -145,14 +134,21 @@
                         </select>
                     </div>
                 </div>
-            
+                
+                <div class="full">
+                    <label>Street Address (Optional)</label>
+                    <input id="streetAddress" name="streetAddress" type="text" placeholder="e.g., 255 Villanueva Street (House No. / Street)" maxlength="50" disabled>
+                    <div id="addressSuggestions" class="address-suggestions" hidden></div>
+                    <div id="streetAddressHelper" class="input-helper-text"></div>
+                </div>
+
                 <div class="full">
                     <label>Zip Code <span class="required">*</span>
-                        <a href="https://www.google.com/search?q=zip+code+philippines" target="_blank" class="zip-help-link">
+                        <a href="https://phlpost.gov.ph/zip-code-locator/" target="_blank" rel="noopener noreferrer" class="zip-help-link">
                             (Find my Zip Code?)
                         </a>
                     </label>
-                    <input id="zipCode" name="zipCode" type="text" placeholder="e.g. 4434" maxlength="4" required>
+                    <input id="zipCode" name="zipCode" type="text" placeholder="e.g. 4434" maxlength="4" required disabled readonly>
                     <div id="zipHelper" class="input-helper-text"></div>
                 </div>
 
@@ -181,12 +177,54 @@
                 </div>
 
                 <div class="full">
+                    <label>Verify your email with Google</label>
+                    <div id="adopterGoogleSignInButton"></div>
+                    <div id="googleEmailHelper" class="input-helper-text"></div>
                     <label>Email Address <span class="required">*</span></label>
-                    <div class="input-box">
-                        <i class="fa-regular fa-envelope icon"></i>
-                        <input id="email" name="email" type="email" placeholder="Enter Email" required>
+                    <div class="email-input-row">
+                        <div class="input-box">
+                            <i class="fa-regular fa-envelope icon"></i>
+                            <input id="email" name="email" type="email" placeholder="Enter Email" required>
+                        </div>
+                        <button type="button" id="changeEmailButton" class="change-email-btn" hidden> Change Email </button>
                     </div>
+
                     <div id="emailHelper" class="input-helper-text"></div>
+
+                    <!-- Manual email OTP verification -->
+                    <div id="manualOtpSection" class="full" hidden>
+                        <button type="button" id="openOtpModalButton" class="verify-email-btn">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            Verify Email
+                        </button>
+                    
+                        <div id="emailOtpStatus" class="input-helper-text" aria-live="polite" role="status"></div>
+                    </div>
+
+                    <!-- OTP Verification Modal -->
+                    <div id="otpModal" class="otp-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="otpModalTitle" hidden>
+                        <div class="otp-popup">
+                            <button type="button" id="closeOtpModal" class="otp-popup-close" aria-label="Close verification window">
+                                &times;
+                            </button>
+
+                            <h2 id="otpModalTitle" class="otp-popup-title">Verify Your Email</h2>
+                            <div class="otp-popup-divider"></div>
+                            <p class="otp-popup-desc">Enter the 6-digit verification code sent to your email address.</p>
+                            
+                            <button type="button" id="sendOtpButton" class="otp-btn otp-btn-outline">Send Code</button>
+
+                            <div id="otpInputSection" hidden>
+                                <label for="emailOtp" class="otp-popup-label">Email Verification Code</label>
+                                <input id="emailOtp" name="emailOtp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Enter 6-digit code" class="otp-popup-input">
+
+                                <button type="button" id="verifyOtpButton" class="otp-btn otp-btn-primary" disabled>Verify Code</button>
+
+                                <button type="button" id="resendOtpButton" class="otp-btn otp-btn-outline" hidden disabled> Resend Code </button>
+                            </div>
+                            <div id="otpHelper" class="input-helper-text otp-popup-helper" aria-live="polite" role="status"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="full">
@@ -233,32 +271,32 @@
                 </div>
 
                 <div class="checkbox">
-    <input type="checkbox" id="termsAgreement" required>
-    <div>
-        I agree to the 
-        <a href="#" id="termsLink">Terms of Service</a> and 
-        <a href="#" id="privacyLink">Privacy Policy</a>
-    </div>
-</div>
+                    <input type="checkbox" id="termsAgreement" required>
+                    <div>
+                        I agree to the 
+                        <a href="#" id="termsLink">Terms of Service</a> and 
+                        <a href="#" id="privacyLink">Privacy Policy</a>
+                    </div>
+                </div>
 
-<!-- Legal Modal -->
-<div class="legal-modal" id="legalModal">
-    <div class="legal-modal-content">
+                <!-- Legal Modal -->
+                <div class="legal-modal" id="legalModal">
+                    <div class="legal-modal-content">
 
-        <button type="button" class="legal-modal-close" id="closeLegalModal">
-            &times;
-        </button>
+                        <button type="button" class="legal-modal-close" id="closeLegalModal">
+                            &times;
+                        </button>
 
-        <div class="legal-modal-header">
-            <h2 id="legalModalTitle">Terms of Service</h2>
-        </div>
+                        <div class="legal-modal-header">
+                            <h2 id="legalModalTitle">Terms of Service</h2>
+                        </div>
 
-        <div class="legal-modal-body" id="legalModalBody">
-            <!-- Content will be inserted by JavaScript -->
-        </div>
+                        <div class="legal-modal-body" id="legalModalBody">
+                            <!-- Content will be inserted by JavaScript -->
+                        </div>
 
-    </div>
-</div>
+                    </div>
+                </div>
 
                 <div class="btn-group">
                     <button type="button" class="btn-prev" id="prevToStep2">Back</button>
@@ -283,6 +321,7 @@
         and help give animals a loving home.
     </p>
 </div>
-    <script src="create_account.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="create_account.js"></script>
 </body>
 </html>

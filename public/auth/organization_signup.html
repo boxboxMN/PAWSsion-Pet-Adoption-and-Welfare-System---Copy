@@ -38,21 +38,131 @@
         </div>
 
         <form id="organizationSignupForm" enctype="multipart/form-data">
-
+            <input type="hidden" name="csrfToken" value="">
             <div class="form-step active" id="step1">
 
                 <div class="field">
+                    <label>Register with Google</label>
+                    <div id="orgGoogleSignInButton"></div>
+                    
                     <label>Email Address <span class="required">*</span></label>
-                    <div class="input-box">
-                        <i class="fa-regular fa-envelope icon"></i>
-                        <input
-                            type="email"
-                            id="email"
-                            name="email"
-                            placeholder="Enter your email"
-                            required>
+                    <div class="email-input-row">
+                        <div class="input-box">
+                            <i class="fa-regular fa-envelope icon"></i>
+                            <input
+                                type="email"
+                                id="email"
+                                name="email"
+                                placeholder="Enter your email"
+                                required>
+                        </div>
+
+                        <button
+                            type="button"
+                            id="changeEmailButton"
+                            class="change-email-btn"
+                            hidden>
+                            Change Email
+                        </button>
                     </div>
                     <div id="emailHelper" class="input-helper-text"></div>
+
+                    <!-- Manual email OTP verification -->
+                    <div id="manualOtpSection" class="full" hidden>
+                        <button
+                            type="button"
+                            id="openOtpModalButton"
+                            class="verify-email-btn">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            Verify Email
+                        </button>
+
+                        <div
+                            id="emailOtpStatus"
+                            class="input-helper-text"
+                            aria-live="polite"
+                            role="status">
+                        </div>
+                    </div>
+
+                    <!-- OTP Verification Modal -->
+                    <div
+                        id="otpModal"
+                        class="otp-modal-overlay"
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="otpModalTitle"
+                        hidden>
+
+                        <div class="otp-popup">
+
+                            <button
+                                type="button"
+                                id="closeOtpModal"
+                                class="otp-popup-close"
+                                aria-label="Close verification window">
+                                &times;
+                            </button>
+
+                            <h2 id="otpModalTitle" class="otp-popup-title">
+                                Verify Your Email
+                            </h2>
+
+                            <div class="otp-popup-divider"></div>
+
+                            <p class="otp-popup-desc">
+                                Enter the 6-digit verification code sent to your email address.
+                            </p>
+
+                            <button
+                                type="button"
+                                id="sendOtpButton"
+                                class="otp-btn otp-btn-outline">
+                                Send Code
+                            </button>
+
+                            <div id="otpInputSection" hidden>
+
+                                <label
+                                    for="emailOtp"
+                                    class="otp-popup-label">
+                                    Email Verification Code
+                                </label>
+
+                                <input
+                                    id="emailOtp"
+                                    name="emailOtp"
+                                    type="text"
+                                    inputmode="numeric"
+                                    autocomplete="one-time-code"
+                                    maxlength="6"
+                                    placeholder="Enter 6-digit code"
+                                    class="otp-popup-input">
+
+                                <button
+                                    type="button"
+                                    id="verifyOtpButton"
+                                    class="otp-btn otp-btn-primary"
+                                    disabled>
+                                    Verify Code
+                                </button>
+                                <button
+                                    type="button"
+                                    id="resendOtpButton"
+                                    class="otp-btn otp-btn-outline"
+                                    hidden
+                                    disabled>
+                                    Resend Code
+                                </button>
+                            </div>
+                            <div
+                                id="otpHelper"
+                                class="input-helper-text otp-popup-helper"
+                                aria-live="polite"
+                                role="status">
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="field">
@@ -148,8 +258,10 @@
                     </div>
 
                     <div class="field full-width">
-                        <label>Street Address / House No. & Street <span class="required">*</span></label>
-                        <input type="text" id="streetAddress" name="streetAddress" placeholder="Unit / House No., Street, Subdivision" maxlength="50"required>
+                        <label>Street Address / House No. & Street  (Optional)</label>
+                        <input type="text" id="streetAddress" name="streetAddress" placeholder="Unit / House No., Street, Subdivision" maxlength="150" disabled>
+                        <div id="streetAddressHelper" class="input-helper-text"></div>
+                        <div id="addressSuggestions" class="address-suggestions" hidden></div>
                     </div>
 
                     <div class="field">
@@ -186,7 +298,7 @@
                             (Find my Zip Code?)
                         </a>
                     </label>
-                    <input type="text" id="zipCode" name="zipCode" placeholder="e.g. 4434" maxlength="4" required>
+                    <input type="text" id="zipCode" name="zipCode" placeholder="e.g. 4434" maxlength="4" required disabled> 
                     <div id="zipHelper" class="input-helper-text"></div>
                 </div>
 
@@ -258,6 +370,7 @@
         <button type="button" id="customAlertBtn" class="custom-alert-btn">OK</button>
     </div>
 </div>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="organization_signup.js"></script>   
 </body>
 </html>
