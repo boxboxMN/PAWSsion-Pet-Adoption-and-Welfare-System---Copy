@@ -1,6 +1,7 @@
 // <!-- ===== ADOPTION HUB SCRIPT ===== -->
 let petsData = [];
 let filteredPets = [];
+const favoritePetIds = new Set();
 
 // =====================================================
 // SECURITY: HTML ESCAPING
@@ -28,8 +29,9 @@ async function loadPets() {
             return;
         }
 
-       petsData = data.pets.map(pet => ({
+       petsData = data.pets.map((pet, originalIndex) => ({
         animal_id: pet.animal_id,
+        originalIndex,
         name: pet.name,
         species: pet.species,
         gender: pet.gender,
@@ -129,19 +131,34 @@ grid.innerHTML = pets.map(pet => `
         <!-- Gradient Overlay -->
         <div class="absolute inset-0 bg-gradient-to-t from-slate-900/60 via-transparent to-transparent opacity-80"></div>
 
-        <!-- Species -->
-        <span class="absolute top-3 left-3 px-3 py-1 rounded-xl text-white text-xs font-bold shadow-md ${
-            pet.species.toLowerCase() === "dog"
-                ? "bg-blue-600"
-                : "bg-orange-500"
-        }">
-            ${pet.species.toUpperCase()}
-        </span>
+        <div class="absolute top-3 left-3 right-3 flex items-start justify-between gap-2">
+            <div class="flex flex-wrap items-center gap-2">
+                <!-- Species -->
+                <span class="px-3 py-1 rounded-xl text-white text-xs font-bold shadow-md ${
+                    pet.species.toLowerCase() === "dog"
+                        ? "bg-blue-600"
+                        : "bg-orange-500"
+                }">
+                    ${escapeHTML(pet.species).toUpperCase()}
+                </span>
 
-        <!-- Status -->
-        <span class="absolute top-3 right-3 px-3 py-1 rounded-xl bg-green-600 text-white text-xs font-bold shadow-md">
-            ${escapeHTML(pet.status).toUpperCase()}
-        </span>
+                <!-- Status -->
+                <span class="px-3 py-1 rounded-xl bg-green-600 text-white text-xs font-bold shadow-md">
+                    ${escapeHTML(pet.status).toUpperCase()}
+                </span>
+            </div>
+
+            <button
+                type="button"
+                class="favorite-btn inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/90 text-slate-500 shadow-md transition hover:scale-110 hover:text-rose-600"
+                data-id="${pet.animal_id}"
+                aria-label="${favoritePetIds.has(String(pet.animal_id)) ? "Remove from favorites" : "Add to favorites"}: ${escapeHTML(pet.name)}"
+                aria-pressed="${favoritePetIds.has(String(pet.animal_id))}"
+                title="${favoritePetIds.has(String(pet.animal_id)) ? "Remove from favorites" : "Add to favorites"}"
+            >
+                <i class="${favoritePetIds.has(String(pet.animal_id)) ? "fa-solid" : "fa-regular"} fa-heart text-lg ${favoritePetIds.has(String(pet.animal_id)) ? "text-rose-600" : ""}"></i>
+            </button>
+        </div>
 
         <!-- Name Banner -->
         <div class="absolute bottom-3 left-4 right-4">
@@ -243,12 +260,20 @@ function filterPets() {
         return matchesSearch && matchesType && matchesOrg;
     });
 
-     // I-apply ang sorting pagkatapos mag-filter
-     if (sortOption === "name-asc") {
-        filteredPets.sort((a, b) => a.name.localeCompare(b.name));
-    } else if (sortOption === "name-desc") {
-        filteredPets.sort((a, b) => b.name.localeCompare(a.name));
-    }
+    filteredPets.sort((a, b) => {
+        const favoriteOrder =
+            Number(favoritePetIds.has(String(b.animal_id))) -
+            Number(favoritePetIds.has(String(a.animal_id)));
+        if (favoriteOrder !== 0) return favoriteOrder;
+
+        if (sortOption === "name-asc") {
+            return a.name.localeCompare(b.name);
+        }
+        if (sortOption === "name-desc") {
+            return b.name.localeCompare(a.name);
+        }
+        return a.originalIndex - b.originalIndex;
+    });
 
     renderGrid(filteredPets);
 }
@@ -266,6 +291,18 @@ document.getElementById("sort-filter")
     .addEventListener("change", filterPets);
 
 document.addEventListener("click", e => {
+
+    const favoriteBtn = e.target.closest(".favorite-btn");
+    if (favoriteBtn) {
+        const petId = String(favoriteBtn.dataset.id);
+        if (favoritePetIds.has(petId)) {
+            favoritePetIds.delete(petId);
+        } else {
+            favoritePetIds.add(petId);
+        }
+        filterPets();
+        return;
+    }
 
     const btn = e.target.closest(".view-btn");
 
