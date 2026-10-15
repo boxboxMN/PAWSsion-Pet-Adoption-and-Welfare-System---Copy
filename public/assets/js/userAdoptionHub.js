@@ -59,6 +59,16 @@ async function loadPets() {
 
     }));
 
+    const favoritesResponse = await fetch("/api/user/favorites", {
+        credentials: "include"
+    });
+    const favoritesData = await favoritesResponse.json();
+    if (!favoritesResponse.ok || !favoritesData.success || !Array.isArray(favoritesData.favoritePetIds)) {
+        throw new Error(favoritesData.message || "Unable to load saved favorites.");
+    }
+    favoritePetIds.clear();
+    favoritesData.favoritePetIds.forEach(id => favoritePetIds.add(String(id)));
+
     filteredPets = [...petsData];
 
     populateOrgFilter();
@@ -66,7 +76,7 @@ async function loadPets() {
 
     } catch (err) {
 
-        console.error(err);
+        alert(err.message || "Unable to load pets and saved favorites.");
 
     }
 }
@@ -294,13 +304,7 @@ document.addEventListener("click", e => {
 
     const favoriteBtn = e.target.closest(".favorite-btn");
     if (favoriteBtn) {
-        const petId = String(favoriteBtn.dataset.id);
-        if (favoritePetIds.has(petId)) {
-            favoritePetIds.delete(petId);
-        } else {
-            favoritePetIds.add(petId);
-        }
-        filterPets();
+        togglePetFavorite(favoriteBtn);
         return;
     }
 
@@ -319,6 +323,50 @@ document.addEventListener("click", e => {
     }
 
 });
+
+async function togglePetFavorite(button) {
+    const petId = String(button.dataset.id);
+    const removing = favoritePetIds.has(petId);
+    button.disabled = true;
+
+    try {
+        const tokenResponse = await fetch("/auth/csrf-token", {
+            credentials: "include"
+        });
+        const tokenData = await tokenResponse.json();
+        if (!tokenResponse.ok || !tokenData.token) {
+            throw new Error(tokenData.message || "Unable to verify this request. Please try again.");
+        }
+
+        const response = await fetch(
+            removing ? `/api/user/favorites/${encodeURIComponent(petId)}` : "/api/user/favorites",
+            {
+                method: removing ? "DELETE" : "POST",
+                credentials: "include",
+                headers: {
+                    "X-CSRF-Token": tokenData.token,
+                    ...(removing ? {} : { "Content-Type": "application/json" })
+                },
+                body: removing ? undefined : JSON.stringify({ animal_id: petId })
+            }
+        );
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Unable to update this favorite.");
+        }
+
+        if (removing) {
+            favoritePetIds.delete(petId);
+        } else {
+            favoritePetIds.add(petId);
+        }
+        filterPets();
+    } catch (err) {
+        console.error("Save pet favorite error:", err);
+        alert(err.message || "Unable to update this favorite. Please try again.");
+        button.disabled = false;
+    }
+}
 
 
 async function checkPetApplicationStatus(petId) {

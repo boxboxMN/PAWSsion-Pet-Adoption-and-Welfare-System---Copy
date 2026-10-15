@@ -7,6 +7,7 @@ const router = express.Router();
 const userController = require("../controllers/userController");
 const matchmakerController = require("../controllers/matchmakerController");
 const { matchPets } = require("../controllers/matchmakerController");
+const { csrfSynchronisedProtection } = require("../middleware/csrf");
 const pool = require('../config/database');
 const {uploadAdoptionDocument,  uploadAvatar} = require("../config/upload");
 const storage = multer.diskStorage({
@@ -163,6 +164,9 @@ function checkUserSession(req, res, next) {
 }
 router.get("/api/pets", checkUserSession, userController.getAvailablePets);
 router.get("/api/pets/:id", checkUserSession, userController.getPetById);
+router.get("/api/user/favorites", checkUserSession, userController.getPetFavorites);
+router.post("/api/user/favorites", checkUserSession, csrfSynchronisedProtection, userController.addPetFavorite);
+router.delete("/api/user/favorites/:animalId", checkUserSession, csrfSynchronisedProtection, userController.removePetFavorite);
 router.post("/api/matchmaking/repair",checkUserSession,matchmakerController.repairBehavior);
 router.post( "/api/matchmaking", checkUserSession, matchmakerController.matchPets);
 router.get("/dashboard", checkUserSession, (req, res) => {

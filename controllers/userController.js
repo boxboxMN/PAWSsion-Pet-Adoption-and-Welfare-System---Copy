@@ -631,7 +631,86 @@ exports.getAvailablePets = async (req, res) => {
         });
 
     }
-};exports.getOrganizations = async (req, res) => {
+};
+
+exports.getPetFavorites = async (req, res) => {
+    const accountId = req.session?.accountId;
+    if (!accountId) {
+        return res.status(401).json({ success: false, message: "Unauthorized access." });
+    }
+
+    try {
+        const [favorites] = await pool.query(
+            "SELECT animal_id FROM pet_favorites WHERE account_id = ? ORDER BY created_at DESC",
+            [accountId]
+        );
+        res.json({
+            success: true,
+            favoritePetIds: favorites.map(favorite => favorite.animal_id)
+        });
+    } catch (err) {
+        console.error("Get Pet Favorites Error:", err);
+        res.status(500).json({ success: false, message: "Failed to load saved favorites." });
+    }
+};
+
+exports.addPetFavorite = async (req, res) => {
+    const accountId = req.session?.accountId;
+    if (!accountId) {
+        return res.status(401).json({ success: false, message: "Unauthorized access." });
+    }
+
+    const animalId = Number(req.body?.animal_id);
+    if (!Number.isSafeInteger(animalId) || animalId <= 0) {
+        return res.status(400).json({ success: false, message: "A valid pet ID is required." });
+    }
+
+    try {
+        const [pets] = await pool.query(
+            `SELECT animal_id
+             FROM animals
+             WHERE animal_id = ? AND adoption_status = 'Available' AND deleted_at IS NULL`,
+            [animalId]
+        );
+        if (pets.length === 0) {
+            return res.status(404).json({ success: false, message: "This pet is no longer available." });
+        }
+
+        await pool.query(
+            "INSERT IGNORE INTO pet_favorites (account_id, animal_id) VALUES (?, ?)",
+            [accountId, animalId]
+        );
+        res.status(200).json({ success: true, animal_id: animalId });
+    } catch (err) {
+        console.error("Add Pet Favorite Error:", err);
+        res.status(500).json({ success: false, message: "Failed to save this favorite." });
+    }
+};
+
+exports.removePetFavorite = async (req, res) => {
+    const accountId = req.session?.accountId;
+    if (!accountId) {
+        return res.status(401).json({ success: false, message: "Unauthorized access." });
+    }
+
+    const animalId = Number(req.params.animalId);
+    if (!Number.isSafeInteger(animalId) || animalId <= 0) {
+        return res.status(400).json({ success: false, message: "A valid pet ID is required." });
+    }
+
+    try {
+        await pool.query(
+            "DELETE FROM pet_favorites WHERE account_id = ? AND animal_id = ?",
+            [accountId, animalId]
+        );
+        res.json({ success: true, animal_id: animalId });
+    } catch (err) {
+        console.error("Remove Pet Favorite Error:", err);
+        res.status(500).json({ success: false, message: "Failed to remove this favorite." });
+    }
+};
+
+exports.getOrganizations = async (req, res) => {
     try {
         const [organizations] = await pool.query(`
             SELECT
