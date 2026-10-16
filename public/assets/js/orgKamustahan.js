@@ -3,92 +3,130 @@ let currentTab = 'active';
 let currentSortOrder = 'desc'; 
 let currentView = 'table';
 let currentDate = new Date();
+
+function toLocalDateKey(dateInput) {
+    if (!dateInput) return '';
+
+    if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+        return dateInput;
+    }
+
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) {
+        return String(dateInput).slice(0, 10);
+    }
+
+    const y   = d.getFullYear();
+    const m   = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+/**
+ * Returns today's LOCAL date as YYYY-MM-DD.
+ */
+function getTodayLocalKey() {
+    return toLocalDateKey(new Date());
+}
+
+/**
+ * Formats a date to "Month DD, YYYY" using local timezone.
+ */
+function formatReadableDate(dateInput) {
+    if (!dateInput) return 'N/A';
+
+    let d;
+    if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
+        const [y, m, day] = dateInput.split('-').map(Number);
+        d = new Date(y, m - 1, day);
+    } else {
+        d = new Date(dateInput);
+    }
+
+    if (isNaN(d.getTime())) return String(dateInput);
+
+    return d.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+}
+
 // ==========================================
-// CUSTOM MODAL HELPERS
+// HTML ESCAPE — proteksyon sa XSS
+// ==========================================
+function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+// ==========================================
+// CONFIRM MODAL
 // ==========================================
 function showModal({
-    title = "Notice",
+    title = "Are you sure?",
     message = "",
-    type = "info",
-    okText = "OK",
-    showCancel = false,
+    type = "warning",
+    okText = "Confirm",
     cancelText = "Cancel",
     onOk = null,
     onCancel = null
 } = {}) {
-    const modalId = showCancel ? 'customConfirmModal' : 'customAlertModal';
-    const boxId   = showCancel ? 'customConfirmBox'   : 'customAlertBox';
-    const modal = document.getElementById(modalId);
-    const box   = document.getElementById(boxId);
+    const modal = document.getElementById('customConfirmModal');
+    const box   = document.getElementById('customConfirmBox');
 
     if (!modal || !box) {
-        if (showCancel) {
-            if (confirm(message)) onOk && onOk();
-            else onCancel && onCancel();
-        } else {
-            alert(message);
-            onOk && onOk();
-        }
+        if (confirm(message)) onOk && onOk();
+        else onCancel && onCancel();
         return;
     }
 
+    // Apply theme based on type
     const themes = {
-        info:    { wrap: 'bg-blue-50 text-blue-600',       icon: 'fa-circle-info' },
-        success: { wrap: 'bg-emerald-50 text-emerald-600', icon: 'fa-circle-check' },
-        error:   { wrap: 'bg-rose-50 text-rose-600',       icon: 'fa-circle-exclamation' },
-        warning: { wrap: 'bg-amber-50 text-amber-600',     icon: 'fa-triangle-exclamation' }
+        warning: { bg: '#fffbeb', color: '#d97706', icon: 'fa-triangle-exclamation' },
+        error:   { bg: '#fff1f2', color: '#e11d48', icon: 'fa-circle-exclamation' },
+        info:    { bg: '#eff6ff', color: '#2563eb', icon: 'fa-circle-info' },
+        success: { bg: '#ecfdf5', color: '#059669', icon: 'fa-circle-check' }
     };
-    const theme = themes[type] || themes.info;
+    const theme = themes[type] || themes.warning;
 
-    if (!showCancel) {
-        const iconWrap = document.getElementById('customAlertIconWrap');
-        const icon     = document.getElementById('customAlertIcon');
-        document.getElementById('customAlertTitle').textContent   = title;
-        document.getElementById('customAlertMessage').textContent = message;
-        document.getElementById('customAlertOkBtn').textContent   = okText;
-        iconWrap.className = `w-16 h-16 rounded-2xl flex items-center justify-center mb-4 text-2xl shadow-inner ${theme.wrap}`;
-        icon.className = `fas ${theme.icon}`;
-
-        document.getElementById('customAlertOkBtn').onclick = () => {
-            closeModal(modal, box);
-            onOk && onOk();
-        };
-    } else {
-        document.getElementById('customConfirmTitle').textContent   = title;
-        document.getElementById('customConfirmMessage').textContent = message;
-        document.getElementById('customConfirmOkBtn').textContent   = okText;
-        document.getElementById('customConfirmCancelBtn').textContent = cancelText;
-
-        document.getElementById('customConfirmOkBtn').onclick = () => {
-            closeModal(modal, box);
-            onOk && onOk();
-        };
-        document.getElementById('customConfirmCancelBtn').onclick = () => {
-            closeModal(modal, box);
-            onCancel && onCancel();
-        };
+    const iconWrap = box.querySelector('.custom-modal-icon');
+    if (iconWrap) {
+        iconWrap.style.background = theme.bg;
+        iconWrap.style.color = theme.color;
+        const iconEl = iconWrap.querySelector('i');
+        if (iconEl) iconEl.className = `fas ${theme.icon}`;
     }
 
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
+    document.getElementById('customConfirmTitle').textContent    = title;
+    document.getElementById('customConfirmMessage').textContent  = message;
+    document.getElementById('customConfirmOkBtn').textContent    = okText;
+    document.getElementById('customConfirmCancelBtn').textContent = cancelText;
+
+    document.getElementById('customConfirmOkBtn').onclick = () => {
+        closeModal(modal, box);
+        onOk && onOk();
+    };
+    document.getElementById('customConfirmCancelBtn').onclick = () => {
+        closeModal(modal, box);
+        onCancel && onCancel();
+    };
+
+    modal.classList.add('is-open');
     requestAnimationFrame(() => {
-        box.classList.remove('scale-95', 'opacity-0');
-        box.classList.add('scale-100', 'opacity-100');
+        box.classList.add('is-visible');
     });
 }
 
 function closeModal(modal, box) {
-    box.classList.add('scale-95', 'opacity-0');
-    box.classList.remove('scale-100', 'opacity-100');
+    box.classList.remove('is-visible');
     setTimeout(() => {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
+        modal.classList.remove('is-open');
     }, 180);
-}
-
-function showAlert(message, type = 'info', title = null) {
-    const titles = { info: 'Notice', success: 'Success', error: 'Error', warning: 'Warning' };
-    showModal({ title: title || titles[type] || 'Notice', message, type });
 }
 
 function showConfirm(message, onOk, onCancel = null, opts = {}) {
@@ -98,9 +136,58 @@ function showConfirm(message, onOk, onCancel = null, opts = {}) {
         type: opts.type || 'warning',
         okText: opts.okText || 'Confirm',
         cancelText: opts.cancelText || 'Cancel',
-        showCancel: true,
         onOk, onCancel
     });
+}
+
+// ==========================================
+// TOAST NOTIFICATION (same style as donation.html)
+// ==========================================
+function showToast(message, type = "success") {
+    const container = document.getElementById("toastContainer");
+    if (!container) {
+        console.warn("Toast container not found.");
+        return;
+    }
+
+    const themes = {
+        success: {
+            classes: "bg-emerald-50 border-emerald-200 text-emerald-800",
+            icon: "fa-circle-check text-emerald-600"
+        },
+        error: {
+            classes: "bg-rose-50 border-rose-200 text-rose-800",
+            icon: "fa-circle-xmark text-rose-600"
+        },
+        warning: {
+            classes: "bg-amber-50 border-amber-200 text-amber-800",
+            icon: "fa-triangle-exclamation text-amber-600"
+        }
+    };
+
+    const theme = themes[type] || themes.success;
+
+    const toast = document.createElement("div");
+    toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold transition-all duration-300 transform translate-y-5 opacity-0 ${theme.classes}`;
+
+    toast.innerHTML = `
+        <i class="fa-solid ${theme.icon} text-base"></i>
+        <span></span>
+    `;
+    toast.querySelector("span").textContent = message;
+
+    container.appendChild(toast);
+
+    setTimeout(() => {
+        toast.classList.remove("translate-y-5", "opacity-0");
+    }, 10);
+
+    setTimeout(() => {
+        toast.classList.add("opacity-0", "translate-y-2");
+        setTimeout(() => {
+            toast.remove();
+        }, 300);
+    }, 3500);
 }
 // ==========================================
 // EXPORT DROPDOWN MENU HANDLERS
@@ -163,6 +250,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 });
+document.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-action][data-update-id]");
+    if (!btn) return;
+
+    const action = btn.dataset.action;
+    const updateId = Number(btn.dataset.updateId);
+    const item = allUpdatesData.find(i => Number(i.update_id) === updateId);
+    if (!item) return;
+
+    if (action === "view") {
+        openUpdateModal(item);
+    } else if (action === "schedule") {
+        openScheduleModal(updateId);
+    }
+});
 
 function switchView(view) {
     currentView = view;
@@ -206,6 +308,8 @@ function renderCalendar() {
     const firstDayIndex = new Date(year, month, 1).getDay();
     const totalDays = new Date(year, month + 1, 0).getDate();
 
+    const todayKey = getTodayLocalKey();
+
     for (let i = 0; i < firstDayIndex; i++) {
         const emptyCell = document.createElement('div');
         emptyCell.className = "h-28 bg-gray-50/50 rounded-xl border border-dashed border-gray-100";
@@ -216,27 +320,32 @@ function renderCalendar() {
         const formattedMonth = String(month + 1).padStart(2, '0');
         const formattedDay = String(day).padStart(2, '0');
         const dateString = `${year}-${formattedMonth}-${formattedDay}`;
+        const isToday = dateString === todayKey;
 
         const dayCell = document.createElement('div');
-        dayCell.className = "h-28 bg-white border border-gray-200 rounded-xl p-2 overflow-y-auto flex flex-col justify-between transition-all hover:border-blue-300";
+        dayCell.className = `h-28 bg-white border rounded-xl p-2 overflow-y-auto flex flex-col justify-between transition-all hover:border-blue-300 ${
+            isToday ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200'
+        }`;
 
         const scheduledItems = (typeof allUpdatesData !== 'undefined' ? allUpdatesData : []).filter(item => {
-            const rawDate = item.scheduled_date ? item.scheduled_date.split('T')[0] : '';
+            const rawDate = toLocalDateKey(item.scheduled_date);
             return rawDate === dateString && item.is_archived != 1;
         });
 
         let eventsHtml = '';
         scheduledItems.forEach(item => {
             eventsHtml += `
-                <div onclick='openUpdateModal(${JSON.stringify(item)})' class="bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-medium p-1 rounded-md mb-1 cursor-pointer truncate hover:bg-amber-100 transition-colors" title="Pet: ${item.pet_name} | Adopter: ${item.adopter_name}">
-                    <i class="fa-regular fa-clock mr-1"></i> ${item.pet_name} (${item.adopter_name})
+                <div data-action="view" data-update-id="${Number(item.update_id)}"
+                    class="bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-medium p-1 rounded-md mb-1 cursor-pointer truncate hover:bg-amber-100 transition-colors"
+                    title="Pet: ${escapeHtml(item.pet_name)} | Adopter: ${escapeHtml(item.adopter_name)}">
+                    <i class="fa-regular fa-clock mr-1"></i> ${escapeHtml(item.pet_name)} (${escapeHtml(item.adopter_name)})
                 </div>
             `;
         });
 
         dayCell.innerHTML = `
             <div class="flex justify-between items-center">
-                <span class="text-xs font-bold text-gray-700">${day}</span>
+                <span class="text-xs font-bold ${isToday ? 'text-blue-600' : 'text-gray-700'}">${day}</span>
                 ${scheduledItems.length > 0 ? `<span class="w-4 h-4 bg-amber-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">${scheduledItems.length}</span>` : ''}
             </div>
             <div class="mt-1 flex-1 overflow-y-auto">
@@ -257,16 +366,17 @@ function exportData(type) {
         
         let matchesMonth = true;
         if (monthFilter) {
-            const itemDate = item.update_date || item.scheduled_date || "";
-            matchesMonth = itemDate.startsWith(monthFilter);
+            const raw = item.update_date || item.scheduled_date || item.formatted_date || "";
+            const localKey = toLocalDateKey(raw);
+            matchesMonth = localKey.startsWith(monthFilter);
         }
         
         return matchesTab && matchesMonth;
     });
 
     if (dataToExport.length === 0) {
-    showAlert("No data found for the selected month and category.", "warning");
-    return;
+        showToast("No data found for the selected month and category.", "warning");
+        return;
     }
 
     if (type === 'csv') {
@@ -275,7 +385,10 @@ function exportData(type) {
         dataToExport.forEach(item => {
             let pet = (item.pet_name || "").replace(/,/g, "");
             let adopter = (item.adopter_name || "").replace(/,/g, "");
-            let date = (item.formatted_date || item.scheduled_date || "").replace(/,/g, "");
+            const rawDate = item.formatted_date || item.scheduled_date || "";
+            let date = rawDate 
+                ? formatReadableDate(rawDate).replace(/,/g, "")
+                : "N/A";
             csvContent += `${pet},${adopter},${date}\n`;
         });
 
@@ -289,9 +402,9 @@ function exportData(type) {
 
     } else if (type === 'pdf') {
         if (typeof html2pdf === 'undefined') {
-        showAlert("The PDF library has not been included yet.", "error");
-        return;
-    }
+            showToast("The PDF library has not been included yet.", "error");
+            return;
+        }
         renderPrintableReport(dataToExport);
         downloadKamustahanPDF();
     }
@@ -301,14 +414,23 @@ function exportData(type) {
         dropdownMenu.classList.add('hidden');
     }
 }
+
 function renderPrintableReport(data) {
     let printContainer = document.getElementById('printableReport');
     if (!printContainer) return;
 
-    // Helper function to format raw dates into a clean, readable format (e.g., August 26, 2026)
     function cleanDate(dateString) {
         if (!dateString) return 'N/A';
-        // If it's already a formatted string and doesn't look like an ISO date, return as is
+
+        if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+            const [y, m, d] = dateString.split('-').map(Number);
+            return new Date(y, m - 1, d).toLocaleDateString('en-US', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+        }
+
         const parsedDate = new Date(dateString);
         if (isNaN(parsedDate.getTime())) {
             return dateString; 
@@ -341,11 +463,9 @@ function renderPrintableReport(data) {
         const petName = item.pet_name || 'N/A';
         const adopterName = item.adopter_name || 'N/A';
         
-        // Get raw date and format it cleanly
         const rawDate = item.formatted_date || item.formatted_scheduled_date || item.scheduled_date || '';
         const dateVal = cleanDate(rawDate);
         
-        // Resolve pet image URL
         let displayPhoto = "";
         if (item.update_photos) {
             try {
@@ -373,10 +493,10 @@ function renderPrintableReport(data) {
                 <td style="padding: 10px; vertical-align: middle;">
                     <div style="display: flex; align-items: center; gap: 12px;">
                         ${displayPhoto ? `<img src="${displayPhoto}" crossorigin="anonymous" style="width: 45px; height: 45px; border-radius: 8px; object-fit: cover; border: 1px solid #e2e8f0;" />` : `<div style="width: 45px; height: 45px; border-radius: 8px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #64748b;">No Img</div>`}
-                        <span style="font-weight: 600; color: #1e293b;">${petName}</span>
+                        <span style="font-weight: 600; color: #1e293b;">${escapeHtml(petName)}</span>
                     </div>
                 </td>
-                <td style="padding: 10px; vertical-align: middle; color: #475569;">${adopterName}</td>
+                <td style="padding: 10px; vertical-align: middle; color: #475569;">${escapeHtml(adopterName)}</td>
                 <td style="padding: 10px; vertical-align: middle; color: #475569;">${dateVal}</td>
             </tr>
         `;
@@ -385,13 +505,14 @@ function renderPrintableReport(data) {
     html += `</tbody></table>`;
     printContainer.innerHTML = html;
 }
+
 function downloadKamustahanPDF() {
     const element = document.getElementById('printableReport'); 
 
-if (!element) {
-    showAlert("No report container found for download.", "error");
-    return;
-}
+    if (!element) {
+        showToast("No report container found for download.", "error");
+        return;
+    }
 
     const options = {
         margin:       10,
@@ -404,16 +525,16 @@ if (!element) {
     html2pdf().from(element).set(options).save()
         .then(() => {
             console.log("PDF downloaded successfully!");
-            // Restore the normal UI table view after downloading
             if (typeof filterAndRenderTable === 'function') {
                 filterAndRenderTable();
             }
         })
         .catch(err => {
-    console.error("Error downloading PDF:", err);
-    showAlert("There was a problem downloading the PDF.", "error");
-});
+            console.error("Error downloading PDF:", err);
+            showToast("There was a problem downloading the PDF.", "error");
+        });
 }
+
 
 function exportSingleKamustahan() {
     const petNameElement = document.getElementById('modalPetName');
@@ -422,9 +543,9 @@ function exportSingleKamustahan() {
     const dateElement = document.getElementById('modalDate');
 
     if (!petNameElement || !photoElement) {
-    showAlert("Some required elements are missing from the modal.", "error");
-    return;
-}
+        showToast("Some required elements are missing from the modal.", "error");
+        return;
+    }
     const petName = petNameElement.innerText;
     const photoSrc = photoElement.src;
     const adopterRaw = adopterElement ? adopterElement.innerText : '';
@@ -432,9 +553,9 @@ function exportSingleKamustahan() {
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-    showAlert("Your browser blocked the pop-up window. Please allow pop-ups for this site.", "warning");
-    return;
-}
+        showToast("Your browser blocked the pop-up window. Please allow pop-ups for this site.", "warning");
+        return;
+    }
 
     printWindow.document.write(`
         <html>
@@ -557,6 +678,8 @@ function renderTable(data) {
         return;
     }
 
+    const todayKey = getTodayLocalKey();
+
     data.forEach((item) => {
         let displayPhoto = "https://images.unsplash.com/photo-1543466835-00a7907e9de1";
         
@@ -579,32 +702,59 @@ function renderTable(data) {
             }
         }
 
-        let statusBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100"><i class="fa-solid fa-check text-[10px]"></i> Updated</span>`;
+        // Status badge logic
+        let statusBadge;
 
-        if (item.update_status === 'For Update' || !item.formatted_date) {
-            statusBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-amber-50 text-amber-600 rounded-full border border-amber-100">
-                <i class="fa-regular fa-clock text-[10px]"></i> For Update
-            </span>`;
-        } else if (item.update_status === 'Archived' || item.is_archived == 1) {
+        if (item.is_archived == 1 || item.update_status === 'Archived') {
             statusBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-full border border-gray-200">
                 <i class="fa-solid fa-box-archive text-[10px]"></i> Archived
             </span>`;
+        } else if (item.formatted_date && item.update_status !== 'For Update') {
+            statusBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
+                <i class="fa-solid fa-check text-[10px]"></i> Updated
+            </span>`;
+        } else if (item.scheduled_date) {
+            const deadlineKey = toLocalDateKey(item.scheduled_date);
+            const isPast = todayKey > deadlineKey;
+
+            if (isPast) {
+                statusBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-rose-50 text-rose-600 rounded-full border border-rose-100">
+                    <i class="fa-solid fa-triangle-exclamation text-[10px]"></i> Overdue
+                </span>`;
+            } else {
+                statusBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-blue-50 text-blue-600 rounded-full border border-blue-100">
+                    <i class="fa-regular fa-calendar-check text-[10px]"></i> Scheduled
+                </span>`;
+            }
+        } else {
+            statusBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-amber-50 text-amber-600 rounded-full border border-amber-100">
+                <i class="fa-regular fa-clock text-[10px]"></i> For Update
+            </span>`;
         }
 
-        // Kompaktong Action Buttons na hindi sumisira sa layout ng Active at Archive tabs
+        // Action buttons — data attributes para sa event delegation
         let actionButtons = `
-            <button onclick='openUpdateModal(${JSON.stringify(item)})' class="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 flex items-center gap-1 transition-colors ${item.is_archived == 1 ? '' : 'border-r border-slate-200'}" title="View Details">
+            <button data-action="view" data-update-id="${Number(item.update_id)}"
+                class="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-blue-600 hover:bg-slate-50 flex items-center gap-1 transition-colors ${item.is_archived == 1 ? '' : 'border-r border-slate-200'}"
+                title="View Details">
                 <i class="fa-regular fa-eye text-[11px]"></i> View
             </button>
         `;
 
         if (item.is_archived != 1) {
             actionButtons += `
-                <button onclick='openScheduleModal(${item.update_id})' class="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-amber-600 hover:bg-slate-50 flex items-center gap-1 transition-colors" title="Set Schedule">
+                <button data-action="schedule" data-update-id="${Number(item.update_id)}"
+                    class="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-amber-600 hover:bg-slate-50 flex items-center gap-1 transition-colors"
+                    title="Set Schedule">
                     <i class="fa-regular fa-calendar-days text-[11px]"></i> Schedule
                 </button>
             `;
         }
+
+        const dateDisplay = 
+            item.formatted_date 
+            || item.formatted_scheduled_date 
+            || (item.scheduled_date ? formatReadableDate(item.scheduled_date) : 'N/A');
 
         const row = document.createElement("tr");
         row.className = "hover:bg-slate-50/60 transition-colors";
@@ -612,19 +762,19 @@ function renderTable(data) {
         row.innerHTML = `
             <td class="py-4 px-3 align-middle">
                 <div class="flex items-center gap-3">
-                    <img src="${displayPhoto}" alt="${item.pet_name}" class="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-sm shrink-0" />
+                    <img src="${displayPhoto}" alt="${escapeHtml(item.pet_name)}" class="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-sm shrink-0" />
                     <div>
-                        <span class="font-semibold text-slate-900 block text-sm">${item.pet_name || 'Unnamed Pet'}</span>
-                        <span class="text-xs text-slate-400 font-medium block mt-0.5">${item.species || 'Pet'}</span>
+                        <span class="font-semibold text-slate-900 block text-sm">${escapeHtml(item.pet_name || 'Unnamed Pet')}</span>
+                        <span class="text-xs text-slate-400 font-medium block mt-0.5">${escapeHtml(item.species || 'Pet')}</span>
                     </div>
                 </div>
             </td>
             <td class="py-4 px-3 align-middle">
-                <span class="font-semibold text-slate-900 block text-sm">${item.adopter_name || 'Adopter'}</span>
-                <span class="text-xs text-slate-400 block mt-0.5">${item.adopter_email || ''}</span>
+                <span class="font-semibold text-slate-900 block text-sm">${escapeHtml(item.adopter_name || 'Adopter')}</span>
+                <span class="text-xs text-slate-400 block mt-0.5">${escapeHtml(item.adopter_email || '')}</span>
             </td>
             <td class="py-4 px-3 align-middle">
-                <span class="font-medium text-slate-800 block text-sm">${item.formatted_date || item.formatted_scheduled_date || item.scheduled_date || 'N/A'}</span>
+                <span class="font-medium text-slate-800 block text-sm">${dateDisplay}</span>
                 <span class="text-xs text-slate-400 block mt-0.5">${item.formatted_date ? 'Submitted Update' : 'Scheduled Date'}</span>
             </td>
             <td class="py-4 px-3 align-middle">${statusBadge}</td>
@@ -641,7 +791,11 @@ function renderTable(data) {
     if (paginationInfo) paginationInfo.textContent = `Showing 1 to ${data.length} of ${data.length} results`;
 }
 
+
+
 function openUpdateModal(item) {
+    currentOpenUpdateId = item.update_id;
+
     const modal = document.getElementById("updateModal");
     const modalPetName = document.getElementById("modalPetName");
     const modalPhoto = document.getElementById("modalPhoto");
@@ -651,58 +805,127 @@ function openUpdateModal(item) {
     const modalActionContainer = document.getElementById("modalActionContainer");
 
     if (modalPetName) modalPetName.textContent = `Kamustahan: ${item.pet_name || 'Pet'}`;
-    
+
     let photoUrl = "https://images.unsplash.com/photo-1543466835-00a7907e9de1";
-    
     if (item.update_photos) {
         try {
             let parsed = JSON.parse(item.update_photos);
-            if (Array.isArray(parsed) && parsed.length > 0) {
-                photoUrl = parsed[0];
-            }
-        } catch (e) { 
-            photoUrl = item.update_photos; 
-        }
-        if (!photoUrl.startsWith('http') && !photoUrl.startsWith('/')) {
-            photoUrl = `/uploads/${photoUrl}`;
-        }
+            if (Array.isArray(parsed) && parsed.length > 0) photoUrl = parsed[0];
+        } catch (e) { photoUrl = item.update_photos; }
+        if (!photoUrl.startsWith('http') && !photoUrl.startsWith('/')) photoUrl = `/uploads/${photoUrl}`;
     } else if (item.pet_image) {
         photoUrl = item.pet_image;
-        if (!photoUrl.startsWith('http') && !photoUrl.startsWith('/')) {
-            photoUrl = `/uploads/pets/${photoUrl}`;
-        }
+        if (!photoUrl.startsWith('http') && !photoUrl.startsWith('/')) photoUrl = `/uploads/pets/${photoUrl}`;
+    }
+    if (modalPhoto) modalPhoto.src = photoUrl;
+
+    if (modalText) modalText.textContent = item.update_text || "No message provided.";
+
+    // ⭐ HEALTH GRID
+    const grid = document.getElementById("modalHealthGrid");
+    if (grid) {
+        const healthColors = {
+            'Excellent': 'bg-emerald-50 border-emerald-200 text-emerald-700',
+            'Good': 'bg-blue-50 border-blue-200 text-blue-700',
+            'Needs Attention': 'bg-amber-50 border-amber-200 text-amber-700',
+            'Poor': 'bg-rose-50 border-rose-200 text-rose-700'
+        };
+        const hc = healthColors[item.health_condition] || 'bg-slate-50 border-slate-200 text-slate-600';
+        grid.innerHTML = `
+            <div class="p-3 rounded-xl border ${hc}">
+                <p class="text-[10px] font-bold uppercase tracking-wider opacity-70">Health</p>
+                <p class="text-sm font-bold mt-1">${item.health_condition || '—'}</p>
+            </div>
+            <div class="p-3 rounded-xl border bg-slate-50 border-slate-200 text-slate-700">
+                <p class="text-[10px] font-bold uppercase tracking-wider opacity-70">Weight</p>
+                <p class="text-sm font-bold mt-1">${item.pet_weight ? item.pet_weight + ' kg' : '—'}</p>
+            </div>
+            <div class="p-3 rounded-xl border bg-orange-50 border-orange-200 text-orange-700">
+                <p class="text-[10px] font-bold uppercase tracking-wider opacity-70">Appetite</p>
+                <p class="text-sm font-bold mt-1">${item.appetite || '—'}</p>
+            </div>
+            <div class="p-3 rounded-xl border bg-purple-50 border-purple-200 text-purple-700">
+                <p class="text-[10px] font-bold uppercase tracking-wider opacity-70">Type</p>
+                <p class="text-sm font-bold mt-1">${item.consultation_type || 'Routine'}</p>
+            </div>
+        `;
     }
 
-    if (modalPhoto) modalPhoto.src = photoUrl;
-    if (modalText) modalText.textContent = item.update_text || "No message provided by the adopter."; 
-    if (modalAdopter) modalAdopter.textContent = `Adopter: ${item.adopter_name || 'N/A'}`;
-    if (modalDate) modalDate.textContent = `Date: ${item.formatted_date || item.formatted_scheduled_date || 'N/A'}`;
+    // Behavior notes
+    const behaviorWrap = document.getElementById("modalBehaviorWrap");
+    const behaviorEl = document.getElementById("modalBehavior");
+    if (item.behavior_notes && behaviorEl && behaviorWrap) {
+        behaviorEl.textContent = item.behavior_notes;
+        behaviorWrap.classList.remove("hidden");
+    } else if (behaviorWrap) {
+        behaviorWrap.classList.add("hidden");
+    }
 
-        
+    // Vet
+    const vetWrap = document.getElementById("modalVetWrap");
+    const vetEl = document.getElementById("modalVet");
+    if ((item.vet_name || item.vet_visit_date) && vetEl && vetWrap) {
+        const parts = [];
+        if (item.vet_name) parts.push(item.vet_name);
+        if (item.vet_visit_date) parts.push(`(${item.vet_visit_date})`);
+        vetEl.textContent = parts.join(' ');
+        vetWrap.classList.remove("hidden");
+    } else if (vetWrap) {
+        vetWrap.classList.add("hidden");
+    }
+
+    // Existing reply
+    const existingBanner = document.getElementById("existingReplyBanner");
+    const existingText = document.getElementById("existingReplyText");
+    const existingMeta = document.getElementById("existingReplyMeta");
+    const replyInput = document.getElementById("orgReplyInput");
+    const nextSchedInput = document.getElementById("nextScheduleInput");
+
+    if (item.org_reply && existingBanner && existingText) {
+        existingText.textContent = item.org_reply;
+        existingMeta.textContent = item.org_reply_date
+            ? `Sent: ${new Date(item.org_reply_date).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}`
+            : '';
+        existingBanner.classList.remove("hidden");
+
+        if (replyInput) replyInput.value = item.org_reply;
+    } else if (existingBanner) {
+        existingBanner.classList.add("hidden");
+        if (replyInput) replyInput.value = '';
+    }
+
+    if (nextSchedInput) nextSchedInput.value = item.next_schedule_date || '';
+
+    // Date + Adopter
+    if (modalAdopter) modalAdopter.textContent = `Adopter: ${item.adopter_name || 'N/A'}`;
+    if (modalDate) {
+        const displayDate = item.formatted_date || item.formatted_scheduled_date || (item.scheduled_date ? formatReadableDate(item.scheduled_date) : null) || 'N/A';
+        modalDate.textContent = `Date: ${displayDate}`;
+    }
+
+    // Action buttons (archive) — keep existing logic
     if (modalActionContainer) {
         if (item.is_archived == 1) {
-            // Tinanggal na ang restore button, papalitan na lang ng status o magiging blangko
             modalActionContainer.innerHTML = `
                 <span class="text-xs text-gray-500 font-medium bg-gray-100 px-3 py-2 rounded-xl border border-gray-200">
                     <i class="fa-solid fa-box-archive mr-1"></i> Archived Item
                 </span>
             `;
+        } else if (item.update_status === 'For Update' || !item.formatted_date) {
+            modalActionContainer.innerHTML = `
+                <span class="text-xs text-amber-600 font-medium bg-amber-50 px-3 py-2 rounded-xl border border-amber-100">
+                    <i class="fa-regular fa-clock mr-1"></i> Available to archive once updated
+                </span>
+            `;
         } else {
-            if (item.update_status === 'For Update' || !item.formatted_date) {
-                modalActionContainer.innerHTML = `
-                    <span class="text-xs text-amber-600 font-medium bg-amber-50 px-3 py-2 rounded-xl border border-amber-100">
-                        <i class="fa-regular fa-clock mr-1"></i> Available to archive once updated
-                    </span>
-                `;
-            } else {
-                modalActionContainer.innerHTML = `
-                    <button onclick='archiveUpdate(${item.update_id})' class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-semibold transition-colors inline-flex items-center gap-2">
-                        <i class="fa-solid fa-box-archive"></i> Archive
-                    </button>
-                `;
-            }
+            modalActionContainer.innerHTML = `
+                <button onclick='archiveUpdate(${Number(item.update_id)})' class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-xl text-sm font-semibold transition-colors inline-flex items-center gap-2">
+                    <i class="fa-solid fa-box-archive"></i> Archive
+                </button>
+            `;
         }
     }
+
     if (modal) modal.classList.remove("hidden");
 }
 
@@ -710,6 +933,7 @@ function closeUpdateModal() {
     const modal = document.getElementById("updateModal");
     if (modal) modal.classList.add("hidden");
 }
+
 async function archiveUpdate(update_id) {
     showConfirm(
         "Are you sure you want to archive this update?",
@@ -724,20 +948,79 @@ async function archiveUpdate(update_id) {
                 if (data.success) {
                     closeUpdateModal();
                     fetchKamustahanData();
-                    showAlert("Update archived successfully.", "success");
+                    showToast("Update archived successfully.", "success");
                 } else {
-                    showAlert(data.message || "Failed to archive update.", "error");
+                    showToast(data.message || "Failed to archive update.", "error");
                 }
             } catch (err) {
                 console.error("Error archiving update:", err);
-                showAlert("Network error while archiving.", "error");
+                showToast("Network error while archiving.", "error");
             }
         },
         null,
         { title: "Archive Update", okText: "Archive", type: "warning" }
     );
 }
+async function submitOrgReply() {
+    if (!currentOpenUpdateId) {
+        showToast("No update selected.", "error");
+        return;
+    }
 
+    const replyInput = document.getElementById("orgReplyInput");
+    const nextSchedInput = document.getElementById("nextScheduleInput");
+    const sendBtn = document.getElementById("sendReplyBtn");
+
+    const org_reply = (replyInput?.value || '').trim();
+    const next_schedule_date = nextSchedInput?.value || '';
+
+    if (org_reply.length < 5) {
+        showToast("Reply must be at least 5 characters.", "warning");
+        return;
+    }
+
+    const originalText = sendBtn ? sendBtn.innerHTML : '';
+    if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Sending...';
+    }
+
+    try {
+        const res = await fetch('/org/kamustahan-reply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                update_id: currentOpenUpdateId,
+                org_reply: org_reply,
+                next_schedule_date: next_schedule_date || null
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+            showToast(data.message || "Reply sent successfully!", "success");
+            closeUpdateModal();
+            fetchKamustahanData();
+        } else {
+            showToast(data.message || "Failed to send reply.", "error");
+        }
+    } catch (err) {
+        console.error("Reply error:", err);
+        showToast("Network error while sending reply.", "error");
+    } finally {
+        if (sendBtn) {
+            sendBtn.disabled = false;
+            sendBtn.innerHTML = originalText || '<i class="fa-solid fa-paper-plane mr-1"></i> Send Reply';
+        }
+    }
+}
+
+function closeUpdateModal() {
+    const modal = document.getElementById("updateModal");
+    if (modal) modal.classList.add("hidden");
+    currentOpenUpdateId = null;
+}
 function updateStatistics(data) {
     const total = data.filter(i => i.is_archived != 1).length;
     const forUpdateCount = data.filter(i => i.update_status === 'For Update' && i.is_archived != 1).length;
@@ -759,13 +1042,10 @@ function openScheduleModal(updateId) {
 
     if (schedUpdateIdInput) schedUpdateIdInput.value = updateId;
 
-    // Get the current date in YYYY-MM-DD format
-    const today = new Date().toISOString().split('T')[0];
-    
+    const today = getTodayLocalKey();
+
     if (dateInput) {
-        // Set the minimum selectable date to today
         dateInput.setAttribute('min', today);
-        // Optional: Set default value to today for convenience
         dateInput.value = today;
     }
 
@@ -776,6 +1056,7 @@ function closeScheduleModal() {
     const scheduleModal = document.getElementById("scheduleModal");
     if (scheduleModal) scheduleModal.classList.add("hidden");
 }
+
 function submitSchedule(event) {
     event.preventDefault();
 
@@ -783,23 +1064,19 @@ function submitSchedule(event) {
     const scheduled_date = document.getElementById("scheduledDateInput").value;
 
     if (!update_id) {
-        showAlert("Missing update record ID. Please refresh the page and try again.", "error");
+        showToast("Missing update record ID. Please refresh the page and try again.", "error");
         return;
     }
 
     if (!scheduled_date) {
-        showAlert("Please select a deadline date.", "warning");
+        showToast("Please select a deadline date.", "warning");
         return;
     }
 
-    // Disallow past dates
-    const today = new Date();
-    const todayStr = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
-        .toISOString()
-        .split('T')[0];
+    const todayStr = getTodayLocalKey();
 
     if (scheduled_date < todayStr) {
-        showAlert("You cannot set a deadline for a past date.", "warning");
+        showToast("You cannot set a deadline for a past date.", "warning");
         return;
     }
 
@@ -821,20 +1098,17 @@ function submitSchedule(event) {
         if (data.success) {
             closeScheduleModal();
             fetchKamustahanData();
-
-            // ✅ CUSTOM MODAL — hindi na native alert
-            showAlert(
+            showToast(
                 data.message || `Deadline set to ${scheduled_date}. The adopter may submit anytime on or before this date.`,
-                "success",
-                "Deadline Saved"
+                "success"
             );
         } else {
-            showAlert(data.message || "Failed to save the deadline.", "error");
+            showToast(data.message || "Failed to save the deadline.", "error");
         }
     })
     .catch(err => {
         console.error("Error saving schedule:", err);
-        showAlert("Network error while saving the deadline.", "error");
+        showToast("Network error while saving the deadline.", "error");
     })
     .finally(() => {
         if (submitBtn) {
