@@ -2040,10 +2040,6 @@ exports.getInKindDonations = async (req, res) => {
         });
     }
 };
-
-// ==========================================
-// UPDATE IN-KIND DONATION STATUS
-// ==========================================
 exports.updateInKindDonationStatus = async (req, res) => {
     try {
         if (!req.session || !req.session.accountId) {
@@ -2054,7 +2050,22 @@ exports.updateInKindDonationStatus = async (req, res) => {
         }
 
         const donationId = req.params.id;
-        const { status, reason } = req.body;
+        const body = req.body || {};
+        const { status, reason } = body;
+
+        if (!status) {
+            return res.status(400).json({
+                success: false,
+                message: "Status is required."
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "Please upload a photo as proof that the item was received or used."
+            });
+        }
 
         const [org] = await pool.query(
             `SELECT organization_id FROM organizations WHERE account_id = ?`,
@@ -2069,52 +2080,68 @@ exports.updateInKindDonationStatus = async (req, res) => {
         }
 
         const organization_id = org[0].organization_id;
+        const proofImagePath = `/uploads/inkind-proof/${req.file.filename}`;
+
+        console.log("💾 Saving org proof to proof_image_path:", proofImagePath);
 
         const [result] = await pool.query(
-            `
-            UPDATE inkind_donations
-            SET status = ?, rejection_reason = ?
-            WHERE inkind_donation_id = ? AND organization_id = ?
-            `,
-            [status, reason || null, donationId, organization_id]
+            `UPDATE inkind_donations
+             SET status = ?, rejection_reason = ?, proof_image_path = ?
+             WHERE inkind_donation_id = ? AND organization_id = ?`,
+            [status, reason || null, proofImagePath, donationId, organization_id]
         );
 
         if (result.affectedRows === 0) {
             return res.status(404).json({
                 success: false,
-                message: "In-kind donation record not found."
+                message: "In-kind donation record not found or does not belong to your organization."
             });
         }
 
         const [[donorInfo]] = await pool.query(
-            `SELECT adopter_id FROM cash_donations WHERE cash_donation_id = ?`,
+            `SELECT adopter_id FROM inkind_donations WHERE inkind_donation_id = ?`,
             [donationId]
         );
-        if (donorInfo) {
-            await createNotification(
-                donorInfo.account_id,
-                "Donation Status Updated",
-                `Your cash donation status is now "${status}".`,
-                "donation_status",
-                "/donation"
-            );
-        }
-        await logActivity(req.session.accountId, "donation_status_updated", "inkind_donation", donationId, `Status: ${status}`);
 
-        res.json({
+        if (donorInfo && donorInfo.adopter_id) {
+            const [[acct]] = await pool.query(
+                `SELECT account_id FROM adopters WHERE adopter_id = ?`,
+                [donorInfo.adopter_id]
+            );
+
+            if (acct && acct.account_id) {
+                await createNotification(
+                    acct.account_id,
+                    "Donation Status Updated",
+                    `Your in-kind donation status is now "${status}".`,
+                    "donation_status",
+                    "/donation"
+                );
+            }
+        }
+
+        await logActivity(
+            req.session.accountId,
+            "donation_status_updated",
+            "inkind_donation",
+            donationId,
+            `Status: ${status}`
+        );
+
+        return res.json({
             success: true,
-            message: `In-kind donation status updated to '${status}' successfully.`
+            message: `In-kind donation status updated to '${status}' successfully.`,
+            proof_image_path: proofImagePath
         });
 
     } catch (err) {
         console.error("Update In-Kind Donation Status Error:", err);
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to update in-kind donation status: " + err.message
         });
     }
 };
-
 // ==========================================
 // DROPOFF DETAILS CONTROLLERS
 // ==========================================

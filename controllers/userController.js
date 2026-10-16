@@ -947,7 +947,7 @@ exports.getUserDonations = async (req, res) => {
                 i.item_name,
                 i.quantity,
                 i.unit,
-                i.location_image_path,
+                i.proof_image_path,
                 i.status,
                 i.rejection_reason
             FROM inkind_donations i

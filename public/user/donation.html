@@ -225,21 +225,25 @@
                     </div>
                 </div>
 
-                <!-- Right Proof / Receipt Box -->
-                <div id="modalProofSection" class="flex flex-col justify-between bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                    <div>
-                        <span class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-2">Proof of Payment</span>
-                        <div class="w-full h-44 bg-white border border-gray-200 rounded-lg overflow-hidden flex items-center justify-center relative group">
-                            <img id="modalReceiptPreview" src="" alt="Proof Preview" class="w-full h-full object-contain p-1" />
-                            <div onclick="triggerZoomReceipt()" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-white text-xs font-semibold gap-2">
-                                <i class="fa-solid fa-magnifying-glass-plus"></i> Click to Zoom
-                            </div>
+                 <!-- Right Proof / Receipt Box -->
+            <div id="modalProofSection" class="flex flex-col justify-between bg-blue-50/50 p-4 rounded-xl border border-blue-100">
+                <div>
+                    <span id="modalProofLabel"
+                        class="text-[11px] font-semibold text-gray-500 uppercase tracking-wider block mb-2">
+                        Proof of Payment
+                    </span>
+                    <div class="w-full h-48 bg-white border border-gray-200 rounded-lg overflow-hidden flex items-center justify-center relative group">
+                        <img id="modalReceiptPreview" src="" alt="Proof Preview" class="w-full h-full object-contain p-1" />
+                        <div onclick="triggerZoomReceipt()" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer text-white text-xs font-semibold gap-2">
+                            <i class="fa-solid fa-magnifying-glass-plus"></i> Click to Zoom
                         </div>
                     </div>
-                    <button onclick="triggerZoomReceipt()" id="modalViewReceiptBtn" class="mt-3 w-full py-2 bg-white hover:bg-gray-50 text-blue-700 border border-blue-200 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-receipt"></i> Full Receipt
-                    </button>
                 </div>
+                <button onclick="triggerZoomReceipt()" id="modalViewReceiptBtn"
+                        class="mt-3 w-full py-2 bg-white hover:bg-gray-50 text-blue-700 border border-blue-200 text-xs font-semibold rounded-lg transition flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-receipt"></i> View Full Image
+                </button>
+            </div>
             </div>
 
             <!-- Modal Footer -->

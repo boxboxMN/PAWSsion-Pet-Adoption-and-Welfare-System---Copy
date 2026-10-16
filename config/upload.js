@@ -161,7 +161,22 @@ const uploadDropoff = multer({
         fileSize: 5 * 1024 * 1024 // 5 MB
     }
 });
-
+const inkindProofStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = "uploads/inkind-proof/";
+        // Ensure the folder exists (safe even if called repeatedly)
+        const fs = require("fs");
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        const who = req.session?.accountId || "guest";
+        cb(null, "inkind-" + who + "-" + uniqueSuffix + path.extname(file.originalname));
+    }
+});
 
 // ==========================================
 // EXPORT UPLOAD MIDDLEWARE
@@ -172,5 +187,8 @@ module.exports = {
     uploadQR,
     uploadDropoff,
     uploadAdoptionDocument,
-    uploadAvatar
+    uploadAvatar,
+    uploadDropoff: uploadDropoff ,
+     uploadInkindProof: multer({ storage: inkindProofStorage, fileFilter: imageFilter }) 
+
 };

@@ -307,52 +307,110 @@ function showEmptyTable(message) {
             <td colspan="6" class="text-center p-8 text-gray-400 text-sm">${message}</td>
         </tr>`;
 }
-
 function viewDetails(type, id) {
     const donation = rawDonationsData.find(d => d.id == id && d.type === type);
     if (!donation) return;
 
     document.getElementById("modalOrgName").textContent = donation.organization || 'Animal Shelter';
-    
+
     const dateObj = new Date(donation.date);
-    document.getElementById("modalDate").textContent = `${dateObj.toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })} at ${dateObj.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })}`;
-    
+    document.getElementById("modalDate").textContent =
+        `${dateObj.toLocaleDateString("en-US", { month: 'short', day: 'numeric', year: 'numeric' })} at ${dateObj.toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' })}`;
+
     document.getElementById("modalType").textContent = donation.type;
 
+    // ==========================================
+    // AMOUNT / ITEMS + REF
+    // ==========================================
     if (type === 'Cash') {
         document.getElementById("modalAmountContainer").classList.remove("hidden");
         document.getElementById("modalRefContainer").classList.remove("hidden");
-        document.getElementById("modalAmount").textContent = `₱ ${parseFloat(donation.amount || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+        document.getElementById("modalAmount").textContent =
+            `₱ ${parseFloat(donation.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
         document.getElementById("modalRefNo").textContent = donation.reference_number || 'N/A';
     } else {
         document.getElementById("modalAmountContainer").classList.remove("hidden");
         document.getElementById("modalRefContainer").classList.add("hidden");
-        
-        // Dito pinalitan ang hardcoded string para makuha ang dynamic item name at quantity mula sa database
-        const itemDisplay = donation.item_name ? `${donation.item_name} (${donation.quantity || ''})` : (donation.items || 'In-Kind Resource Item');
+
+        const qty = donation.quantity || '';
+        const unit = donation.unit || '';
+        const itemDisplay = donation.item_name
+            ? `${donation.item_name}${qty ? ` (${qty} ${unit})`.trim() : ''}`
+            : (donation.items || 'In-Kind Resource Item');
         document.getElementById("modalAmount").textContent = itemDisplay;
     }
 
+    // ==========================================
+    // PROOF SECTION
+    // ==========================================
     const proofSection = document.getElementById("modalProofSection");
-    const receiptUrl = getReceiptImageUrl(donation.receipt_path);
-    if (receiptUrl) {
-        proofSection.classList.remove("hidden");
+    const proofLabel   = document.getElementById("modalProofLabel");
+    const previewImg   = document.getElementById("modalReceiptPreview");
+    const viewBtn      = document.getElementById("modalViewReceiptBtn");
+    const statusStr    = (donation.status || 'Pending').toLowerCase();
+    const isFinalized  = statusStr === 'approved' || statusStr === 'verified' ||
+                         statusStr === 'received' || statusStr === 'rejected';
 
-        currentActiveReceiptPath = receiptUrl;
+    currentActiveReceiptPath = "";
+    previewImg.src = "";
 
-        const preview = document.getElementById("modalReceiptPreview");
-        preview.onerror = function () {
-            this.onerror = null;
-            this.src = "/assets/images/no-image.png";
-        };
-        preview.src = receiptUrl;
+    // Debug
+    console.log("🔍 viewDetails:", {
+        type: donation.type,
+        status: donation.status,
+        isFinalized,
+        proof_image_path: donation.proof_image_path,
+        receipt_path: donation.receipt_path
+    });
+
+    if (type === 'Cash') {
+        // ============ CASH ============
+        if (donation.receipt_path) {
+            proofSection.classList.remove("hidden");
+            proofLabel.textContent = "Proof of Payment";
+
+            const fullPath = donation.receipt_path.startsWith('/')
+                ? donation.receipt_path
+                : `/uploads/receipts/${donation.receipt_path}`;
+
+            currentActiveReceiptPath = fullPath;
+            previewImg.src = fullPath;
+            viewBtn.innerHTML = `<i class="fa-solid fa-receipt"></i> View Full Receipt`;
+        } else {
+            proofSection.classList.add("hidden");
+        }
+
     } else {
-        proofSection.classList.add("hidden");
-        currentActiveReceiptPath = "";
+        // ============ IN-KIND ============
+        // Ipakita ang org's uploaded photo kapag Approved o Rejected na
+        if (isFinalized && donation.proof_image_path) {
+            proofSection.classList.remove("hidden");
+            proofSection.style.display = "";
+
+            proofLabel.textContent = statusStr === 'rejected'
+                ? "Organization's Verification Photo"
+                : "Organization's Received Photo";
+
+            let fullPath = donation.proof_image_path;
+            if (!fullPath.startsWith('/') && !fullPath.startsWith('http')) {
+                fullPath = `/uploads/inkind-proof/${fullPath}`;
+            }
+
+            console.log("🔍 Loading in-kind proof:", fullPath);
+
+            currentActiveReceiptPath = fullPath;
+            previewImg.src = fullPath;
+            viewBtn.innerHTML = `<i class="fa-solid fa-image"></i> View Full Photo`;
+
+        } else {
+            proofSection.classList.add("hidden");
+        }
     }
 
+    // ==========================================
+    // STATUS BANNER
+    // ==========================================
     const statusBanner = document.getElementById("modalStatusBanner");
-    const statusStr = (donation.status || 'Pending').toLowerCase();
 
     if (statusStr === 'approved' || statusStr === 'verified' || statusStr === 'received') {
         statusBanner.className = "mt-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between text-emerald-800 text-xs font-semibold";
@@ -364,6 +422,7 @@ function viewDetails(type, id) {
             <span class="px-2.5 py-0.5 bg-emerald-200/60 text-emerald-800 rounded-full text-[11px]">Verified</span>
         `;
         statusBanner.classList.remove("hidden");
+
     } else if (statusStr === 'rejected') {
         statusBanner.className = "mt-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold space-y-1.5";
         statusBanner.innerHTML = `
@@ -377,6 +436,7 @@ function viewDetails(type, id) {
             ${donation.rejection_reason ? `<p class="text-[11px] font-normal text-rose-700 pl-6 border-l-2 border-rose-300 ml-1">Reason: ${donation.rejection_reason}</p>` : ''}
         `;
         statusBanner.classList.remove("hidden");
+
     } else {
         statusBanner.className = "mt-4 p-3.5 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between text-amber-800 text-xs font-semibold";
         statusBanner.innerHTML = `

@@ -1,7 +1,7 @@
 const express = require("express");
 const path = require("path");
 const pool = require("../config/database");
-const { uploadPet, uploadQR, uploadDropoff } = require('../config/upload');
+const { uploadPet, uploadQR, uploadDropoff,uploadInkindProof  } = require('../config/upload');
 // const { logActivity } = require("../controllers/adminController");
 const { logActivity, createNotification } = require("../controllers/adminController");
 
@@ -166,12 +166,18 @@ router.post(
     ]),
     updatePaymentInfo
 );
-router.put("/donations/:id/status", updateDonationStatus);
-// In-Kind Donations Routes
+
 router.get("/donations/in-kind", getInKindDonations);
 router.post("/donations/in-kind", uploadQR.single("proof"), addInKindDonation);
 router.put("/donations/in-kind/:id/status", updateInKindDonationStatus);
-// POST: Save or Update Drop-off Details
+
+router.put(
+    "/donations/in-kind/:id/status",
+    uploadInkindProof.single("proof_image"),
+    updateInKindDonationStatus
+);
+router.put("/donations/:id/status", updateDonationStatus);
+
 
 router.post(
     "/dropoff-info",
