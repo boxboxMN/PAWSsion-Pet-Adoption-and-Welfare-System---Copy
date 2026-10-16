@@ -15,6 +15,9 @@ let inkindCurrentPage  = 1;
 let cashFilteredData   = [];
 let inkindFilteredData = [];
 
+let cashStatusFilter   = 'ALL'; 
+let inkindStatusFilter = 'ALL';
+
 let inkindProofFile = null;
 const MAX_INKIND_PROOF_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_INKIND_PROOF_TYPES = [
@@ -101,6 +104,59 @@ function restrictToDigitsOnly(inputId, maxLength = 11) {
         }
     });
 }
+
+// =====================================================
+// ⭐ STATUS CATEGORY HELPERS
+// =====================================================
+function getStatusCategory(rawStatus) {
+    const s = String(rawStatus || 'Pending').toLowerCase().trim();
+    if (s === 'approved' || s === 'verified') return 'Confirmed';
+    if (s === 'rejected')                    return 'Rejected';
+    return 'Pending';
+}
+
+function countByStatus(list) {
+    const counts = { ALL: 0, Pending: 0, Confirmed: 0, Rejected: 0 };
+    (list || []).forEach(item => {
+        counts.ALL++;
+        counts[getStatusCategory(item.status)]++;
+    });
+    return counts;
+}
+
+function paintStatusPills(prefix, counts, activeFilter) {
+    const labels = { ALL: 'All', Pending: 'Pending', Confirmed: 'Confirmed', Rejected: 'Rejected' };
+    Object.keys(labels).forEach(key => {
+        const el = document.getElementById(`${prefix}Status${key}`);
+        if (!el) return;
+        const isActive = activeFilter === key;
+        el.classList.toggle('active', isActive);
+        el.innerHTML = `${labels[key]} <span class="pill-count">${counts[key] || 0}</span>`;
+    });
+}
+
+function updateCashStatusPills() {
+    paintStatusPills('cash', countByStatus(allDonations), cashStatusFilter);
+}
+
+function updateInkindStatusPills() {
+    paintStatusPills('inkind', countByStatus(allInKindDonations), inkindStatusFilter);
+}
+
+function setCashStatusFilter(filter) {
+    cashStatusFilter = filter;
+    cashCurrentPage = 1;
+    updateCashStatusPills();
+    filterDonations();
+}
+
+function setInkindStatusFilter(filter) {
+    inkindStatusFilter = filter;
+    inkindCurrentPage = 1;
+    updateInkindStatusPills();
+    filterDonations();
+}
+
 // =====================================================
 // ⭐ IN-KIND PROOF PHOTO HELPERS
 // =====================================================
@@ -626,7 +682,8 @@ async function fetchDonations() {
                 totalDisplay.textContent = `₱${totalAmount}`;
             }
 
-            cashCurrentPage = 1;                    // ⭐ IDINAGDAG
+            cashCurrentPage = 1;  
+            updateCashStatusPills();               
             renderDonationsTable(allDonations);
         }
     } catch (error) {
@@ -645,6 +702,11 @@ function renderDonationsTable(donations) {
 
     // Empty state
     if (cashFilteredData.length === 0) {
+        let emptyMsg = 'No cash donations recorded yet.';
+        if (cashStatusFilter === 'Pending')        emptyMsg = 'No pending cash donations — you\'re all caught up!';
+        else if (cashStatusFilter === 'Confirmed') emptyMsg = 'No confirmed cash donations yet.';
+        else if (cashStatusFilter === 'Rejected')  emptyMsg = 'No rejected cash donations.';
+
         tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-gray-400">No cash donations recorded yet.</td></tr>`;
         updatePaginationInfo("paginationInfo", 0, 0, 0);
         renderPaginationButtons("paginationButtons", 1, 1, () => {}, 0);
@@ -739,7 +801,8 @@ async function fetchInKindDonations() {
                 displayTotal.textContent = result.totalInKind || 0; 
             }
 
-            inkindCurrentPage = 1;                     // ⭐ IDINAGDAG
+            inkindCurrentPage = 1; 
+            updateInkindStatusPills();                 
             renderInKindTable(allInKindDonations);
         }
     } catch (error) {
@@ -757,6 +820,11 @@ function renderInKindTable(donations) {
     inkindFilteredData = donations || [];
 
     if (inkindFilteredData.length === 0) {
+        let emptyMsg = 'No in-kind donations submitted yet.';
+        if (inkindStatusFilter === 'Pending')        emptyMsg = 'No pending in-kind donations — you\'re all caught up!';
+        else if (inkindStatusFilter === 'Confirmed') emptyMsg = 'No confirmed in-kind donations yet.';
+        else if (inkindStatusFilter === 'Rejected')  emptyMsg = 'No rejected in-kind donations.';
+
         tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-gray-400">No in-kind donations submitted yet.</td></tr>`;
         updatePaginationInfo("inkindPaginationInfo", 0, 0, 0);
         renderPaginationButtons("inkindPaginationButtons", 1, 1, () => {}, 0);
@@ -1022,6 +1090,10 @@ async function updateInKindStatus(newStatus, reason = null) {
         showToast("An error occurred while updating status.", 'error');
     }
 }
+
+/**
+ * Filters the current table based on search input + active status sub-tab.
+ */
 function filterDonations() {
     const searchInput = document.getElementById("searchInput");
     const searchTerm  = searchInput ? searchInput.value.toLowerCase() : "";
@@ -1062,6 +1134,7 @@ function filterDonations() {
         renderInKindTable(filtered);
     }
 }
+
 /**
  * Shows or hides the action dropdown menu
  * for the selected cash donation[cite: 5].

@@ -14,6 +14,42 @@
     <script src="/js/jspdf/jspdf.umd.min.js"></script>
     <script src="/js/jspdf/jspdf.plugin.autotable.min.js"></script>
     <script src="/assets/js/org-donation.js"></script>
+
+    <!-- ⭐ STATUS SUB-TAB PILL STYLES -->
+    <style>
+        .status-pill {
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 600;
+            border-radius: 9999px;
+            background: #f3f4f6;
+            color: #4b5563;
+            transition: all .15s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            border: none;
+        }
+        .status-pill:hover { background: #e5e7eb; }
+        .status-pill.active {
+            background: #4f46e5;
+            color: #fff;
+            box-shadow: 0 1px 3px rgba(79,70,229,.35);
+        }
+        .status-pill .pill-count {
+            background: rgba(255,255,255,.25);
+            color: inherit;
+            padding: 1px 7px;
+            border-radius: 9999px;
+            font-size: 10px;
+            font-weight: 700;
+        }
+        .status-pill:not(.active) .pill-count {
+            background: #fff;
+            color: #374151;
+        }
+    </style>
 </head>
 <body class="bg-slate-100 font-['Inter',_sans-serif] min-h-screen">
 
@@ -78,7 +114,7 @@
             </button>
         </div>
 
-        <!-- SEARCH, STATUS FILTER, DATE FILTER, & EXPORT TOOLBAR -->
+        <!-- SEARCH, DATE FILTER, & EXPORT TOOLBAR -->
         <div class="flex flex-col lg:flex-row items-center justify-between gap-4 mb-6">
             <!-- Search Input -->
             <div class="relative w-full lg:max-w-md">
@@ -89,14 +125,6 @@
             
             <!-- Filters & Export Toolbar Group -->
             <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto justify-end">
-                <!-- Status Filter -->
-                <select id="statusFilter" onchange="filterDonations()" class="bg-white border border-gray-200 text-gray-700 px-3.5 py-2 rounded-lg text-sm font-medium shadow-sm focus:outline-none focus:border-indigo-500">
-                    <option value="ALL">All Status</option>
-                    <option value="Approved">Verified / Approved</option>
-                    <option value="Pending">Pending</option>
-                    <option value="Rejected">Rejected</option>
-                </select>
-
                 <!-- Filter Type Dropdown (Month / Year) -->
                 <div class="flex items-center border border-gray-200 rounded-lg px-3 py-2 bg-white gap-2 shadow-sm">
                     <i class="fa-solid fa-filter text-gray-400 text-xs"></i>
@@ -137,6 +165,18 @@
 
         <!-- CASH DONATIONS TABLE CONTAINER -->
         <div id="cashTableContainer" class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+
+            <!-- ⭐ STATUS SUB-TABS: Cash -->
+            <div class="flex flex-wrap items-center gap-2 px-6 py-4 border-b border-gray-100 bg-gray-50/40">
+                <span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mr-1">
+                    <i class="fa-solid fa-filter mr-1"></i> Status
+                </span>
+                <button type="button" id="cashStatusALL"       onclick="setCashStatusFilter('ALL')"       class="status-pill active">All <span class="pill-count">0</span></button>
+                <button type="button" id="cashStatusPending"   onclick="setCashStatusFilter('Pending')"   class="status-pill">Pending <span class="pill-count">0</span></button>
+                <button type="button" id="cashStatusConfirmed" onclick="setCashStatusFilter('Confirmed')" class="status-pill">Confirmed <span class="pill-count">0</span></button>
+                <button type="button" id="cashStatusRejected"  onclick="setCashStatusFilter('Rejected')"  class="status-pill">Rejected <span class="pill-count">0</span></button>
+            </div>
+
             <div class="overflow-x-auto overflow-y-visible">
                 <table class="w-full text-left border-collapse">
                     <thead>
@@ -165,6 +205,18 @@
 
         <!-- IN-KIND DONATIONS TABLE CONTAINER -->
         <div id="inkindTableContainer" class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hidden">
+
+            <!-- ⭐ STATUS SUB-TABS: In-Kind -->
+            <div class="flex flex-wrap items-center gap-2 px-6 py-4 border-b border-gray-100 bg-gray-50/40">
+                <span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider mr-1">
+                    <i class="fa-solid fa-filter mr-1"></i> Status
+                </span>
+                <button type="button" id="inkindStatusALL"       onclick="setInkindStatusFilter('ALL')"       class="status-pill active">All <span class="pill-count">0</span></button>
+                <button type="button" id="inkindStatusPending"   onclick="setInkindStatusFilter('Pending')"   class="status-pill">Pending <span class="pill-count">0</span></button>
+                <button type="button" id="inkindStatusConfirmed" onclick="setInkindStatusFilter('Confirmed')" class="status-pill">Confirmed <span class="pill-count">0</span></button>
+                <button type="button" id="inkindStatusRejected"  onclick="setInkindStatusFilter('Rejected')"  class="status-pill">Rejected <span class="pill-count">0</span></button>
+            </div>
+
             <div class="overflow-x-auto overflow-y-visible">
                 <table class="w-full text-left border-collapse">
                     <thead>
