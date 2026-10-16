@@ -164,55 +164,74 @@
                     </div>
                    <h2 class="text-xl font-bold mb-5">Step 2: Donation Details</h2>
                 <div class="space-y-5 mb-8">
-                    <!-- Item Name (full width) -->
-                    <div>
-                        <label class="block text-sm font-semibold mb-2">
-                            Item to Donate <span class="text-red-500">*</span>
-                        </label>
-                        <input 
-                            type="text" 
-                            id="itemNameInput" 
-                            placeholder="e.g., Dry dog food, Cat cage, Vitamins" 
-                            maxlength="100"
-                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500" 
-                        />
-                    </div>
-
-                    <!-- Quantity + Unit (side by side) -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    
+                        <!-- ⭐ NEW: Donation Category -->
                         <div>
                             <label class="block text-sm font-semibold mb-2">
-                                Quantity <span class="text-red-500">*</span>
+                                Donation Category <span class="text-red-500">*</span>
                             </label>
-                            <input 
-                                type="number" 
-                                id="quantityInput" 
-                                placeholder="e.g., 5" 
-                                min="1" 
-                                step="1"
-                                inputmode="numeric" 
-                                class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500" 
-                            />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-semibold mb-2">
-                                Unit <span class="text-red-500">*</span>
-                            </label>
-                            <select 
-                                id="unitInput" 
+                            <select
+                                id="categoryInput"
                                 class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 bg-white"
                             >
-                                <option value="pcs">pcs</option>
-                                <option value="kg">kg</option>
-                                <option value="packs">packs</option>
-                                <option value="boxes">boxes</option>
-                                <option value="sacks">sacks</option>
-                                <option value="bottles">bottles</option>
-                                <option value="liters">liters</option>
+                                <option value="">-- Select a category --</option>
+                                <option value="Food & Treats">🍖 Food &amp; Treats</option>
+                                <option value="Toys">🧸 Toys</option>
+                                <option value="Medicine & Health">💊 Medicine &amp; Health</option>
+                                <option value="Grooming & Hygiene">🧼 Grooming &amp; Hygiene</option>
+                                <option value="Accessories & Supplies">🦮 Accessories &amp; Supplies</option>
+                                <option value="Bedding & Housing">🛏️ Bedding &amp; Housing</option>
+                                <option value="Other">📦 Other</option>
                             </select>
                         </div>
+
+                   
+                        <!-- Item Name (full width) -->
+                        <div>
+                            <label class="block text-sm font-semibold mb-2">
+                                Item to Donate <span class="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                id="itemNameInput"
+                                placeholder="Select a category first..."
+                                maxlength="100"
+                                disabled
+                                class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            />
+                        </div>
+
+                        <!-- Quantity + Unit (side by side) -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label class="block text-sm font-semibold mb-2">
+                                    Quantity <span class="text-red-500">*</span>
+                                </label>
+                                <input
+                                    type="number"
+                                    id="quantityInput"
+                                    placeholder="e.g., 5"
+                                    min="1"
+                                    step="1"
+                                    inputmode="numeric"
+                                    class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500"
+                                />
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold mb-2">
+                                    Unit <span class="text-red-500">*</span>
+                                </label>
+                                <select
+                                    id="unitInput"
+                                    disabled
+                                    class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                >
+                                    <option value="">-- Select category first --</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
-                </div>
+
                     <div class="flex items-start gap-3 mb-8">
                         <input type="checkbox" id="termsCheckbox" class="mt-1" />
                         <p class="text-sm text-gray-600">

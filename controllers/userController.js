@@ -977,26 +977,42 @@ exports.submitInKindDonation = async (req, res) => {
         return res.status(401).json({ success: false, error: "Unauthorized access. Please login." });
     }
 
-    const { organization_id, item_name, quantity, unit } = req.body;
+    const { organization_id, item_name, quantity, unit, category } = req.body;
 
     // ⭐ Required fields check
-    if (!organization_id || !item_name || quantity === undefined || quantity === null || quantity === "") {
+    if (!organization_id || !category || !item_name || quantity === undefined || quantity === null || quantity === "") {
         return res.status(400).json({ success: false, error: "Please fill in all required fields." });
     }
 
-    // ⭐ SAFE conversion — tanggapin ang number OR string
     const cleanItemName = String(item_name).trim();
     const cleanQuantity = String(quantity).trim();
-    const cleanUnit     = (unit && String(unit).trim()) ? String(unit).trim() : "pcs";
+    const cleanUnit     = (unit && String(unit).trim()) ? String(unit).trim() : "";
+    const cleanCategory = String(category).trim();
 
-    // Validation
+    // ⭐ Category → allowed units map (must match frontend)
+    const CATEGORY_UNITS = {
+        "Food & Treats":          ["kg", "sacks", "packs", "boxes", "cans", "pcs"],
+        "Toys":                   ["pcs", "packs", "boxes", "sets"],
+        "Medicine & Health":      ["bottles", "boxes", "packs", "pcs", "tubes"],
+        "Grooming & Hygiene":     ["bottles", "packs", "pcs", "liters"],
+        "Accessories & Supplies": ["pcs", "packs", "boxes", "sets"],
+        "Bedding & Housing":      ["pcs", "packs", "boxes"],
+        "Other":                  ["pcs", "kg", "packs", "boxes", "sacks", "bottles", "liters"]
+    };
+
+    // ⭐ Category validation
+    if (!CATEGORY_UNITS[cleanCategory]) {
+        return res.status(400).json({ success: false, error: "Invalid donation category." });
+    }
+
+    // ⭐ Item name validation
     const gibberishPattern = /(.)\1{3,}/;
-    const validItemPattern = /^[a-zA-Z0-9\sñÑ-]{3,}$/;
-    const hasVowel = /[aeiouAEIOU]/.test(cleanItemName);
-    const strictQuantityPattern = /^[1-9]\d*$/;
+    const validItemPattern = /^[a-zA-Z0-9\sñÑ\-',.()\/&+]{3,}$/;
+    const hasVowel         = /[aeiouAEIOU]/.test(cleanItemName);
 
     if (
         cleanItemName.length < 3 ||
+        cleanItemName.length > 100 ||
         /^[0-9]+$/.test(cleanItemName) ||
         !hasVowel ||
         gibberishPattern.test(cleanItemName) ||
@@ -1005,14 +1021,15 @@ exports.submitInKindDonation = async (req, res) => {
         return res.status(400).json({ success: false, error: "Invalid item name format. Please enter a real item description." });
     }
 
+    // ⭐ Quantity validation
+    const strictQuantityPattern = /^[1-9]\d*$/;
     if (!strictQuantityPattern.test(cleanQuantity)) {
         return res.status(400).json({ success: false, error: "Invalid quantity. Please enter a whole number greater than zero (e.g., 5)." });
     }
 
-    // ⭐ Unit validation
-    const allowedUnits = ["pcs", "kg", "packs", "boxes", "sacks", "bottles", "liters"];
-    if (!allowedUnits.includes(cleanUnit)) {
-        return res.status(400).json({ success: false, error: "Invalid unit. Please select a valid unit." });
+    // ⭐ Unit must belong to the selected category
+    if (!cleanUnit || !CATEGORY_UNITS[cleanCategory].includes(cleanUnit)) {
+        return res.status(400).json({ success: false, error: "Invalid unit for the selected category." });
     }
 
     try {
@@ -1040,26 +1057,34 @@ exports.submitInKindDonation = async (req, res) => {
             return res.status(404).json({ success: false, error: "Adopter record not found." });
         }
 
-        const adopter = adopterRows[0];
+        const adopter   = adopterRows[0];
         const donorName = `${adopter.first_name} ${adopter.last_name}`.trim();
 
-        // ⭐ INSERT — kasama na ang `unit`
+        // ⭐ INSERT — kasama na ang `category`
+        //    NOTE: Ensure `inkind_donations.category` column exists (VARCHAR(50)).
         const [result] = await pool.query(
             `INSERT INTO inkind_donations
-            (adopter_id, organization_id, donor_name, donor_email, item_name, quantity, unit, status, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'Pending', NOW())`,
+            (adopter_id, organization_id, donor_name, donor_email, category, item_name, quantity, unit, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', NOW())`,
             [
                 adopter.adopter_id,
                 organization_id,
                 donorName,
                 adopter.email,
+                cleanCategory,
                 cleanItemName,
                 cleanQuantity,
                 cleanUnit
             ]
         );
 
-        await logActivity(accountId, "donation_submitted", "inkind_donation", result.insertId, `${cleanQuantity} ${cleanUnit} ${cleanItemName}`);
+        await logActivity(
+            accountId,
+            "donation_submitted",
+            "inkind_donation",
+            result.insertId,
+            `[${cleanCategory}] ${cleanQuantity} ${cleanUnit} ${cleanItemName}`
+        );
 
         const [[orgAccountInkind]] = await pool.query(
             `SELECT account_id FROM organizations WHERE organization_id = ?`,
@@ -1070,7 +1095,7 @@ exports.submitInKindDonation = async (req, res) => {
             await createNotification(
                 orgAccountInkind.account_id,
                 "New In-Kind Donation",
-                `${donorName} wants to donate ${cleanQuantity} ${cleanUnit} of ${cleanItemName}.`,
+                `${donorName} wants to donate ${cleanQuantity} ${cleanUnit} of ${cleanItemName} (${cleanCategory}).`,
                 "donation_submitted",
                 "/org/donation"
             );

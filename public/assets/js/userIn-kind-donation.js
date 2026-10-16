@@ -12,10 +12,31 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let organizations = [];
     let selectedOrganization = null;
+    // ==========================================
+    // ⭐ CATEGORY → ALLOWED UNITS MAP
+    // ==========================================
+    const CATEGORY_UNITS = {
+        "Food & Treats":          ["kg", "sacks", "packs", "boxes", "cans", "pcs"],
+        "Toys":                   ["pcs", "packs", "boxes", "sets"],
+        "Medicine & Health":      ["bottles", "boxes", "packs", "pcs", "tubes"],
+        "Grooming & Hygiene":     ["bottles", "packs", "pcs", "liters"],
+        "Accessories & Supplies": ["pcs", "packs", "boxes", "sets"],
+        "Bedding & Housing":      ["pcs", "packs", "boxes"],
+        "Other":                  ["pcs", "kg", "packs", "boxes", "sacks", "bottles", "liters"]
+    };
 
+    const CATEGORY_PLACEHOLDERS = {
+        "Food & Treats":          "e.g., Dry dog food, Cat treats, Canned tuna",
+        "Toys":                   "e.g., Chew toy, Cat teaser, Rubber ball",
+        "Medicine & Health":      "e.g., Deworming tablets, Vitamins, Antibiotic ointment",
+        "Grooming & Hygiene":     "e.g., Pet shampoo, Litter sand, Flea spray",
+        "Accessories & Supplies": "e.g., Leash, Collar, Food bowl, Pet cage",
+        "Bedding & Housing":      "e.g., Pet bed, Blanket, Crate mat",
+        "Other":                  "e.g., Any pet supply item"
+    };
     const itemNameInput = document.getElementById('itemNameInput');
     const quantityInput = document.getElementById('quantityInput');
-    const unitInput     = document.getElementById('unitInput');       // ⭐ NEW
+    const unitInput     = document.getElementById('unitInput');
     const termsCheckbox = document.getElementById('termsCheckbox');
     const submitBtn     = document.getElementById('submitInKindBtn');
 
@@ -37,6 +58,52 @@ document.addEventListener('DOMContentLoaded', async function() {
             const pasted = (e.clipboardData || window.clipboardData).getData("text");
             if (!/^\d+$/.test(pasted.trim())) {
                 e.preventDefault();
+            }
+        });
+    }
+       // ==========================================
+    // ⭐ CATEGORY CHANGE — Dynamic Unit + Item Placeholder
+    // ==========================================
+    function populateUnitsForCategory(category) {
+        if (!unitInput) return;
+
+        unitInput.innerHTML = "";
+
+        if (!category || !CATEGORY_UNITS[category]) {
+            unitInput.disabled = true;
+            unitInput.innerHTML = `<option value="">-- Select category first --</option>`;
+            return;
+        }
+
+        unitInput.disabled = false;
+        unitInput.innerHTML = `<option value="">-- Select unit --</option>`;
+
+        CATEGORY_UNITS[category].forEach(u => {
+            const opt = document.createElement("option");
+            opt.value = u;
+            opt.textContent = u;
+            unitInput.appendChild(opt);
+        });
+    }
+
+    if (categoryInput) {
+        categoryInput.addEventListener("change", function () {
+            const cat = this.value;
+
+            // Reset unit
+            populateUnitsForCategory(cat);
+
+            // Unlock + update item name placeholder
+            if (itemNameInput) {
+                if (cat) {
+                    itemNameInput.disabled = false;
+                    itemNameInput.placeholder = CATEGORY_PLACEHOLDERS[cat] || "Enter item name";
+                    itemNameInput.value = ""; // clear stale value when switching category
+                } else {
+                    itemNameInput.disabled = true;
+                    itemNameInput.placeholder = "Select a category first...";
+                    itemNameInput.value = "";
+                }
             }
         });
     }
@@ -306,10 +373,15 @@ document.addEventListener('DOMContentLoaded', async function() {
                 showToast("This organization hasn't provided drop-off location details yet. In-kind donation is temporarily unavailable.", "error");
                 return;
             }
-
+            const category      = categoryInput ? categoryInput.value : "";
             const finalItemName = itemNameInput ? itemNameInput.value.trim() : "";
             const quantity      = quantityInput ? quantityInput.value.trim() : "";
-            const unit          = unitInput     ? unitInput.value             : "pcs";
+            const unit          = unitInput     ? unitInput.value : "";
+
+            if (!category || !CATEGORY_UNITS[category]) {
+                showToast("Please select a donation category.", "error");
+                return;
+            }
 
             // ⭐ Item name validation (same sa index.js)
             const itemCheck = validateItemName(finalItemName);
@@ -325,10 +397,8 @@ document.addEventListener('DOMContentLoaded', async function() {
                 return;
             }
 
-            // ⭐ Unit validation — dapat nasa allowed list
-            const allowedUnits = ["pcs", "kg", "packs", "boxes", "sacks", "bottles", "liters"];
-            if (!allowedUnits.includes(unit)) {
-                showToast("Please select a valid unit.", "error");
+            if (!unit || !CATEGORY_UNITS[category].includes(unit)) {
+                showToast("Please select a valid unit for the chosen category.", "error");
                 return;
             }
 
@@ -340,9 +410,10 @@ document.addEventListener('DOMContentLoaded', async function() {
             // ⭐ Payload with unit
             const payload = {
                 organization_id: selectedOrganization,
-                item_name: finalItemName,
-                quantity: parseInt(quantity, 10),
-                unit: unit
+                category:        category,
+                item_name:       finalItemName,
+                quantity:        parseInt(quantity, 10),
+                unit:            unit
             };
 
             console.log("[In-Kind] payload:", payload);
@@ -365,9 +436,17 @@ document.addEventListener('DOMContentLoaded', async function() {
                     showToast(data.message || "Thank you! Your in-kind donation offer has been submitted.", "success");
 
                     // Reset form
-                    if (itemNameInput) itemNameInput.value = "";
+                    if (categoryInput) categoryInput.value = "";
+                    if (itemNameInput) {
+                        itemNameInput.value = "";
+                        itemNameInput.disabled = true;
+                        itemNameInput.placeholder = "Select a category first...";
+                    }
                     if (quantityInput) quantityInput.value = "";
-                    if (unitInput)     unitInput.value = "pcs";
+                    if (unitInput) {
+                        unitInput.disabled = true;
+                        unitInput.innerHTML = `<option value="">-- Select category first --</option>`;
+                    }
                     if (termsCheckbox) termsCheckbox.checked = false;
 
                     setTimeout(() => window.location.reload(), 1500);
