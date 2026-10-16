@@ -1,69 +1,122 @@
+// =====================================================
 // ORGANIZATION ANALYTICS CHARTS
+// =====================================================
+
 let adoptedPetsChart = null;
 let availablePetsChart = null;
 let cashDonationChart = null;
 let inKindDonationChart = null;
 
-// FORMAT PERIOD LABEL
+// =====================================================
+// GLOBAL CHART DEFAULTS (modern look)
+// =====================================================
+if (typeof Chart !== "undefined") {
+    Chart.defaults.font.family = "'Inter', sans-serif";
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = "#64748b";
+    Chart.defaults.animation.duration = 800;
+    Chart.defaults.animation.easing = "easeOutQuart";
+    Chart.defaults.plugins.legend.labels.usePointStyle = true;
+    Chart.defaults.plugins.legend.labels.boxWidth = 8;
+    Chart.defaults.plugins.legend.labels.padding = 15;
+    Chart.defaults.plugins.tooltip.backgroundColor = "#0f172a";
+    Chart.defaults.plugins.tooltip.padding = 12;
+    Chart.defaults.plugins.tooltip.cornerRadius = 8;
+    Chart.defaults.plugins.tooltip.titleFont = { size: 12, weight: "bold" };
+    Chart.defaults.plugins.tooltip.bodyFont = { size: 12 };
+}
+
+// =====================================================
+// PERIOD LABEL HELPERS
+// =====================================================
 function getPeriodLabel(period, date) {
     const selectedDate = new Date(`${date}T00:00:00`);
     if (period === "day") {
-        return selectedDate.toLocaleDateString("en-US", {
-            month: "long",
-            day: "numeric",
-            year: "numeric"
-        });
+        return selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     }
-    if (period === "year") {
-        return selectedDate.getFullYear().toString();
-    }
-    return selectedDate.toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric"
-    });
+    if (period === "year") return selectedDate.getFullYear().toString();
+    return selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
-// FORMAT DATE LABEL
+
 function formatDateLabel(value) {
     const selectedDate = new Date(`${value}T00:00:00`);
-
-    return selectedDate.toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-        year: "numeric"
-    });
+    return selectedDate.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
-// FORMAT MONTH LABEL
+
 function formatMonthLabel(value) {
     const [year, month] = value.split("-");
     const date = new Date(Number(year), Number(month) - 1, 1);
-
-    return date.toLocaleDateString("en-US", {
-        month: "long",
-        year: "numeric"
-    });
+    return date.toLocaleDateString("en-US", { month: "short", year: "numeric" });
 }
-// GET PERIOD DESCRIPTION
+
 function getPeriodDescription(period) {
-    if (period === "day") {
-        return "Hourly";
-    }
-    if (period === "year") {
-        return "Monthly";
-    }
+    if (period === "day") return "Hourly";
+    if (period === "year") return "Monthly";
     return "Daily";
 }
+
+// =====================================================
+// GRADIENT HELPER
+// =====================================================
+function createGradient(ctx, area, colorStart, colorEnd) {
+    const gradient = ctx.createLinearGradient(0, area.bottom, 0, area.top);
+    gradient.addColorStop(0, colorStart);
+    gradient.addColorStop(1, colorEnd);
+    return gradient;
+}
+
+// =====================================================
+// ANIMATED NUMBER COUNTER
+// =====================================================
+function animateNumber(element, targetValue, prefix = "", suffix = "", decimals = 0) {
+    if (!element) return;
+    const duration = 700;
+    const startTime = performance.now();
+    const startValue = 0;
+
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const currentValue = startValue + (targetValue - startValue) * easeOut;
+
+        if (decimals > 0) {
+            element.textContent = prefix + currentValue.toLocaleString("en-PH", {
+                minimumFractionDigits: decimals,
+                maximumFractionDigits: decimals
+            }) + suffix;
+        } else {
+            element.textContent = prefix + Math.round(currentValue).toLocaleString("en-PH") + suffix;
+        }
+
+        if (progress < 1) requestAnimationFrame(update);
+    }
+    requestAnimationFrame(update);
+}
+
+// =====================================================
+// PROGRESS BAR UPDATER
+// =====================================================
+function updateProgressBar(barId, pctId, value, total) {
+    const pct = total > 0 ? Math.round((value / total) * 100) : 0;
+    const bar = document.getElementById(barId);
+    const pctEl = document.getElementById(pctId);
+    if (bar) bar.style.width = `${pct}%`;
+    if (pctEl) pctEl.textContent = `${pct}%`;
+}
+
+// =====================================================
 // LOAD ANALYTICS
+// =====================================================
+let latestAnalyticsData = null;
+
 async function loadAnalytics() {
     try {
-        const periodElement =
-            document.getElementById("analyticsPeriodType");
-        const dateElement =
-            document.getElementById("analyticsDate");
-        const period =
-            periodElement?.value || "month";
-        const date =
-            dateElement?.value ||
-            new Date().toISOString().slice(0, 10);
+        const periodElement = document.getElementById("analyticsPeriodType");
+        const dateElement = document.getElementById("analyticsDate");
+        const period = periodElement?.value || "month";
+        const date = dateElement?.value || new Date().toISOString().slice(0, 10);
+
         const response = await fetch(
             `/org/analytics/data?period=${encodeURIComponent(period)}&date=${encodeURIComponent(date)}`
         );
@@ -71,576 +124,521 @@ async function loadAnalytics() {
 
         console.log("Analytics DB response:", data);
 
-        // Save latest response for export
         latestAnalyticsData = data;
 
         if (!data.success) {
-            throw new Error(
-                data.message || "Failed to load analytics."
-            );
+            throw new Error(data.message || "Failed to load analytics.");
         }
 
-        // PERIOD LABEL
-        const periodLabel =
-            getPeriodLabel(data.period, data.date);
-        const periodDescription =
-            getPeriodDescription(data.period);
+        const periodLabel = getPeriodLabel(data.period, data.date);
+        const periodDescription = getPeriodDescription(data.period);
 
-        // PET SUMMARY
-        document.getElementById("petAvailable").textContent =
-            data.pets.available;
-        document.getElementById("petPending").textContent =
-            data.pets.pending;
-        document.getElementById("petAdopted").textContent =
-            data.pets.adopted;
-        document.getElementById("petArchived").textContent =
-            data.pets.archived;
-        document.getElementById("petTotal").textContent =
-            data.pets.total;
+        // ==========================================
+        // PET SUMMARY + PROGRESS BARS
+        // ==========================================
+        const petTotal = Number(data.pets.total || 0);
 
+        animateNumber(document.getElementById("petAvailable"), data.pets.available);
+        animateNumber(document.getElementById("petPending"), data.pets.pending);
+        animateNumber(document.getElementById("petAdopted"), data.pets.adopted);
+        animateNumber(document.getElementById("petArchived"), data.pets.archived);
+        animateNumber(document.getElementById("petTotal"), petTotal);
+
+        updateProgressBar("petAvailableBar", "petAvailablePct", data.pets.available, petTotal);
+        updateProgressBar("petPendingBar", "petPendingPct", data.pets.pending, petTotal);
+        updateProgressBar("petAdoptedBar", "petAdoptedPct", data.pets.adopted, petTotal);
+        updateProgressBar("petArchivedBar", "petArchivedPct", data.pets.archived, petTotal);
+
+        // ==========================================
         // CASH SUMMARY
-        const cashTotal =
-            Number(data.cash.total || 0);
-        document.getElementById("summaryCash").textContent =
-            `₱${cashTotal.toLocaleString("en-PH", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            })}`;
-        document.getElementById("cashTotal").textContent =
-            `₱${cashTotal.toLocaleString("en-PH", {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2
-            })}`;
-        document.getElementById("cashPeriodLabel").textContent =
-            `${periodLabel} — Approved donations`;
-        document.getElementById("cashPeriodLabelChart").textContent =
-            periodLabel;
+        // ==========================================
+        const cashTotal = Number(data.cash.total || 0);
+        const formattedCash = cashTotal.toLocaleString("en-PH", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
 
+        document.getElementById("summaryCash").textContent = `₱${formattedCash}`;
+        document.getElementById("cashTotal").textContent = `₱${formattedCash}`;
+        document.getElementById("cashPeriodLabel").textContent = `${periodLabel} — Approved donations`;
+        document.getElementById("cashPeriodLabelChart").textContent = periodLabel;
+
+        // ==========================================
         // IN-KIND SUMMARY
-        const inKindTotal =
-            Number(data.inKind.totalQuantity || 0);
-        document.getElementById("summaryInKind").textContent =
-            inKindTotal.toLocaleString();
-        document.getElementById("inKindTotal").textContent =
-            inKindTotal.toLocaleString();
-        document.getElementById("inKindPeriodLabel").textContent =
-            `${periodLabel} — Approved donations`;
-        document.getElementById("inKindPeriodLabelChart").textContent =
-            periodLabel;
+        // ==========================================
+        const inKindTotal = Number(data.inKind.totalQuantity || 0);
+        animateNumber(document.getElementById("summaryInKind"), inKindTotal);
+        animateNumber(document.getElementById("inKindTotal"), inKindTotal);
 
+        document.getElementById("inKindPeriodLabel").textContent = `${periodLabel} — Approved donations`;
+        document.getElementById("inKindPeriodLabelChart").textContent = periodLabel;
+
+        // ==========================================
         // ADOPTION TOTAL
-        const adoptionTotal =
-            Number(data.adoptions.total || 0);
-        document.getElementById("adoptedTotal").textContent =
-            adoptionTotal;
-        document.getElementById("adoptionPeriodLabel").textContent =
-            periodLabel;
+        // ==========================================
+        const adoptionTotal = Number(data.adoptions.total || 0);
+        animateNumber(document.getElementById("adoptedTotal"), adoptionTotal);
+        document.getElementById("adoptionPeriodLabel").textContent = periodLabel;
 
+        // ==========================================
         // AVAILABLE PET TOTAL
-        document.getElementById("availableTotal").textContent =
-            data.pets.available;
-        document.getElementById("availablePetsSubtitle").textContent =
-            `Current available pets — ${periodLabel}`;
+        // ==========================================
+        animateNumber(document.getElementById("availableTotal"), data.pets.available);
+        document.getElementById("availablePetsSubtitle").textContent = `Current available pets — ${periodLabel}`;
 
+        // ==========================================
         // CHART SUBTITLES
-        document.getElementById("adoptionChartSubtitle").textContent =
-            `${periodLabel} — ${periodDescription} approved adoptions`;
-        document.getElementById("cashChartSubtitle").textContent =
-            `${periodLabel} — ${periodDescription} approved cash donations`;
-        document.getElementById("inKindChartSubtitle").textContent =
-            `${periodLabel} — ${periodDescription} approved in-kind donations`;
+        // ==========================================
+        document.getElementById("adoptionChartSubtitle").textContent = `${periodLabel} — ${periodDescription} approved adoptions`;
+        document.getElementById("cashChartSubtitle").textContent = `${periodLabel} — ${periodDescription} approved cash donations`;
+        document.getElementById("inKindChartSubtitle").textContent = `${periodLabel} — ${periodDescription} approved in-kind donations`;
 
-        // DRAW CHART
-        createAdoptionChart(
-            data,
-            periodLabel,
-            periodDescription
-        );
-        createAvailablePetsChart(
-            data
-        );
-        createCashChart(
-            data,
-            periodLabel,
-            periodDescription
-        );
-        createInKindChart(
-            data,
-            periodLabel,
-            periodDescription
-        );
+        // ==========================================
+        // DRAW CHARTS
+        // ==========================================
+        createAdoptionChart(data, periodLabel, periodDescription);
+        createAvailablePetsChart(data);
+        createCashChart(data, periodLabel, periodDescription);
+        createInKindChart(data, periodLabel, periodDescription);
+
     } catch (error) {
-        console.error(
-            "Analytics loading error:",
-            error
-        );
+        console.error("Analytics loading error:", error);
     }
 }
 
+// =====================================================
 // ADOPTION BAR CHART
-function createAdoptionChart(
-    data,
-    periodLabel,
-    periodDescription
-) {
-    const canvas =
-        document.getElementById("adoptedPetsChart");
+// =====================================================
+function createAdoptionChart(data, periodLabel, periodDescription) {
+    const canvas = document.getElementById("adoptedPetsChart");
+    const emptyState = document.getElementById("adoptedPetsEmpty");
     if (!canvas) return;
-    if (adoptedPetsChart) {
-        adoptedPetsChart.destroy();
+
+    if (adoptedPetsChart) adoptedPetsChart.destroy();
+
+    const chartData = data.adoptions.chart || [];
+
+    // Empty state
+    if (chartData.length === 0) {
+        emptyState?.classList.remove("hidden");
+        return;
     }
+    emptyState?.classList.add("hidden");
 
-    const chartData =
-        data.adoptions.chart || [];
     const labels = chartData.map(item => {
-        if (data.period === "month") {
-            return formatDateLabel(item.label);
-        }
-
-        if (data.period === "year") {
-            return formatMonthLabel(item.label);
-        }
-
+        if (data.period === "month") return formatDateLabel(item.label);
+        if (data.period === "year") return formatMonthLabel(item.label);
         return item.label;
     });
-    const values =
-        chartData.map(item => Number(item.total || 0));
+    const values = chartData.map(item => Number(item.total || 0));
 
-    adoptedPetsChart =
-        new Chart(canvas, {
-            type: "bar",
-            data: {
-                labels,
-                datasets: [{
-                    label: "Approved adoptions",
-                    data: values,
-                    borderWidth: 1,
-                    borderRadius: 6
-                }]
+    const ctx = canvas.getContext("2d");
+
+    adoptedPetsChart = new Chart(canvas, {
+        type: "bar",
+        data: {
+            labels,
+            datasets: [{
+                label: "Approved adoptions",
+                data: values,
+                backgroundColor: (context) => {
+                    const chart = context.chart;
+                    const { ctx, chartArea } = chart;
+                    if (!chartArea) return "rgba(16, 185, 129, 0.7)";
+                    return createGradient(ctx, chartArea, "rgba(16, 185, 129, 0.35)", "rgba(16, 185, 129, 1)");
+                },
+                borderColor: "#10b981",
+                borderWidth: 1.5,
+                borderRadius: 8,
+                borderSkipped: false,
+                hoverBackgroundColor: "rgba(16, 185, 129, 1)"
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => ` Approved adoptions: ${context.raw}`
+                    }
+                }
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true
-                    },
-                    tooltip: {
-                        callbacks: {
-                            title: function(items) {
-                                return items[0].label;
-                            },
-                            label: function(context) {
-                                return ` Approved adoptions: ${context.raw}`;
-                            }
-                        }
+            scales: {
+                x: {
+                    grid: { display: false },
+                    title: {
+                        display: true,
+                        text: data.period === "day" ? "Hour" : data.period === "year" ? "Month" : "Day",
+                        color: "#94a3b8",
+                        font: { size: 11, weight: "bold" }
                     }
                 },
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text:
-                                data.period === "day"
-                                    ? "Hour"
-                                    : data.period === "year"
-                                        ? "Month"
-                                        : "Day"
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        },
-                        title: {
-                            display: true,
-                            text: "Number of approved adoptions"
-                        }
+                y: {
+                    beginAtZero: true,
+                    ticks: { precision: 0 },
+                    grid: { color: "rgba(148, 163, 184, 0.15)" },
+                    title: {
+                        display: true,
+                        text: "Number of adoptions",
+                        color: "#94a3b8",
+                        font: { size: 11, weight: "bold" }
                     }
                 }
             }
-        });
+        }
+    });
 }
 
+// =====================================================
 // AVAILABLE PETS DOUGHNUT
+// =====================================================
 function createAvailablePetsChart(data) {
-    const canvas =
-        document.getElementById("availablePetsChart");
+    const canvas = document.getElementById("availablePetsChart");
+    const emptyState = document.getElementById("availablePetsEmpty");
     if (!canvas) return;
-    if (availablePetsChart) {
-        availablePetsChart.destroy();
+
+    if (availablePetsChart) availablePetsChart.destroy();
+
+    const speciesData = data.availableBySpecies || [];
+
+    if (speciesData.length === 0) {
+        emptyState?.classList.remove("hidden");
+        return;
     }
+    emptyState?.classList.add("hidden");
 
-    const speciesData =
-    data.availableBySpecies || [];
-    const labels =
-        speciesData.map(item => item.species);
-    const values =
-        speciesData.map(item => Number(item.total || 0));
+    const labels = speciesData.map(item => item.species);
+    const values = speciesData.map(item => Number(item.total || 0));
+    const total = values.reduce((a, b) => a + b, 0);
 
-    availablePetsChart =
-        new Chart(canvas, {
-            type: "doughnut",
-            data: {
-                labels,
-                datasets: [{
-                    label: "Available pets",
-                    data: values,
-                    borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: "bottom"
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return ` ${context.label}: ${context.raw} pets`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-}
+    const palette = [
+        "#3b82f6", "#8b5cf6", "#f59e0b", "#10b981",
+        "#ef4444", "#ec4899", "#06b6d4", "#84cc16"
+    ];
 
-// CASH BAR CHART
-function createCashChart(
-    data,
-    periodLabel,
-    periodDescription
-) {
-    const canvas =
-        document.getElementById("cashDonationChart");
-    if (!canvas) return;
-    if (cashDonationChart) {
-        cashDonationChart.destroy();
-    }
-
-    const chartData =
-        data.cash.chart || [];
-    const labels = chartData.map(item => {
-        if (data.period === "month") {
-            return formatDateLabel(item.label);
-        }
-
-        if (data.period === "year") {
-            return formatMonthLabel(item.label);
-        }
-
-        return item.label;
-    });
-    const values =
-        chartData.map(item => Number(item.total || 0));
-
-    cashDonationChart =
-        new Chart(canvas, {
-            type: "bar",
-            data: {
-                labels,
-                datasets: [{
-                    label: "Approved cash donations (₱)",
-                    data: values,
-                    borderWidth: 1,
-                    borderRadius: 6
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-
-                plugins: {
-                    legend: {
-                        display: true
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return ` ₱${Number(context.raw).toLocaleString("en-PH", {
-                                    minimumFractionDigits: 2
-                                })}`;
-                            }
-                        }
+    availablePetsChart = new Chart(canvas, {
+        type: "doughnut",
+        data: {
+            labels,
+            datasets: [{
+                label: "Available pets",
+                data: values,
+                backgroundColor: palette.slice(0, labels.length),
+                borderColor: "#ffffff",
+                borderWidth: 3,
+                hoverOffset: 8
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: "62%",
+            plugins: {
+                legend: {
+                    position: "bottom",
+                    labels: {
+                        padding: 12,
+                        font: { size: 11, weight: "600" }
                     }
                 },
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text:
-                                data.period === "day"
-                                    ? "Hour"
-                                    : data.period === "year"
-                                        ? "Month"
-                                        : "Day"
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        title: {
-                            display: true,
-                            text: "Amount (₱)"
+                tooltip: {
+                    callbacks: {
+                        label: (context) => {
+                            const val = context.raw;
+                            const pct = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
+                            return ` ${context.label}: ${val} pets (${pct}%)`;
                         }
                     }
                 }
             }
-        });
+        },
+        plugins: [{
+            id: "centerText",
+            afterDraw(chart) {
+                const { ctx, chartArea } = chart;
+                if (!chartArea) return;
+                const centerX = (chartArea.left + chartArea.right) / 2;
+                const centerY = (chartArea.top + chartArea.bottom) / 2;
+
+                ctx.save();
+                ctx.font = "bold 22px 'Inter', sans-serif";
+                ctx.fillStyle = "#0f172a";
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(String(total), centerX, centerY - 6);
+
+                ctx.font = "600 10px 'Inter', sans-serif";
+                ctx.fillStyle = "#94a3b8";
+                ctx.fillText("TOTAL PETS", centerX, centerY + 14);
+                ctx.restore();
+            }
+        }]
+    });
 }
+
+// =====================================================
+// CASH BAR CHART
+// =====================================================
+function createCashChart(data, periodLabel, periodDescription) {
+    const canvas = document.getElementById("cashDonationChart");
+    const emptyState = document.getElementById("cashDonationEmpty");
+    if (!canvas) return;
+
+    if (cashDonationChart) cashDonationChart.destroy();
+
+    const chartData = data.cash.chart || [];
+
+    if (chartData.length === 0) {
+        emptyState?.classList.remove("hidden");
+        return;
+    }
+    emptyState?.classList.add("hidden");
+
+    const labels = chartData.map(item => {
+        if (data.period === "month") return formatDateLabel(item.label);
+        if (data.period === "year") return formatMonthLabel(item.label);
+        return item.label;
+    });
+    const values = chartData.map(item => Number(item.total || 0));
+
+    cashDonationChart = new Chart(canvas, {
+        type: "bar",
+        data: {
+            labels,
+            datasets: [{
+                label: "Cash (₱)",
+                data: values,
+                backgroundColor: (context) => {
+                    const chart = context.chart;
+                    const { ctx, chartArea } = chart;
+                    if (!chartArea) return "rgba(245, 158, 11, 0.7)";
+                    return createGradient(ctx, chartArea, "rgba(251, 191, 36, 0.35)", "rgba(217, 119, 6, 1)");
+                },
+                borderColor: "#d97706",
+                borderWidth: 1.5,
+                borderRadius: 8,
+                borderSkipped: false,
+                hoverBackgroundColor: "rgba(217, 119, 6, 1)"
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (context) =>
+                            ` ₱${Number(context.raw).toLocaleString("en-PH", {
+                                minimumFractionDigits: 2
+                            })}`
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    title: {
+                        display: true,
+                        text: data.period === "day" ? "Hour" : data.period === "year" ? "Month" : "Day",
+                        color: "#94a3b8",
+                        font: { size: 11, weight: "bold" }
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: "rgba(148, 163, 184, 0.15)" },
+                    ticks: {
+                        callback: (v) => "₱" + Number(v).toLocaleString()
+                    },
+                    title: {
+                        display: true,
+                        text: "Amount (₱)",
+                        color: "#94a3b8",
+                        font: { size: 11, weight: "bold" }
+                    }
+                }
+            }
+        }
+    });
+}
+
 // =====================================================
 // IN-KIND BAR CHART
 // =====================================================
-function createInKindChart(
-    data,
-    periodLabel,
-    periodDescription
-) {
-    const canvas =
-        document.getElementById("inKindDonationChart");
+function createInKindChart(data, periodLabel, periodDescription) {
+    const canvas = document.getElementById("inKindDonationChart");
+    const emptyState = document.getElementById("inKindDonationEmpty");
     if (!canvas) return;
-    if (inKindDonationChart) {
-        inKindDonationChart.destroy();
+
+    if (inKindDonationChart) inKindDonationChart.destroy();
+
+    const chartData = data.inKind.chart || [];
+
+    if (chartData.length === 0) {
+        emptyState?.classList.remove("hidden");
+        return;
     }
+    emptyState?.classList.add("hidden");
 
-    const chartData =
-        data.inKind.chart || [];
     const labels = chartData.map(item => {
-        if (data.period === "month") {
-            return formatDateLabel(item.label);
-        }
-
-        if (data.period === "year") {
-            return formatMonthLabel(item.label);
-        }
-
+        if (data.period === "month") return formatDateLabel(item.label);
+        if (data.period === "year") return formatMonthLabel(item.label);
         return item.label;
     });
-    const values =
-        chartData.map(item => Number(item.quantity || 0));
+    const values = chartData.map(item => Number(item.quantity || 0));
 
-    inKindDonationChart =
-        new Chart(canvas, {
-            type: "bar",
-            data: {
-                labels,
-                datasets: [{
-                    label: "Approved donated quantity",
-                    data: values,
-                    borderWidth: 1,
-                    borderRadius: 6
-                }]
+    inKindDonationChart = new Chart(canvas, {
+        type: "bar",
+        data: {
+            labels,
+            datasets: [{
+                label: "Quantity",
+                data: values,
+                backgroundColor: (context) => {
+                    const chart = context.chart;
+                    const { ctx, chartArea } = chart;
+                    if (!chartArea) return "rgba(139, 92, 246, 0.7)";
+                    return createGradient(ctx, chartArea, "rgba(167, 139, 250, 0.35)", "rgba(109, 40, 217, 1)");
+                },
+                borderColor: "#7c3aed",
+                borderWidth: 1.5,
+                borderRadius: 8,
+                borderSkipped: false,
+                hoverBackgroundColor: "rgba(109, 40, 217, 1)"
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => ` Quantity: ${context.raw}`
+                    }
+                }
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        display: true
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return ` Quantity: ${context.raw}`;
-                            }
-                        }
+            scales: {
+                x: {
+                    grid: { display: false },
+                    title: {
+                        display: true,
+                        text: data.period === "day" ? "Hour" : data.period === "year" ? "Month" : "Day",
+                        color: "#94a3b8",
+                        font: { size: 11, weight: "bold" }
                     }
                 },
-
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text:
-                                data.period === "day"
-                                    ? "Hour"
-                                    : data.period === "year"
-                                        ? "Month"
-                                        : "Day"
-                        }
-                    },
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            precision: 0
-                        },
-                        title: {
-                            display: true,
-                            text: "Quantity"
-                        }
+                y: {
+                    beginAtZero: true,
+                    ticks: { precision: 0 },
+                    grid: { color: "rgba(148, 163, 184, 0.15)" },
+                    title: {
+                        display: true,
+                        text: "Quantity",
+                        color: "#94a3b8",
+                        font: { size: 11, weight: "bold" }
                     }
                 }
             }
-        });
+        }
+    });
 }
+
 // =====================================================
 // INITIALIZE
 // =====================================================
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-        const periodSelect =
-            document.getElementById("analyticsPeriodType");
-        const dateContainer =
-            document.getElementById("analyticsDateContainer");
-        function createDateInput() {
-            const period =
-                periodSelect.value;
-            let inputType = "month";
-            let value =
-                new Date().toISOString().slice(0, 7);
+document.addEventListener("DOMContentLoaded", () => {
+    const periodSelect = document.getElementById("analyticsPeriodType");
+    const dateContainer = document.getElementById("analyticsDateContainer");
 
-            if (period === "day") {
-                inputType = "date";
-                value =
-                    new Date().toISOString().slice(0, 10);
-            }
+    function createDateInput() {
+        const period = periodSelect.value;
+        let inputType = "month";
+        let value = new Date().toISOString().slice(0, 7);
 
-            else if (period === "year") {
-                inputType = "number";
-                value =
-                    new Date().getFullYear();
-            }
-
-            dateContainer.innerHTML = `
-                <input
-                    id="analyticsDate"
-                    type="${inputType}"
-                    value="${value}"
-                    ${inputType === "number"
-                        ? `min="2000" max="2100"`
-                        : ""
-                    }
-                    class="bg-white border border-gray-200
-                           text-gray-700 text-sm font-semibold
-                           py-2.5 px-4 rounded-xl shadow-sm
-                           focus:outline-none focus:ring-2
-                           focus:ring-blue-100
-                           focus:border-blue-400"
-                >
-            `;
+        if (period === "day") {
+            inputType = "date";
+            value = new Date().toISOString().slice(0, 10);
+        } else if (period === "year") {
+            inputType = "number";
+            value = new Date().getFullYear();
         }
-        createDateInput();
-        periodSelect.addEventListener(
-            "change",
-            () => {
-                createDateInput();
-                loadAnalytics();
-            }
-        );
 
-        document
-            .getElementById("refreshAnalyticsBtn")
-            ?.addEventListener(
-                "click",
-                () => {
-                    loadAnalytics();
-                }
-            );
-
-        dateContainer.addEventListener(
-            "change",
-            () => {
-                loadAnalytics();
-            }
-        );
-        loadAnalytics();
+        dateContainer.innerHTML = `
+            <input
+                id="analyticsDate"
+                type="${inputType}"
+                value="${value}"
+                ${inputType === "number" ? `min="2000" max="2100"` : ""}
+                class="bg-white border border-gray-200 text-gray-700 text-sm font-semibold py-2.5 px-4 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400"
+            >
+        `;
     }
-);
+
+    createDateInput();
+
+    periodSelect.addEventListener("change", () => {
+        createDateInput();
+        loadAnalytics();
+    });
+
+    document.getElementById("refreshAnalyticsBtn")?.addEventListener("click", () => {
+        loadAnalytics();
+    });
+
+    dateContainer.addEventListener("change", () => {
+        loadAnalytics();
+    });
+
+    loadAnalytics();
+});
 
 // =====================================================
-// ANALYTICS EXPORT
-// =====================================================
-
-// Store the latest analytics response
-let latestAnalyticsData = null;
-
-
-// =====================================================
-// FORMAT REPORT PERIOD
+// ANALYTICS EXPORT (keep existing)
 // =====================================================
 
 function getExportPeriodLabel() {
     const period = document.getElementById("analyticsPeriodType")?.value || "year";
     const date = document.getElementById("analyticsDate")?.value || new Date().getFullYear().toString();
 
-    // DAY
     if (period === "day") {
         const selectedDate = new Date(`${date}T00:00:00`);
-
-        return selectedDate.toLocaleDateString("en-US", {
-            month: "long",
-            day: "numeric",
-            year: "numeric"
-        });
+        return selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     }
-
-    // MONTH
     if (period === "month") {
         const [year, month] = date.split("-");
         const selectedDate = new Date(Number(year), Number(month) - 1, 1);
-
-        return selectedDate.toLocaleDateString("en-US", {
-            month: "long",
-            year: "numeric"
-        });
+        return selectedDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
     }
-
-    // YEAR
     return date;
 }
 
-
-// =====================================================
-// FORMAT GENERATED DATE
-// =====================================================
-
 function getGeneratedDate() {
-    return new Date().toLocaleDateString("en-US", {
-        month: "long",
-        day: "numeric",
-        year: "numeric"
-    });
+    return new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 }
 
-
-// =====================================================
-// HELPERS - SAFE NUMBER FORMATTING
-// =====================================================
-
-// Convert anything to a safe finite number
 function toNumber(value) {
     const n = Number(value);
     return Number.isFinite(n) ? n : 0;
 }
 
-// ASCII-safe currency string (no ₱ glyph — needed for PDF fonts)
 function formatCurrencyPHP(value) {
-    const n = toNumber(value);
-    return "PHP " + n.toLocaleString("en-US", {
+    return "PHP " + toNumber(value).toLocaleString("en-US", {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
     });
 }
 
-// Integer with commas
 function formatInteger(value) {
     return toNumber(value).toLocaleString("en-US");
 }
 
-
-// =====================================================
-// GET CURRENT ANALYTICS SUMMARY
-// =====================================================
-
 function getAnalyticsExportData() {
-    const period = document.getElementById("analyticsPeriodType")?.value || "year";
     const periodLabel = getExportPeriodLabel();
     const organizationName = latestAnalyticsData?.organization?.name || "Organization";
-
     const pets = latestAnalyticsData?.pets || {};
     const cashTotal = toNumber(latestAnalyticsData?.cash?.total);
     const inKindTotal = toNumber(latestAnalyticsData?.inKind?.totalQuantity);
@@ -649,10 +647,8 @@ function getAnalyticsExportData() {
 
     return {
         organizationName,
-        period,
         periodLabel,
         generatedDate: getGeneratedDate(),
-
         pets: {
             available: toNumber(pets.available),
             pending: toNumber(pets.pending),
@@ -660,14 +656,10 @@ function getAnalyticsExportData() {
             archived: toNumber(pets.archived),
             total: toNumber(pets.total)
         },
-
-        // RAW numbers (Excel — kept numeric so they stay summable)
         cash: cashTotal,
         inKind: inKindTotal,
-        adoptionTotal: adoptionTotal,
-        availableTotal: availableTotal,
-
-        // PRE-FORMATTED strings (PDF — ASCII-safe, no ₱)
+        adoptionTotal,
+        availableTotal,
         cashFormatted: formatCurrencyPHP(cashTotal),
         inKindFormatted: `${formatInteger(inKindTotal)} item(s)`,
         adoptionTotalFormatted: formatInteger(adoptionTotal),
@@ -675,30 +667,16 @@ function getAnalyticsExportData() {
     };
 }
 
-
-// =====================================================
-// EXPORT TO EXCEL
-// =====================================================
-
 function exportAnalyticsToExcel() {
     const data = getAnalyticsExportData();
 
-    // =================================================
-    // EXCEL DATA (numbers stay numbers, labels stay labels)
-    // =================================================
-
     const rows = [
-        // HEADER
         ["PAWPON SYSTEM ANALYTICS"],
         ["Organization Name", data.organizationName],
         [],
         ["Report Period", data.periodLabel],
         ["Generated Date", data.generatedDate],
         [],
-        ["Generated from", "Pawpon System Analytics"],
-        [],
-
-        // PET OVERVIEW
         ["PET OVERVIEW", ""],
         ["Available Pets", data.pets.available],
         ["Pending Pets", data.pets.pending],
@@ -706,113 +684,50 @@ function exportAnalyticsToExcel() {
         ["Archived Pets", data.pets.archived],
         ["Total Pets", data.pets.total],
         [],
-
-        // DONATION SUMMARY
         ["DONATION SUMMARY", ""],
         ["Approved Cash Donations (PHP)", data.cash],
         ["Approved In-Kind Donations (items)", data.inKind],
         [],
-
-        // ADOPTION SUMMARY
         ["ADOPTION SUMMARY", ""],
         ["Approved Adoptions", data.adoptionTotal],
         ["Currently Available Pets", data.availableTotal]
     ];
 
-    // =================================================
-    // CREATE WORKSHEET
-    // =================================================
-
     const worksheet = XLSX.utils.aoa_to_sheet(rows);
-
-    // =================================================
-    // COLUMN WIDTHS
-    // =================================================
-
-    worksheet["!cols"] = [
-        { wch: 36 },
-        { wch: 30 }
-    ];
-
-    // =================================================
-    // CURRENCY FORMAT ON CASH CELL
-    // Row 15 (1-indexed) is "Approved Cash Donations (PHP)"
-    // The value lives in B15.
-    // =================================================
-
-    if (worksheet["B15"]) {
-        worksheet["B15"].z = '"PHP "#,##0.00';
-    }
-
-    // =================================================
-    // CREATE WORKBOOK
-    // =================================================
+    worksheet["!cols"] = [{ wch: 36 }, { wch: 30 }];
+    if (worksheet["B15"]) worksheet["B15"].z = '"PHP "#,##0.00';
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Analytics");
 
-    // =================================================
-    // FILE NAME
-    // =================================================
+    const safeOrg = data.organizationName.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    const safePeriod = data.periodLabel.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
 
-    const safeOrganizationName = data.organizationName
-        .replace(/[^a-zA-Z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "");
-
-    const safePeriod = data.periodLabel
-        .replace(/[^a-zA-Z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "");
-
-    const fileName = `Pawpon_Analytics_${safeOrganizationName}_${safePeriod}.xlsx`;
-
-    // =================================================
-    // DOWNLOAD
-    // =================================================
-
-    XLSX.writeFile(workbook, fileName);
+    XLSX.writeFile(workbook, `Pawpon_Analytics_${safeOrg}_${safePeriod}.xlsx`);
 }
-
-
-// =====================================================
-// EXPORT TO PDF
-// =====================================================
 
 function exportAnalyticsToPDF() {
     const data = getAnalyticsExportData();
 
-    // =================================================
-    // CHECK JSPDF
-    // =================================================
-
     if (!window.jspdf) {
-        console.error("jsPDF library is not loaded.");
-        alert("PDF export is currently unavailable. Please refresh the page and try again.");
+        alert("PDF export is currently unavailable.");
         return;
     }
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    // =================================================
-    // HEADER
-    // =================================================
-
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
     doc.text("PAWPON SYSTEM ANALYTICS", 14, 20);
 
     doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
     doc.text(`Organization: ${data.organizationName}`, 14, 29);
 
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
     doc.text(`Report Period: ${data.periodLabel}`, 14, 37);
     doc.text(`Generated Date: ${data.generatedDate}`, 14, 43);
-
-    // =================================================
-    // PET OVERVIEW
-    // =================================================
 
     doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
@@ -829,24 +744,12 @@ function exportAnalyticsToPDF() {
             data.pets.total
         ]],
         theme: "grid",
-        styles: {
-            fontSize: 10,
-            halign: "center"
-        },
-        headStyles: {
-            fontStyle: "bold",
-            fillColor: [30, 64, 175]
-        }
+        styles: { fontSize: 10, halign: "center" },
+        headStyles: { fontStyle: "bold", fillColor: [30, 64, 175] }
     });
 
-    // =================================================
-    // DONATION SUMMARY (2-column layout, ASCII-safe values)
-    // =================================================
-
     let currentY = doc.lastAutoTable.finalY + 15;
-
     doc.setFontSize(13);
-    doc.setFont("helvetica", "bold");
     doc.text("Donation Summary", 14, currentY);
 
     doc.autoTable({
@@ -857,27 +760,13 @@ function exportAnalyticsToPDF() {
             ["Approved In-Kind Donations", data.inKindFormatted]
         ],
         theme: "grid",
-        styles: {
-            fontSize: 10
-        },
-        headStyles: {
-            fontStyle: "bold",
-            fillColor: [30, 64, 175]
-        },
-        columnStyles: {
-            0: { cellWidth: 100, halign: "left" },
-            1: { cellWidth: 80, halign: "right" }
-        }
+        styles: { fontSize: 10 },
+        headStyles: { fontStyle: "bold", fillColor: [30, 64, 175] },
+        columnStyles: { 0: { cellWidth: 100 }, 1: { cellWidth: 80, halign: "right" } }
     });
 
-    // =================================================
-    // ADOPTION SUMMARY
-    // =================================================
-
     currentY = doc.lastAutoTable.finalY + 15;
-
     doc.setFontSize(13);
-    doc.setFont("helvetica", "bold");
     doc.text("Adoption Summary", 14, currentY);
 
     doc.autoTable({
@@ -888,100 +777,50 @@ function exportAnalyticsToPDF() {
             ["Currently Available Pets", data.availableTotalFormatted]
         ],
         theme: "grid",
-        styles: {
-            fontSize: 10
-        },
-        headStyles: {
-            fontStyle: "bold",
-            fillColor: [30, 64, 175]
-        },
-        columnStyles: {
-            0: { cellWidth: 100, halign: "left" },
-            1: { cellWidth: 80, halign: "right" }
-        }
+        styles: { fontSize: 10 },
+        headStyles: { fontStyle: "bold", fillColor: [30, 64, 175] },
+        columnStyles: { 0: { cellWidth: 100 }, 1: { cellWidth: 80, halign: "right" } }
     });
 
-    // =================================================
-    // FOOTER
-    // =================================================
-
     const pageHeight = doc.internal.pageSize.height;
-
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text("Generated from Pawpon System Analytics", 14, pageHeight - 15);
     doc.text(`Generated on ${data.generatedDate}`, 14, pageHeight - 9);
 
-    // =================================================
-    // FILE NAME
-    // =================================================
-
-    const safeOrganizationName = data.organizationName
-        .replace(/[^a-zA-Z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "");
-
-    const safePeriod = data.periodLabel
-        .replace(/[^a-zA-Z0-9]+/g, "_")
-        .replace(/^_+|_+$/g, "");
-
-    const fileName = `Pawpon_Analytics_${safeOrganizationName}_${safePeriod}.pdf`;
-
-    // =================================================
-    // DOWNLOAD
-    // =================================================
-
-    doc.save(fileName);
+    const safeOrg = data.organizationName.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    const safePeriod = data.periodLabel.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    doc.save(`Pawpon_Analytics_${safeOrg}_${safePeriod}.pdf`);
 }
 
-
 // =====================================================
-// EXPORT MENU
+// EXPORT MENU HANDLERS
 // =====================================================
-
 document.addEventListener("DOMContentLoaded", () => {
     const exportBtn = document.getElementById("exportAnalyticsBtn");
     const exportMenu = document.getElementById("exportAnalyticsMenu");
     const exportExcelBtn = document.getElementById("exportExcelBtn");
     const exportPdfBtn = document.getElementById("exportPdfBtn");
 
-    // =================================================
-    // OPEN / CLOSE EXPORT MENU
-    // =================================================
-
     exportBtn?.addEventListener("click", (event) => {
         event.stopPropagation();
         exportMenu?.classList.toggle("hidden");
     });
-
-    // =================================================
-    // EXPORT EXCEL
-    // =================================================
 
     exportExcelBtn?.addEventListener("click", () => {
         exportAnalyticsToExcel();
         exportMenu?.classList.add("hidden");
     });
 
-    // =================================================
-    // EXPORT PDF
-    // =================================================
-
     exportPdfBtn?.addEventListener("click", () => {
         exportAnalyticsToPDF();
         exportMenu?.classList.add("hidden");
     });
 
-    // =================================================
-    // CLOSE MENU WHEN CLICKING OUTSIDE
-    // =================================================
-
     document.addEventListener("click", (event) => {
-        if (
-            exportMenu &&
-            exportBtn &&
+        if (exportMenu && exportBtn &&
             !exportMenu.contains(event.target) &&
-            !exportBtn.contains(event.target)
-        ) {
+            !exportBtn.contains(event.target)) {
             exportMenu.classList.add("hidden");
         }
     });

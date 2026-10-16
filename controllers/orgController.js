@@ -2419,7 +2419,6 @@ exports.getNewestPets = async (req, res) => {
         res.status(500).json({ error: "Failed to load newest pets." });
     }
 };
-
 // ORGANIZATION ANALYTICS
 exports.getAnalyticsData = async (req, res) => {
     try {
@@ -2477,7 +2476,6 @@ exports.getAnalyticsData = async (req, res) => {
         let displayDate;
 
         if (period === "day") {
-            // Expected: 2026-08-07
             const dateValue = requestedDate || new Date().toISOString().slice(0, 10);
 
             startDate = `${dateValue} 00:00:00`;
@@ -2493,7 +2491,6 @@ exports.getAnalyticsData = async (req, res) => {
             displayDate = dateValue;
 
         } else if (period === "year") {
-            // Expected: 2026 or 2026-01-01
             const year = String(
                 requestedDate || new Date().getFullYear()
             ).substring(0, 4);
@@ -2504,10 +2501,6 @@ exports.getAnalyticsData = async (req, res) => {
             displayDate = year;
 
         } else {
-            // =================================================
-            // MONTH
-            // Expected: 2026-08
-            // =================================================
             const monthValue =
                 requestedDate ||
                 new Date().toISOString().slice(0, 7);
@@ -2532,9 +2525,8 @@ exports.getAnalyticsData = async (req, res) => {
         }
 
         // =====================================================
-        // PET SUMMARY
-        // CURRENT PET STATUS
-        // Based on animals table
+        // PET SUMMARY (CURRENT STATUS FROM animals TABLE)
+        // Based on animals.adoption_status
         // =====================================================
         const [[petSummary]] = await pool.query(
             `
@@ -2547,13 +2539,6 @@ exports.getAnalyticsData = async (req, res) => {
                         THEN 1 ELSE 0
                     END
                 ) AS availablePets,
-
-                SUM(
-                    CASE
-                        WHEN adoption_status = 'Pending'
-                        THEN 1 ELSE 0
-                    END
-                ) AS pendingPets,
 
                 SUM(
                     CASE
@@ -2576,8 +2561,25 @@ exports.getAnalyticsData = async (req, res) => {
         );
 
         // =====================================================
+        // ⭐ PENDING ADOPTIONS
+        // Based on ACTIVE applications (same as Dashboard)
+        // This ensures Analytics matches Dashboard count
+        // =====================================================
+        const [[pendingApps]] = await pool.query(
+            `
+            SELECT COUNT(*) AS pendingAdoptions
+            FROM user_adoption_applications app
+            INNER JOIN animals animal ON app.animal_id = animal.animal_id
+            WHERE animal.organization_id = ?
+              AND app.status IN ('Under Review', 'Interview Scheduled')
+            `,
+            [organizationId]
+        );
+
+        petSummary.pendingPets = pendingApps.pendingAdoptions;
+
+        // =====================================================
         // AVAILABLE PETS BY SPECIES
-        // Based on animals.species
         // =====================================================
         const [availablePetsBySpecies] = await pool.query(
             `
@@ -2595,9 +2597,6 @@ exports.getAnalyticsData = async (req, res) => {
 
         // =====================================================
         // APPROVED ADOPTIONS
-        // Based on:
-        // user_adoption_applications.status = Approved
-        // animals.organization_id
         // =====================================================
         let adoptionGroupFormat;
 
@@ -2637,9 +2636,6 @@ exports.getAnalyticsData = async (req, res) => {
 
         // =====================================================
         // CASH DONATIONS
-        // Based on:
-        // cash_donations.status = Approved
-        // cash_donations.amount
         // =====================================================
         let cashGroupFormat;
 
@@ -2692,9 +2688,6 @@ exports.getAnalyticsData = async (req, res) => {
 
         // =====================================================
         // IN-KIND DONATIONS
-        // Based on:
-        // inkind_donations.status = Approved
-        // inkind_donations.quantity
         // =====================================================
         const [[inKindSummary]] = await pool.query(
             `
@@ -2774,11 +2767,11 @@ exports.getAnalyticsData = async (req, res) => {
                 start: startDate,
                 end: endDate
             },
-            
+
             pets: {
                 total: Number(petSummary.totalPets || 0),
                 available: Number(petSummary.availablePets || 0),
-                pending: Number(petSummary.pendingPets || 0),
+                pending: Number(petSummary.pendingPets || 0),   // ⭐ From applications
                 adopted: Number(petSummary.adoptedPets || 0),
                 archived: Number(petSummary.archivedPets || 0)
             },
