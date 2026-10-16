@@ -3,7 +3,76 @@ let organizationsData = [];
 let currentQrSrc = "";        
 let currentQrOrgName = "";    
 let currentQrMethod = "";     
+// ==========================================
+// ⭐ IN-KIND CATEGORY → ALLOWED UNITS
+// ==========================================
+const INKIND_CATEGORY_UNITS = {
+    "Food & Treats":          ["kg", "sacks", "packs", "boxes", "cans", "pcs"],
+    "Toys":                   ["pcs", "packs", "boxes", "sets"],
+    "Medicine & Health":      ["bottles", "boxes", "packs", "pcs", "tubes"],
+    "Grooming & Hygiene":     ["bottles", "packs", "pcs", "liters"],
+    "Accessories & Supplies": ["pcs", "packs", "boxes", "sets"],
+    "Bedding & Housing":      ["pcs", "packs", "boxes"],
+    "Other":                  ["pcs", "kg", "packs", "boxes", "sacks", "bottles", "liters"]
+};
 
+const INKIND_CATEGORY_PLACEHOLDERS = {
+    "Food & Treats":          "e.g., Dry dog food, Cat treats, Canned tuna",
+    "Toys":                   "e.g., Chew toy, Cat teaser, Rubber ball",
+    "Medicine & Health":      "e.g., Deworming tablets, Vitamins, Antibiotic ointment",
+    "Grooming & Hygiene":     "e.g., Pet shampoo, Litter sand, Flea spray",
+    "Accessories & Supplies": "e.g., Leash, Collar, Food bowl, Pet cage",
+    "Bedding & Housing":      "e.g., Pet bed, Blanket, Crate mat",
+    "Other":                  "e.g., Any pet supply item"
+};
+
+// ⭐ Repopulate unit dropdown + unlock item name when category changes
+function applyInkindCategoryRules() {
+    const categorySelect = document.getElementById("inkindCategory");
+    const unitSelect     = document.getElementById("inkindUnit");
+    const itemInput      = document.getElementById("inkindItemName");
+
+    if (!categorySelect || !unitSelect || !itemInput) return;
+
+    const category = categorySelect.value;
+
+    // ---- Reset unit dropdown ----
+    unitSelect.innerHTML = "";
+
+    if (!category || !INKIND_CATEGORY_UNITS[category]) {
+        unitSelect.disabled = true;
+        unitSelect.innerHTML = `<option value="">-- Select category first --</option>`;
+
+        itemInput.disabled = true;
+        itemInput.placeholder = "Select a category first...";
+        itemInput.value = "";
+        return;
+    }
+
+    // ---- Populate units for the chosen category ----
+    unitSelect.disabled = false;
+    unitSelect.innerHTML = `<option value="">-- Select unit --</option>`;
+    INKIND_CATEGORY_UNITS[category].forEach(u => {
+        const opt = document.createElement("option");
+        opt.value = u;
+        opt.textContent = u;
+        unitSelect.appendChild(opt);
+    });
+
+    // ---- Unlock item input + set placeholder ----
+    itemInput.disabled = false;
+    itemInput.placeholder = INKIND_CATEGORY_PLACEHOLDERS[category] || "Enter item name";
+    itemInput.value = "";
+}
+
+// Attach listener after DOM is ready
+document.addEventListener("DOMContentLoaded", () => {
+    const categorySelect = document.getElementById("inkindCategory");
+    if (categorySelect) {
+        categorySelect.addEventListener("change", applyInkindCategoryRules);
+        applyInkindCategoryRules(); // run once at start
+    }
+});
 // ==========================================
 // CUSTOM MESSAGE BOX
 // ==========================================
@@ -584,16 +653,28 @@ async function handleInKindSubmit(event) {
         await showMessage("Please select an organization first.", "warning");
         return;
     }
- 
+    
+    const categoryValue = (document.getElementById('inkindCategory')?.value || '').trim();
+    if (!categoryValue || !INKIND_CATEGORY_UNITS[categoryValue]) {
+        await showMessage("Please select a donation category.", "warning");
+        return;
+    }
     const itemNameValue = (document.getElementById('inkindItemName')?.value || '').trim();
     const itemCheck = validateItemName(itemNameValue);
     if (!itemCheck.valid) {
         await showMessage(itemCheck.reason, "warning");
         return;
     }
+    const unitValue = (document.getElementById('inkindUnit')?.value || '').trim();
+    if (!unitValue || !INKIND_CATEGORY_UNITS[categoryValue].includes(unitValue)) {
+        await showMessage("Please select a valid unit for the chosen category.", "warning");
+        return;
+    }
 
     formData.append('organization_id', orgId);
     formData.append('is_anonymous', isAnonymous ? 'true' : 'false');
+    formData.set('category', categoryValue);   // ⭐ Explicitly add category
+    formData.set('unit', unitValue);           // ⭐ Explicitly add unit
 
     // Anonymous handling
     if (isAnonymous) {
@@ -603,7 +684,7 @@ async function handleInKindSubmit(event) {
         const nameInput = document.getElementById('inkindDonorName');
         const typedName = (nameInput?.value || '').trim();
         if (!typedName) {
-            alert('Please enter your name or check "Donate Anonymously".');
+            await showMessage('Please enter your name or check "Donate Anonymously".', "warning");
             return;
         }
         formData.set('donor_name', typedName);
@@ -612,6 +693,7 @@ async function handleInKindSubmit(event) {
         organization_id: orgId,
         is_anonymous: isAnonymous,
         donor_name: formData.get('donor_name'),
+        category: formData.get('category'),
         item_name: formData.get('item_name'),
         quantity: formData.get('quantity'),
         unit: formData.get('unit'),
@@ -631,7 +713,7 @@ async function handleInKindSubmit(event) {
         try {
             result = JSON.parse(raw);
         } catch (parseErr) {
-            alert(`Server error (${response.status}). Please check console.`);
+            await showMessage(`Server error (${response.status}). Please check console.`, "error");
             return;
         }
 
@@ -639,6 +721,7 @@ async function handleInKindSubmit(event) {
            
             const summaryRows = [
                 { label: "Donor", value: isAnonymous ? "Anonymous Donor" : formData.get('donor_name') },
+                { label: "Category", value: formData.get('category') },
                 { label: "Item", value: formData.get('item_name') },
                 { label: "Quantity", value: `${formData.get('quantity')} ${formData.get('unit') || ''}`.trim() }
             ];
@@ -647,8 +730,8 @@ async function handleInKindSubmit(event) {
             const anonCheck = document.getElementById('inkindAnonymousCheck');
             if (anonCheck) anonCheck.checked = false;
             toggleInKindDonorFields();
+            applyInkindCategoryRules();
 
-            // ⭐ Show success modal
             showDonateSuccessModal({
                 type: "inkind",
                 title: "Thank You for Your Pledge!",
@@ -656,11 +739,11 @@ async function handleInKindSubmit(event) {
                 rows: summaryRows
             });
         } else {
-            alert('Error: ' + (result.error || 'Failed to submit in-kind donation.'));
+            await showMessage('Error: ' + (result.error || 'Failed to submit in-kind donation.'));
         }
     } catch (err) {
         console.error("In-kind submit error:", err);
-        alert('An unexpected error occurred. Please try again later.');
+        await showMessage('An unexpected error occurred. Please try again later.');
     }
 }
 
