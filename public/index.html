@@ -635,14 +635,16 @@
                     Submit Cash Donation
                 </button>
             </form>
-<!-- In-Kind Donation Form -->
+  <!-- In-Kind Donation Form -->
 <form id="inkindForm" class="space-y-4 hidden" onsubmit="handleInKindSubmit(event)">
+
+    <!-- Anonymous toggle -->
     <div class="flex items-center gap-2 py-1">
         <input type="checkbox" id="inkindAnonymousCheck" onchange="toggleInKindDonorFields()" class="w-4 h-4 text-[#0151ff] rounded border-gray-300 focus:ring-[#0151ff]">
         <label for="inkindAnonymousCheck" class="text-sm font-semibold text-gray-700 cursor-pointer">Donate Anonymously</label>
     </div>
 
-    <!-- ⭐ Donor details lang ang naka-wrap dito -->
+    <!-- Donor details -->
     <div id="inkindDonorDetailsFields" class="space-y-4 transition-all duration-200">
         <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1">Your Name / Organization</label>
@@ -657,15 +659,34 @@
                 placeholder="Phone number or email" required>
         </div>
     </div>
-    <!-- ⭐ TAMANG CLOSING — dito nagtatapos ang dinidim kapag anonymous -->
 
-    <!-- Item to Donate — HINDI na nadidim kapag anonymous -->
+    <!-- ⭐ NEW: Donation Category -->
     <div>
-        <label class="block text-sm font-semibold text-gray-700 mb-1">Item to Donate</label>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">
+            Donation Category <span class="text-red-500">*</span>
+        </label>
+        <select id="inkindCategory" name="category"
+            class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:border-[#0151ff] bg-white">
+            <option value="">-- Select a category --</option>
+            <option value="Food & Treats">🍖 Food &amp; Treats</option>
+            <option value="Toys">🧸 Toys</option>
+            <option value="Medicine & Health">💊 Medicine &amp; Health</option>
+            <option value="Grooming & Hygiene">🧼 Grooming &amp; Hygiene</option>
+            <option value="Accessories & Supplies">🦮 Accessories &amp; Supplies</option>
+            <option value="Bedding & Housing">🛏️ Bedding &amp; Housing</option>
+            <option value="Other">📦 Other</option>
+        </select>
+    </div>
+
+    <!-- Item to Donate (locked until category is chosen) -->
+    <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1">
+            Item to Donate <span class="text-red-500">*</span>
+        </label>
         <input type="text" id="inkindItemName" name="item_name"
-            class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:border-[#0151ff]"
-            placeholder="e.g., Dry dog food, Cat cage, Vitamins"
-            required>
+            class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:border-[#0151ff] disabled:bg-gray-100 disabled:cursor-not-allowed"
+            placeholder="Select a category first..."
+            disabled>
     </div>
 
     <div class="grid grid-cols-2 gap-3">
@@ -678,15 +699,9 @@
         </div>
         <div>
             <label class="block text-sm font-semibold text-gray-700 mb-1">Unit</label>
-            <select id="inkindUnit" name="unit"
-                class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:border-[#0151ff]">
-                <option value="pcs">pcs</option>
-                <option value="kg">kg</option>
-                <option value="packs">packs</option>
-                <option value="boxes">boxes</option>
-                <option value="sacks">sacks</option>
-                <option value="bottles">bottles</option>
-                <option value="liters">liters</option>
+            <select id="inkindUnit" name="unit" disabled
+                class="w-full p-3 border border-gray-300 rounded-xl focus:outline-none focus:border-[#0151ff] bg-white disabled:bg-gray-100 disabled:cursor-not-allowed">
+                <option value="">-- Select category first --</option>
             </select>
         </div>
     </div>
