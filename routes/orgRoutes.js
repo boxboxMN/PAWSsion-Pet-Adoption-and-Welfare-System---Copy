@@ -169,8 +169,6 @@ router.post(
 
 router.get("/donations/in-kind", getInKindDonations);
 router.post("/donations/in-kind", uploadQR.single("proof"), addInKindDonation);
-router.put("/donations/in-kind/:id/status", updateInKindDonationStatus);
-
 router.put(
     "/donations/in-kind/:id/status",
     uploadInkindProof.single("proof_image"),
