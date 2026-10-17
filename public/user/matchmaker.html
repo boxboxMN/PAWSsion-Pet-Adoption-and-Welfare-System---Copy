@@ -803,7 +803,13 @@
                         oninput="this.value = this.value.replace(/[0-9]/g, '')"
                         class="w-full bg-slate-50/60 hover:bg-slate-50 border border-slate-200/90 focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-500/10 rounded-2xl p-4 text-sm text-slate-800 placeholder:text-slate-400 transition-all outline-none leading-relaxed"
                         placeholder="Describe the personality, behavior, and traits you prefer in a pet...&#10;&#10;e.g., I would like a friendly, calm, playful, and affectionate pet that enjoys being around people, is gentle with children, and gets along well with other pets."></textarea>
-                    <!-- GUIDELINES CALLOUT BOX -->
+                    
+                    <!-- VALIDATION ERROR MESSAGE -->
+                    <p id="validationMessage" class="hidden mt-4 flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-xs font-bold text-rose-700 shadow-2xs">
+                        <i class="fa-solid fa-circle-exclamation text-sm"></i>
+                        Please fill in all required fields before continuing.
+                    </p>
+                        <!-- GUIDELINES CALLOUT BOX -->
                     <div class="rounded-2xl bg-slate-50 border border-slate-200/80 p-3 space-y-2 -pt-10">
                         <div class="flex items-center gap-2 text-xs font-bold text-slate-700 uppercase tracking-wide">
                             <i class="fa-solid fa-circle-info text-indigo-500"></i> Description Guidelines
@@ -814,11 +820,6 @@
                         </p>
                     </div>
 
-                    <!-- VALIDATION ERROR MESSAGE -->
-                    <p id="validationMessage" class="hidden mt-4 flex items-center justify-center gap-2 rounded-xl border border-rose-200 bg-rose-50/80 px-4 py-3 text-xs font-bold text-rose-700 shadow-2xs">
-                        <i class="fa-solid fa-circle-exclamation text-sm"></i>
-                        Please fill in all required fields before continuing.
-                    </p>
                 </div>
 
                 <!-- ACTION BUTTONS -->
@@ -1019,6 +1020,7 @@
                         <!-- Dynamic Cards Injected Here -->
 
                     </div>
+                    <div id="matchPagination" class="mt-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-between" aria-label="Match result pagination"></div>
                     <!-- Dynamic Cards Injected Here via JavaScript -->
                 </div>
 

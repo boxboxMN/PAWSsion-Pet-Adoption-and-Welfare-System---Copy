@@ -934,6 +934,9 @@ function showIntroScreen() {
 
 // RENDER MATCH RESULTS
 let matchedPets = [];
+const MATCHES_PER_PAGE = 15;
+let currentMatchPage = 1;
+
 function renderMatches(matches, selectedType) {
     allMatchResults =
         Array.isArray(matches)
@@ -958,6 +961,7 @@ function renderMatches(matches, selectedType) {
         speciesFilter.disabled =
             selectedType !== "Any";
     }
+    currentMatchPage = 1;
     renderPetCards(allMatchResults);
     updateMatchResultCount( allMatchResults.length);
 }
@@ -1033,9 +1037,16 @@ function renderPetCards(matches) {
     container.innerHTML = "";
     if (!Array.isArray(matches) || matches.length === 0) {
         renderNoMatchesMessage();
+        renderMatchPagination(0);
         return;
     }
-    matches.forEach((pet, index) => {
+    const totalPages = Math.ceil(matches.length / MATCHES_PER_PAGE);
+    currentMatchPage = Math.min(Math.max(currentMatchPage, 1), totalPages);
+    const startIndex = (currentMatchPage - 1) * MATCHES_PER_PAGE;
+    const pageMatches = matches.slice(startIndex, startIndex + MATCHES_PER_PAGE);
+
+    pageMatches.forEach((pet, index) => {
+        const rank = startIndex + index + 1;
         const score = getMatchScorePercent(pet);
         let badgeStyle = "from-amber-500 to-orange-600 text-white";
         if (score >= 90) badgeStyle = "from-emerald-500 to-teal-600 text-white";
@@ -1055,7 +1066,7 @@ function renderPetCards(matches) {
                 <!-- Rank -->
                 <div class="absolute top-3 left-3 bg-white/95 backdrop-blur-md border border-white/50 rounded-xl px-3 py-1 shadow-md text-slate-900 font-extrabold text-xs flex items-center gap-1">
                     <i class="fa-solid fa-crown text-amber-500 text-[11px]"></i>
-                    <span>RANK ${index + 1}</span>
+                    <span>RANK ${rank}</span>
                 </div>
 
                 <!-- Score -->
@@ -1126,6 +1137,7 @@ function renderPetCards(matches) {
             </div>
         </div>`;
     });
+    renderMatchPagination(matches.length);
 }
 
 // NO MATCHES MESSAGE
@@ -1143,6 +1155,75 @@ function renderNoMatchesMessage() {
                 No pets match your current filters. Try changing or clearing your filters.
             </p>
         </div>`;
+}
+
+function renderMatchPagination(totalResults) {
+    const pagination = document.getElementById("matchPagination");
+    if (!pagination) return;
+
+    const pageCount = Math.ceil(totalResults / MATCHES_PER_PAGE);
+    if (!totalResults) {
+        pagination.innerHTML = "";
+        return;
+    }
+
+    currentMatchPage = Math.min(Math.max(currentMatchPage, 1), pageCount);
+    const firstResult = (currentMatchPage - 1) * MATCHES_PER_PAGE + 1;
+    const lastResult = Math.min(
+        currentMatchPage * MATCHES_PER_PAGE,
+        totalResults
+    );
+    const pageNumbers = new Set([1, pageCount]);
+    for (
+        let page = Math.max(1, currentMatchPage - 1);
+        page <= Math.min(pageCount, currentMatchPage + 1);
+        page += 1
+    ) {
+        pageNumbers.add(page);
+    }
+
+    let previousPage = 0;
+    const pageButtons = [...pageNumbers]
+        .sort((a, b) => a - b)
+        .map(page => {
+            const gap = previousPage && page - previousPage > 1
+                ? '<span class="px-2 text-slate-400" aria-hidden="true">…</span>'
+                : "";
+            previousPage = page;
+            return `${gap}
+                <button type="button" data-match-page="${page}"
+                    ${page === currentMatchPage ? 'aria-current="page"' : ""}
+                    class="h-9 w-9 rounded-lg text-sm font-semibold transition ${
+                        page === currentMatchPage
+                            ? "bg-indigo-600 text-white shadow-sm"
+                            : "border border-slate-200 bg-white text-slate-600 hover:border-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                    }">
+                    ${page}
+                </button>`;
+        })
+        .join("");
+
+    pagination.innerHTML = `
+        <p class="text-xs font-medium text-slate-500" aria-live="polite">
+            Showing <span class="font-bold text-slate-700">${firstResult}–${lastResult}</span>
+            of <span class="font-bold text-slate-700">${totalResults}</span> matches
+        </p>
+        ${pageCount > 1 ? `
+            <nav class="flex flex-wrap items-center justify-center gap-1.5" aria-label="Match result pages">
+                <button type="button" data-match-page="${currentMatchPage - 1}"
+                    ${currentMatchPage === 1 ? "disabled" : ""}
+                    class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                    Previous
+                </button>
+                ${pageButtons}
+                <button type="button" data-match-page="${currentMatchPage + 1}"
+                    ${currentMatchPage === pageCount ? "disabled" : ""}
+                    class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">
+                    Next
+                </button>
+            </nav>
+        ` : ""}
+    `;
 }
 
 // UPDATE RESULT COUNT
@@ -1172,6 +1253,7 @@ function populateOrganizationFilter(matches) {
 
 // APPLY MATCH FILTERS
 function applyMatchFilters() {
+    currentMatchPage = 1;
 
     // GET FILTER VALUES
     const searchValue =
@@ -1340,6 +1422,22 @@ document.addEventListener("DOMContentLoaded", () => {
                 applyMatchFilters();
             }
         );
+    }
+
+    const pagination = document.getElementById("matchPagination");
+    if (pagination) {
+        pagination.addEventListener("click", event => {
+            const button = event.target.closest("[data-match-page]");
+            if (!button || button.disabled) return;
+
+            const requestedPage = Number(button.dataset.matchPage);
+            if (!Number.isInteger(requestedPage)) return;
+            currentMatchPage = requestedPage;
+            renderPetCards(filteredMatchResults);
+
+            document.getElementById("matchResultsContainer")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
     }
 });
 
