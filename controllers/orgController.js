@@ -530,13 +530,72 @@ exports.updatePet = async (req, res) => {
         }
 
         const uploadedImages = req.files || [];
-        const hasPrimaryImage = Boolean(existingPets[0].image_path);
+        const [storedImages] = await pool.query(
+            `SELECT image_path FROM animal_images WHERE animal_id = ? ORDER BY image_id`,
+            [id]
+        );
+        const existingImagePaths = [
+            ...(existingPets[0].image_path ? [existingPets[0].image_path] : []),
+            ...storedImages.map(image => image.image_path)
+        ];
+        let retainedImagePaths = existingImagePaths;
+
+        if (req.body.retainedImagePaths !== undefined) {
+            try {
+                retainedImagePaths = JSON.parse(req.body.retainedImagePaths);
+            } catch {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid retained pet image list."
+                });
+            }
+
+            if (
+                !Array.isArray(retainedImagePaths) ||
+                new Set(retainedImagePaths).size !== retainedImagePaths.length ||
+                retainedImagePaths.some(imagePath =>
+                    typeof imagePath !== "string" ||
+                    !existingImagePaths.includes(imagePath)
+                )
+            ) {
+                return res.status(400).json({
+                    success: false,
+                    message: "One or more selected pet images are invalid."
+                });
+            }
+        }
+
+        if (retainedImagePaths.length + uploadedImages.length > 10) {
+            return res.status(400).json({
+                success: false,
+                message: "A pet can have up to 10 photos."
+            });
+        }
+
+        const requestedProfileType = req.body.profileImageType;
         const requestedProfileIndex = Number(req.body.profileImageIndex);
-        const profileImageIndex = Number.isInteger(requestedProfileIndex) &&
-            requestedProfileIndex >= 0 &&
-            requestedProfileIndex < uploadedImages.length
-            ? requestedProfileIndex
-            : 0;
+        let profileImagePath = null;
+        let profileUploadIndex = -1;
+
+        if (requestedProfileType === "existing") {
+            profileImagePath = req.body.profileImagePath;
+            if (!retainedImagePaths.includes(profileImagePath)) {
+                return res.status(400).json({
+                    success: false,
+                    message: "The selected profile picture must be kept in the gallery."
+                });
+            }
+        } else if (uploadedImages.length) {
+            profileUploadIndex = requestedProfileType === "new" &&
+                Number.isInteger(requestedProfileIndex) &&
+                requestedProfileIndex >= 0 &&
+                requestedProfileIndex < uploadedImages.length
+                ? requestedProfileIndex
+                : 0;
+            profileImagePath = uploadedImages[profileUploadIndex].path;
+        } else {
+            profileImagePath = retainedImagePaths[0] || null;
+        }
         // ==========================================
         // UPDATE PET
         // ==========================================
@@ -563,40 +622,49 @@ exports.updatePet = async (req, res) => {
             adoption_status
         ];
         // ==========================================
-        // Use the selected new profile image, keeping the previous profile in the gallery.
+        // Use the selected image as primary; retained images are saved in gallery below.
         // ==========================================
-        if (uploadedImages.length) {
-            updateSQL += `,
-                image_path = ?
-            `;
-            values.push(uploadedImages[profileImageIndex].path);
-        }
+        updateSQL += `,
+            image_path = ?
+        `;
+        values.push(profileImagePath);
         updateSQL += `
             WHERE animal_id = ?
               AND organization_id = ?
         `;
         values.push(id);
         values.push(organizationId);
-        await pool.query(
-            updateSQL,
-            values
-        );
+        const additionalImagePaths = [
+            ...retainedImagePaths.filter(imagePath => imagePath !== profileImagePath),
+            ...uploadedImages
+                .filter((_, index) => index !== profileUploadIndex)
+                .map(file => file.path)
+        ];
 
-        // ==========================================
-        // SAVE ADDITIONAL IMAGES
-        // ==========================================
-        const additionalImages = uploadedImages.filter((_, index) => index !== profileImageIndex);
-        if (additionalImages.length) {
-            await pool.query(
-                `INSERT INTO animal_images (animal_id, image_path) VALUES ?`,
-                [additionalImages.map(file => [id, file.path])]
+        const connection = await pool.getConnection();
+        try {
+            await connection.beginTransaction();
+            await connection.query(updateSQL, values);
+            await connection.query(
+                `DELETE FROM animal_images WHERE animal_id = ?`,
+                [id]
             );
-        }
-        if (uploadedImages.length && hasPrimaryImage) {
-            await pool.query(
-                `INSERT INTO animal_images (animal_id, image_path) VALUES (?, ?)`,
-                [id, existingPets[0].image_path]
-            );
+            if (additionalImagePaths.length) {
+                await connection.query(
+                    `INSERT INTO animal_images (animal_id, image_path) VALUES ?`,
+                    [additionalImagePaths.map(imagePath => [id, imagePath])]
+                );
+            }
+            await connection.commit();
+        } catch (error) {
+            try {
+                await connection.rollback();
+            } catch (rollbackError) {
+                console.error("Failed to roll back pet image update:", rollbackError);
+            }
+            throw error;
+        } finally {
+            connection.release();
         }
 
          // ==========================================

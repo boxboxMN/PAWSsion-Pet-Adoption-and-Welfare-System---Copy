@@ -241,7 +241,6 @@ const selectedFileName = document.getElementById("selectedFileName");
 const petImageThumbnails = document.getElementById("petImageThumbnails");
 const selectedPetImages = [];
 let profileImageIndex = 0;
-let currentPetImagePath = null;
 
 function resetToActiveView() {
         currentViewMode = "active";
@@ -265,22 +264,22 @@ function resetToActiveView() {
 
 function syncPetImageInput() {
     const transfer = new DataTransfer();
-    selectedPetImages.forEach(image => transfer.items.add(image.file));
+    selectedPetImages
+        .filter(image => image.file)
+        .forEach(image => transfer.items.add(image.file));
     petImageInput.files = transfer.files;
 }
 
 function updatePetImageMainPreview() {
     const selectedImage = selectedPetImages[profileImageIndex];
     const imageUrl = selectedImage
-        ? selectedImage.previewUrl
-        : currentPetImagePath
-            ? getPetImageUrl(currentPetImagePath)
-            : null;
+        ? selectedImage.previewUrl || getPetImageUrl(selectedImage.path)
+        : null;
 
     petImagePreview.classList.toggle("hidden", !imageUrl);
     uploadPlaceholder.classList.toggle("hidden", Boolean(imageUrl));
     petImagePreview.src = imageUrl || "";
-    petImageInput.required = !editingPetId && selectedPetImages.length === 0;
+    petImageInput.required = selectedPetImages.length === 0;
 }
 
 function renderPetImageThumbnails() {
@@ -294,7 +293,7 @@ function renderPetImageThumbnails() {
         );
 
         const imageElement = document.createElement("img");
-        imageElement.src = image.previewUrl;
+        imageElement.src = image.previewUrl || getPetImageUrl(image.path);
         imageElement.alt = `Selected pet photo ${index + 1}`;
         imageElement.className = "aspect-square w-full object-cover";
 
@@ -320,7 +319,7 @@ function renderPetImageThumbnails() {
         removeButton.textContent = "×";
         removeButton.setAttribute("aria-label", `Remove photo ${index + 1}`);
         removeButton.addEventListener("click", () => {
-            URL.revokeObjectURL(image.previewUrl);
+            if (image.previewUrl) URL.revokeObjectURL(image.previewUrl);
             selectedPetImages.splice(index, 1);
 
             if (!selectedPetImages.length) {
@@ -336,36 +335,57 @@ function renderPetImageThumbnails() {
             updatePetImageMainPreview();
             selectedFileName.textContent = selectedPetImages.length
                 ? `${selectedPetImages.length} photo${selectedPetImages.length === 1 ? "" : "s"} selected`
-                : currentPetImagePath
-                    ? "Current profile picture retained"
-                    : "";
+                : "";
         });
 
         thumbnail.append(imageElement, selectButton, removeButton);
         petImageThumbnails.append(thumbnail);
     });
+
+    const addMoreTile = document.createElement("button");
+    addMoreTile.type = "button";
+    addMoreTile.disabled = selectedPetImages.length >= 10;
+    addMoreTile.className = "flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-slate-300 bg-white text-center text-slate-500 transition hover:border-blue-600 hover:bg-blue-50 hover:text-blue-700 disabled:cursor-not-allowed disabled:opacity-50";
+    addMoreTile.innerHTML = `
+        <i class="fa-solid fa-plus text-lg" aria-hidden="true"></i>
+        <span class="px-1 text-[10px] font-semibold leading-tight">Add More Pictures</span>
+    `;
+    addMoreTile.addEventListener("click", () => petImageInput.click());
+    petImageThumbnails.append(addMoreTile);
 }
 
-function resetSelectedPetImages(existingImagePath = null) {
-    selectedPetImages.forEach(image => URL.revokeObjectURL(image.previewUrl));
+function resetSelectedPetImages(existingImages = []) {
+    selectedPetImages.forEach(image => {
+        if (image.previewUrl) URL.revokeObjectURL(image.previewUrl);
+    });
     selectedPetImages.length = 0;
     profileImageIndex = 0;
-    currentPetImagePath = existingImagePath;
+    const imagePaths = Array.isArray(existingImages)
+        ? existingImages.filter(image => typeof image === "string" && image)
+        : [];
+    imagePaths.forEach(path => {
+        selectedPetImages.push({
+            type: "existing",
+            path,
+            file: null,
+            previewUrl: null
+        });
+    });
     petImageInput.value = "";
     syncPetImageInput();
     renderPetImageThumbnails();
     updatePetImageMainPreview();
-    selectedFileName.textContent = existingImagePath
-        ? "Current profile picture retained"
+    selectedFileName.textContent = selectedPetImages.length
+        ? `${selectedPetImages.length} saved photo${selectedPetImages.length === 1 ? "" : "s"}`
         : "";
 }
 
 petImageInput.addEventListener("change", async () => {
     const files = Array.from(petImageInput.files || []);
     const knownFiles = new Set(
-        selectedPetImages.map(({ file }) =>
-            `${file.name}:${file.size}:${file.lastModified}`
-        )
+        selectedPetImages
+            .filter(image => image.file)
+            .map(({ file }) => `${file.name}:${file.size}:${file.lastModified}`)
     );
     const newFiles = files.filter(file => {
         const signature = `${file.name}:${file.size}:${file.lastModified}`;
@@ -373,10 +393,11 @@ petImageInput.addEventListener("change", async () => {
         knownFiles.add(signature);
         return true;
     });
-    const availableSlots = 10 - selectedPetImages.length;
+    const availableSlots = Math.max(0, 10 - selectedPetImages.length);
 
     newFiles.slice(0, availableSlots).forEach(file => {
         selectedPetImages.push({
+            type: "new",
             file,
             previewUrl: URL.createObjectURL(file)
         });
@@ -391,7 +412,7 @@ petImageInput.addEventListener("change", async () => {
     renderPetImageThumbnails();
     updatePetImageMainPreview();
     selectedFileName.textContent =
-        `${selectedPetImages.length} photo${selectedPetImages.length === 1 ? "" : "s"} selected`;
+        `${selectedPetImages.length} photo${selectedPetImages.length === 1 ? "" : "s"} in gallery`;
 });
 let editingPetId = null;
 
@@ -481,8 +502,29 @@ petForm.addEventListener("submit", async (e)=>{
     
     const formData = new FormData(petForm);
     formData.delete("images");
-    selectedPetImages.forEach(({ file }) => formData.append("images", file));
-    formData.set("profileImageIndex", String(profileImageIndex));
+    const newImages = selectedPetImages.filter(image => image.file);
+    newImages.forEach(({ file }) => formData.append("images", file));
+    const selectedProfileImage = selectedPetImages[profileImageIndex];
+    formData.set(
+        "retainedImagePaths",
+        JSON.stringify(
+            selectedPetImages
+                .filter(image => image.type === "existing")
+                .map(image => image.path)
+        )
+    );
+    if (selectedProfileImage?.type === "existing") {
+        formData.set("profileImageType", "existing");
+        formData.set("profileImagePath", selectedProfileImage.path);
+        formData.set("profileImageIndex", "-1");
+    } else {
+        formData.set("profileImageType", "new");
+        formData.set(
+            "profileImageIndex",
+            String(newImages.indexOf(selectedProfileImage))
+        );
+        formData.delete("profileImagePath");
+    }
     // =======================================================
     // CHECK DUPLICATE PET DESCRIPTION
     // =======================================================
@@ -1222,7 +1264,13 @@ function openPetDetailsModal(pet){
         });
     }
     // Keep existing image unless user selects a new one
-    resetSelectedPetImages(pet.image_path || null);
+    resetSelectedPetImages(
+        Array.isArray(pet.images)
+            ? pet.images
+            : pet.image_path
+                ? [pet.image_path]
+                : []
+    );
     petImageInput.required = false;
     // Modal title
     modalTitle.innerHTML = `
