@@ -1,6 +1,7 @@
 const axios = require("axios");
 const pool = require("../config/database");
 const { generateEmbedding } = require("./embeddingService");
+const { getAnimalImages } = require("../models/animalImageModel");
 
 const MATCH_THRESHOLD = 0.40;
 
@@ -359,6 +360,17 @@ if (
     matches.sort(
         (a, b) => b.score - a.score
     );
+    const additionalImages = await getAnimalImages(
+        matches.map(pet => pet.animal_id)
+    );
+    for (const pet of matches) {
+        pet.images = [
+            ...new Set([
+                ...(pet.image_path ? [pet.image_path] : []),
+                ...(additionalImages.get(pet.animal_id) || [])
+            ])
+        ];
+    }
     // =========================================
     // SORT DEBUG LOGS
     // =========================================

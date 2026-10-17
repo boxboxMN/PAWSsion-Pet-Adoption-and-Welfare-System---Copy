@@ -2,6 +2,54 @@
 let petsData = [];
 let filteredPets = [];
 const favoritePetIds = new Set();
+let modalPetImages = [];
+let modalPetImageIndex = 0;
+const fallbackPetImage = "/assets/images/no-image.png";
+
+function getPetImageUrl(imagePath) {
+    if (typeof imagePath !== "string" || !imagePath.trim()) {
+        return fallbackPetImage;
+    }
+
+    const image = imagePath.trim();
+    if (/^https?:\/\//i.test(image) || image.startsWith("/")) {
+        return image;
+    }
+    return `/uploads/pets/${encodeURIComponent(image)}`;
+}
+
+function showModalPetImage() {
+    const image = document.getElementById("modalImage");
+    const previousButton = document.getElementById("modalImagePrev");
+    const nextButton = document.getElementById("modalImageNext");
+    const counter = document.getElementById("modalImageCounter");
+    if (!image || !modalPetImages.length) return;
+
+    image.onerror = () => {
+        image.onerror = null;
+        image.src = fallbackPetImage;
+    };
+    image.src = modalPetImages[modalPetImageIndex];
+
+    const hasMultipleImages = modalPetImages.length > 1;
+    previousButton?.classList.toggle("hidden", !hasMultipleImages);
+    nextButton?.classList.toggle("hidden", !hasMultipleImages);
+    counter?.classList.toggle("hidden", !hasMultipleImages);
+    if (counter && hasMultipleImages) {
+        counter.textContent = `${modalPetImageIndex + 1} / ${modalPetImages.length}`;
+    }
+}
+
+document.getElementById("modalImagePrev")?.addEventListener("click", () => {
+    modalPetImageIndex =
+        (modalPetImageIndex - 1 + modalPetImages.length) % modalPetImages.length;
+    showModalPetImage();
+});
+
+document.getElementById("modalImageNext")?.addEventListener("click", () => {
+    modalPetImageIndex = (modalPetImageIndex + 1) % modalPetImages.length;
+    showModalPetImage();
+});
 
 // =====================================================
 // SECURITY: HTML ESCAPING
@@ -29,35 +77,36 @@ async function loadPets() {
             return;
         }
 
-       petsData = data.pets.map((pet, originalIndex) => ({
-        animal_id: pet.animal_id,
-        originalIndex,
-        name: pet.name,
-        species: pet.species,
-        gender: pet.gender,
-        age: pet.age,
-        color: pet.color,
-        personality: pet.personality_tags || "",
-        breed: pet.personality_tags || "",
-        behavior: pet.pet_description,
-        status: pet.adoption_status,
-        birth_date: pet.birth_date,
-        health: pet.health_status,
-        vaccination: pet.vaccination_status,
-        organization: pet.organization_name,
-        organization_id: pet.organization_id,
-        organization_logo: pet.profile_pic,
-        medical_history: pet.medical_history || [],
-        
-        img: pet.image_path
-            ? (
-                pet.image_path.startsWith("http")
-                    ? pet.image_path
-                    : `/uploads/pets/${pet.image_path}`
-            )
-            : "/assets/images/no-image.png"
+        petsData = data.pets.map((pet, originalIndex) => {
+            const images = [...new Set(
+                (Array.isArray(pet.images) ? pet.images : [pet.image_path])
+                    .filter(image => typeof image === "string" && image.trim())
+                    .map(getPetImageUrl)
+            )];
 
-    }));
+            return {
+                animal_id: pet.animal_id,
+                originalIndex,
+                name: pet.name,
+                species: pet.species,
+                gender: pet.gender,
+                age: pet.age,
+                color: pet.color,
+                personality: pet.personality_tags || "",
+                breed: pet.personality_tags || "",
+                behavior: pet.pet_description,
+                status: pet.adoption_status,
+                birth_date: pet.birth_date,
+                health: pet.health_status,
+                vaccination: pet.vaccination_status,
+                organization: pet.organization_name,
+                organization_id: pet.organization_id,
+                organization_logo: pet.profile_pic,
+                medical_history: pet.medical_history || [],
+                images,
+                img: images[0] || fallbackPetImage
+            };
+        });
 
     const favoritesResponse = await fetch("/api/user/favorites", {
         credentials: "include"
@@ -442,7 +491,11 @@ async function openPetModal(pet){
         applyBtn.dataset.petId = pet.id || pet.animal_id; 
     }
     
-    document.getElementById("modalImage").src = pet.img;
+    modalPetImages = Array.isArray(pet.images) && pet.images.length
+        ? pet.images
+        : [pet.img || fallbackPetImage];
+    modalPetImageIndex = 0;
+    showModalPetImage();
     document.getElementById("modalName").textContent = pet.name;
     document.getElementById("modalSpecies").textContent = pet.species;
     document.getElementById("modalGender").textContent = pet.gender;

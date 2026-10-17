@@ -2,31 +2,7 @@ const pool = require("../config/database");
 const { generateEmbedding } = require("../services/embeddingService");
 const { logActivity } = require("./adminController");
 const { createNotification, notifyAllAdmins } = require("./adminController");
-
-let animalImagesTableReady;
-
-async function ensureAnimalImagesTable() {
-    if (!animalImagesTableReady) {
-        animalImagesTableReady = pool.query(`
-            CREATE TABLE IF NOT EXISTS animal_images (
-                image_id INT NOT NULL AUTO_INCREMENT,
-                animal_id INT NOT NULL,
-                image_path VARCHAR(2048) NOT NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (image_id),
-                KEY animal_id (animal_id),
-                CONSTRAINT animal_images_animal_fk
-                    FOREIGN KEY (animal_id) REFERENCES animals (animal_id)
-                    ON DELETE CASCADE
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-        `).catch(error => {
-            animalImagesTableReady = null;
-            throw error;
-        });
-    }
-
-    await animalImagesTableReady;
-}
+const { ensureAnimalImagesTable } = require("../models/animalImageModel");
 
 // ==========================================
 // RECYCLE BIN: Auto-purge pets na sobra na sa 30 araw

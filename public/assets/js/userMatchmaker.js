@@ -987,6 +987,42 @@ function getPetImageUrl(imagePath) {
     return `/uploads/pets/${encodeURIComponent(image)}`;
 }
 
+let modalPetImages = [];
+let modalPetImageIndex = 0;
+
+function showModalPetImage() {
+    const image = document.getElementById("modalImage");
+    const previousButton = document.getElementById("modalImagePrev");
+    const nextButton = document.getElementById("modalImageNext");
+    const counter = document.getElementById("modalImageCounter");
+    if (!image || !modalPetImages.length) return;
+
+    image.onerror = () => {
+        image.onerror = null;
+        image.src = "/images/default-pet.png";
+    };
+    image.src = modalPetImages[modalPetImageIndex];
+
+    const hasMultipleImages = modalPetImages.length > 1;
+    previousButton?.classList.toggle("hidden", !hasMultipleImages);
+    nextButton?.classList.toggle("hidden", !hasMultipleImages);
+    counter?.classList.toggle("hidden", !hasMultipleImages);
+    if (counter && hasMultipleImages) {
+        counter.textContent = `${modalPetImageIndex + 1} / ${modalPetImages.length}`;
+    }
+}
+
+document.getElementById("modalImagePrev")?.addEventListener("click", () => {
+    modalPetImageIndex =
+        (modalPetImageIndex - 1 + modalPetImages.length) % modalPetImages.length;
+    showModalPetImage();
+});
+
+document.getElementById("modalImageNext")?.addEventListener("click", () => {
+    modalPetImageIndex = (modalPetImageIndex + 1) % modalPetImages.length;
+    showModalPetImage();
+});
+
 // RENDER PET CARDS
 function renderPetCards(matches) {
     const container = document.getElementById("matchResultsContainer");
@@ -1329,7 +1365,16 @@ function openMatchPetModal(pet, rank) {
     };
 
     // BASIC INFO=====
-    document.getElementById("modalImage").src = getPetImageUrl(pet.image_path);
+    modalPetImages = [...new Set(
+        (Array.isArray(pet.images) ? pet.images : [pet.image_path])
+            .filter(image => typeof image === "string" && image.trim())
+            .map(getPetImageUrl)
+    )];
+    if (!modalPetImages.length) {
+        modalPetImages = [getPetImageUrl(null)];
+    }
+    modalPetImageIndex = 0;
+    showModalPetImage();
     document.getElementById("modalName").textContent = pet.name;
     document.getElementById("modalSpecies").textContent = pet.species;
     document.getElementById("modalGender").textContent = pet.gender;

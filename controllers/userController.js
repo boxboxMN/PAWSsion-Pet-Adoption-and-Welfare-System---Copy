@@ -3,6 +3,7 @@ const pool = require("../config/database");
 const bcrypt = require("bcrypt");
 const validator = require('validator');
 const AdoptionModel = require('../models/userModel');
+const { getAnimalImages } = require("../models/animalImageModel");
 const { logActivity } = require("./adminController");
 const { createNotification, notifyAllAdmins } = require("./adminController");
 const { uploadToCloudinary } = require("../services/cloudinaryUpload");
@@ -598,8 +599,17 @@ exports.getAvailablePets = async (req, res) => {
             ORDER BY a.created_at DESC
         `);
 
+        const additionalImages = await getAnimalImages(
+            pets.map(pet => pet.animal_id)
+        );
+
         // Attach medical history
         for (const pet of pets) {
+            const petImages = [
+                ...(pet.image_path ? [pet.image_path] : []),
+                ...(additionalImages.get(pet.animal_id) || [])
+            ];
+            pet.images = [...new Set(petImages)];
 
             const [medical] = await pool.query(`
                 SELECT
