@@ -260,16 +260,18 @@ function resetToActiveView() {
     }
 
 petImageInput.addEventListener("change", () => {
-    const file = petImageInput.files[0];
-    if (!file) return;
-        selectedFileName.textContent = "✔ " + file.name;
+    const files = Array.from(petImageInput.files || []);
+    if (!files.length) return;
+    selectedFileName.textContent = files.length === 1
+        ? `✔ ${files[0].name}`
+        : `✔ ${files.length} photos selected`;
     const reader = new FileReader();
     reader.onload = function(e){
         petImagePreview.src = e.target.result;
         petImagePreview.classList.remove("hidden");
         uploadPlaceholder.classList.add("hidden");
     };
-    reader.readAsDataURL(file);
+    reader.readAsDataURL(files[0]);
 });
 let editingPetId = null;
 
@@ -280,6 +282,7 @@ const submitButton = petForm.querySelector('button[type="submit"]');
 addPetBtn.addEventListener("click", () => {
     editingPetId = null;
     petForm.reset();
+    petImageInput.required = true;
     medicalList = [];
     renderMedicalTable();
 
@@ -626,6 +629,54 @@ function getPetImageUrl(imagePath) {
 
     // Legacy local image filename
     return `/uploads/pets/${encodeURIComponent(path)}`;
+}
+
+let viewPetImages = [];
+let viewPetImageIndex = 0;
+
+function renderPetImageCarousel(images) {
+    const imageElement = document.getElementById("viewPetImage");
+    const previousButton = document.getElementById("prevViewPetImage");
+    const nextButton = document.getElementById("nextViewPetImage");
+    const countElement = document.getElementById("viewPetImageCount");
+    if (!imageElement) return;
+
+    viewPetImages = (Array.isArray(images) ? images : [])
+        .filter(image => typeof image === "string" && image.trim());
+    if (!viewPetImages.length) viewPetImages = [null];
+    viewPetImageIndex = 0;
+
+    imageElement.src = getPetImageUrl(viewPetImages[viewPetImageIndex]);
+
+    const hasMultipleImages = viewPetImages.length > 1;
+    previousButton?.classList.toggle("hidden", !hasMultipleImages);
+    nextButton?.classList.toggle("hidden", !hasMultipleImages);
+    countElement?.classList.toggle("hidden", !hasMultipleImages);
+    if (countElement && hasMultipleImages) {
+        countElement.textContent = `1 / ${viewPetImages.length}`;
+    }
+}
+
+document.getElementById("prevViewPetImage")?.addEventListener("click", () => {
+    viewPetImageIndex =
+        (viewPetImageIndex - 1 + viewPetImages.length) % viewPetImages.length;
+    renderCurrentPetImage();
+});
+
+document.getElementById("nextViewPetImage")?.addEventListener("click", () => {
+    viewPetImageIndex = (viewPetImageIndex + 1) % viewPetImages.length;
+    renderCurrentPetImage();
+});
+
+function renderCurrentPetImage() {
+    const imageElement = document.getElementById("viewPetImage");
+    const countElement = document.getElementById("viewPetImageCount");
+    if (!imageElement || !viewPetImages.length) return;
+
+    imageElement.src = getPetImageUrl(viewPetImages[viewPetImageIndex]);
+    if (countElement) {
+        countElement.textContent = `${viewPetImageIndex + 1} / ${viewPetImages.length}`;
+    }
 }
 
 
@@ -1049,6 +1100,7 @@ function openPetDetailsModal(pet){
     }
     // Keep existing image unless user selects a new one
     petImageInput.value = "";
+    petImageInput.required = false;
     if (pet.image_path) {
         petImagePreview.src = getPetImageUrl(pet.image_path);
         petImagePreview.classList.remove("hidden");
@@ -1113,8 +1165,9 @@ function openPetDetailsModal(pet){
     // DISPLAY PET DETAILS TO MODAL
     const viewModal = document.getElementById("viewPetModal");
 
-    document.getElementById("viewPetImage").src =
-    getPetImageUrl(pet.image_path);
+    renderPetImageCarousel(
+        Array.isArray(pet.images) ? pet.images : [pet.image_path]
+    );
 
     document.getElementById("viewName").textContent = pet.name;
 

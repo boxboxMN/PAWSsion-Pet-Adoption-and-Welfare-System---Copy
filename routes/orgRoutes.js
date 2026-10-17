@@ -132,8 +132,8 @@ router.get("/profile", (req, res) => {
 });
 
 // 4. PET & DONATION API ROUTES
-router.post("/pets/add", uploadPet.single("image"), addPet);
-router.put("/pets/update/:id", uploadPet.single("image"), updatePet);
+router.post("/pets/add", uploadPet.array("images", 10), addPet);
+router.put("/pets/update/:id", uploadPet.array("images", 10), updatePet);
 router.delete("/pets/delete/:id", deletePet);
 router.get("/pets/list", getPets);
 router.get("/pets/trash", getDeletedPets);

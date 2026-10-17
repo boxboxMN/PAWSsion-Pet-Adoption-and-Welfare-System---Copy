@@ -2,6 +2,32 @@ const pool = require("../config/database");
 const { generateEmbedding } = require("../services/embeddingService");
 const { logActivity } = require("./adminController");
 const { createNotification, notifyAllAdmins } = require("./adminController");
+
+let animalImagesTableReady;
+
+async function ensureAnimalImagesTable() {
+    if (!animalImagesTableReady) {
+        animalImagesTableReady = pool.query(`
+            CREATE TABLE IF NOT EXISTS animal_images (
+                image_id INT NOT NULL AUTO_INCREMENT,
+                animal_id INT NOT NULL,
+                image_path VARCHAR(2048) NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (image_id),
+                KEY animal_id (animal_id),
+                CONSTRAINT animal_images_animal_fk
+                    FOREIGN KEY (animal_id) REFERENCES animals (animal_id)
+                    ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        `).catch(error => {
+            animalImagesTableReady = null;
+            throw error;
+        });
+    }
+
+    await animalImagesTableReady;
+}
+
 // ==========================================
 // RECYCLE BIN: Auto-purge pets na sobra na sa 30 araw
 // ==========================================
@@ -31,6 +57,8 @@ async function purgeExpiredTrash(organizationId) {
 
 exports.addPet = async (req, res) => {
     try {
+        await ensureAnimalImagesTable();
+
         const {
             name,
             species,
@@ -77,11 +105,8 @@ exports.addPet = async (req, res) => {
         // IMAGE
         // ==========================================
 
-        let image_path = null;
-
-        if (req.file) {
-            image_path = req.file.path;
-        }
+        const uploadedImages = req.files || [];
+        const image_path = uploadedImages[0]?.path || null;
 
         // ==========================================
         // INSERT PET
@@ -121,6 +146,13 @@ exports.addPet = async (req, res) => {
         console.log("Insert Result:", result);
 
         const animal_id = result.insertId;
+
+        if (uploadedImages.length > 1) {
+            await pool.query(
+                `INSERT INTO animal_images (animal_id, image_path) VALUES ?`,
+                [uploadedImages.slice(1).map(file => [animal_id, file.path])]
+            );
+        }
 
         // ==========================================
         // SAVE ADOPTER DETAILS IF ADOPTED
@@ -361,6 +393,8 @@ exports.getPets = async (req, res) => {
 // ==========================================
 exports.getPetDetails = async (req, res) => {
     try {
+        await ensureAnimalImagesTable();
+
         const [org] = await pool.query(
             `
             SELECT organization_id
@@ -418,6 +452,14 @@ exports.getPetDetails = async (req, res) => {
             [req.params.id]
         );
         rows[0].medical_history = medical;
+        const [additionalImages] = await pool.query(
+            `SELECT image_path FROM animal_images WHERE animal_id = ? ORDER BY image_id`,
+            [req.params.id]
+        );
+        rows[0].images = [
+            ...(rows[0].image_path ? [rows[0].image_path] : []),
+            ...additionalImages.map(image => image.image_path)
+        ];
         res.json({
             success: true,
             pet: rows[0]
@@ -435,6 +477,8 @@ exports.getPetDetails = async (req, res) => {
 // ==========================================
 exports.updatePet = async (req, res) => {
     try {
+        await ensureAnimalImagesTable();
+
         const id = req.params.id;
         const {
             name,
@@ -466,6 +510,20 @@ exports.updatePet = async (req, res) => {
         }
         const organizationId =
             organizations[0].organization_id;
+
+        const [existingPets] = await pool.query(
+            `SELECT image_path FROM animals WHERE animal_id = ? AND organization_id = ?`,
+            [id, organizationId]
+        );
+        if (!existingPets.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Pet not found or does not belong to your organization."
+            });
+        }
+
+        const uploadedImages = req.files || [];
+        const hasPrimaryImage = Boolean(existingPets[0].image_path);
         // ==========================================
         // UPDATE PET
         // ==========================================
@@ -492,13 +550,13 @@ exports.updatePet = async (req, res) => {
             adoption_status
         ];
         // ==========================================
-        // UPDATE IMAGE ONLY IF NEW IMAGE EXISTS
+        // Keep the current primary image, using the first new upload only when no primary exists.
         // ==========================================
-        if (req.file) {
+        if (uploadedImages.length && !hasPrimaryImage) {
             updateSQL += `,
                 image_path = ?
             `;
-            values.push(req.file.path);
+            values.push(uploadedImages[0].path);
         }
         updateSQL += `
             WHERE animal_id = ?
@@ -506,18 +564,22 @@ exports.updatePet = async (req, res) => {
         `;
         values.push(id);
         values.push(organizationId);
-        const [result] = await pool.query(
+        await pool.query(
             updateSQL,
             values
         );
+
         // ==========================================
-        // CHECK PET
+        // SAVE ADDITIONAL IMAGES
         // ==========================================
-        if (result.affectedRows === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "Pet not found or does not belong to your organization."
-            });
+        const additionalImages = hasPrimaryImage
+            ? uploadedImages
+            : uploadedImages.slice(1);
+        if (additionalImages.length) {
+            await pool.query(
+                `INSERT INTO animal_images (animal_id, image_path) VALUES ?`,
+                [additionalImages.map(file => [id, file.path])]
+            );
         }
 
          // ==========================================
