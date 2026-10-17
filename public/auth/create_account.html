@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="icon" type="image/png" href="../assets/images/Pawpon_logo.png">
     <title>PAWPON – Create Account </title>
+    <link rel="stylesheet" href="/css/tailwind.css">
     <link rel="stylesheet" href="/assets/css/create_account.css">
     <link rel="stylesheet" href="/css/fontawesome/all.min.css">
 </head>
@@ -202,25 +203,28 @@
                     </div>
 
                     <!-- OTP Verification Modal -->
-                    <div id="otpModal" class="otp-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="otpModalTitle" hidden>
-                        <div class="otp-popup">
-                            <button type="button" id="closeOtpModal" class="otp-popup-close" aria-label="Close verification window">
+                    <div id="otpModal" class="otp-modal-overlay fixed inset-0 z-50 bg-slate-900/60 px-4 py-8 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="otpModalTitle" hidden>
+                        <div class="otp-popup absolute left-4 right-4 top-1/2 mx-auto w-full max-w-md -translate-y-1/2 overflow-hidden rounded-3xl border border-slate-100 bg-white p-7 shadow-2xl">
+                            <button type="button" id="closeOtpModal" class="otp-popup-close absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-2xl leading-none text-slate-500 transition hover:bg-slate-200 hover:text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" aria-label="Close verification window">
                                 &times;
                             </button>
 
-                            <h2 id="otpModalTitle" class="otp-popup-title">Verify Your Email</h2>
-                            <div class="otp-popup-divider"></div>
-                            <p class="otp-popup-desc">Enter the 6-digit verification code sent to your email address.</p>
+                            <div class="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600 shadow-inner">
+                                <i class="fa-solid fa-envelope text-2xl" aria-hidden="true"></i>
+                            </div>
+
+                            <h2 id="otpModalTitle" class="otp-popup-title pr-8 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Verify Your Email</h2>
+                            <p class="otp-popup-desc mt-2 text-sm leading-6 text-slate-600">Enter the 6-digit verification code sent to your email address.</p>
                             
-                            <button type="button" id="sendOtpButton" class="otp-btn otp-btn-outline">Send Code</button>
+                            <button type="button" id="sendOtpButton" class="otp-btn otp-btn-outline mt-6 w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50">Send Code</button>
 
                             <div id="otpInputSection" hidden>
-                                <label for="emailOtp" class="otp-popup-label">Email Verification Code</label>
-                                <input id="emailOtp" name="emailOtp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Enter 6-digit code" class="otp-popup-input">
+                                <label for="emailOtp" class="otp-popup-label mb-2 block text-sm font-semibold text-slate-700">Email Verification Code</label>
+                                <input id="emailOtp" name="emailOtp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="Enter 6-digit code" class="otp-popup-input w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-3.5 text-center font-mono text-2xl font-bold tracking-widest text-slate-900 transition focus:border-indigo-500 focus:bg-white focus:outline-none focus:ring-4">
 
-                                <button type="button" id="verifyOtpButton" class="otp-btn otp-btn-primary" disabled>Verify Code</button>
+                                <button type="button" id="verifyOtpButton" class="otp-btn otp-btn-primary mt-4 w-full rounded-xl bg-indigo-600 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:-translate-y-0.5 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50" disabled>Verify Code</button>
 
-                                <button type="button" id="resendOtpButton" class="otp-btn otp-btn-outline" hidden disabled> Resend Code </button>
+                                <button type="button" id="resendOtpButton" class="otp-btn otp-btn-outline mt-3 w-full rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:cursor-not-allowed disabled:opacity-50" hidden disabled> Resend Code </button>
                             </div>
                             <div id="otpHelper" class="input-helper-text otp-popup-helper" aria-live="polite" role="status"></div>
                         </div>
