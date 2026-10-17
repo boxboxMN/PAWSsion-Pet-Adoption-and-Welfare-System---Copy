@@ -106,7 +106,13 @@ exports.addPet = async (req, res) => {
         // ==========================================
 
         const uploadedImages = req.files || [];
-        const image_path = uploadedImages[0]?.path || null;
+        const requestedProfileIndex = Number(req.body.profileImageIndex);
+        const profileImageIndex = Number.isInteger(requestedProfileIndex) &&
+            requestedProfileIndex >= 0 &&
+            requestedProfileIndex < uploadedImages.length
+            ? requestedProfileIndex
+            : 0;
+        const image_path = uploadedImages[profileImageIndex]?.path || null;
 
         // ==========================================
         // INSERT PET
@@ -147,10 +153,11 @@ exports.addPet = async (req, res) => {
 
         const animal_id = result.insertId;
 
-        if (uploadedImages.length > 1) {
+        const additionalImages = uploadedImages.filter((_, index) => index !== profileImageIndex);
+        if (additionalImages.length) {
             await pool.query(
                 `INSERT INTO animal_images (animal_id, image_path) VALUES ?`,
-                [uploadedImages.slice(1).map(file => [animal_id, file.path])]
+                [additionalImages.map(file => [animal_id, file.path])]
             );
         }
 
@@ -524,6 +531,12 @@ exports.updatePet = async (req, res) => {
 
         const uploadedImages = req.files || [];
         const hasPrimaryImage = Boolean(existingPets[0].image_path);
+        const requestedProfileIndex = Number(req.body.profileImageIndex);
+        const profileImageIndex = Number.isInteger(requestedProfileIndex) &&
+            requestedProfileIndex >= 0 &&
+            requestedProfileIndex < uploadedImages.length
+            ? requestedProfileIndex
+            : 0;
         // ==========================================
         // UPDATE PET
         // ==========================================
@@ -550,13 +563,13 @@ exports.updatePet = async (req, res) => {
             adoption_status
         ];
         // ==========================================
-        // Keep the current primary image, using the first new upload only when no primary exists.
+        // Use the selected new profile image, keeping the previous profile in the gallery.
         // ==========================================
-        if (uploadedImages.length && !hasPrimaryImage) {
+        if (uploadedImages.length) {
             updateSQL += `,
                 image_path = ?
             `;
-            values.push(uploadedImages[0].path);
+            values.push(uploadedImages[profileImageIndex].path);
         }
         updateSQL += `
             WHERE animal_id = ?
@@ -572,13 +585,17 @@ exports.updatePet = async (req, res) => {
         // ==========================================
         // SAVE ADDITIONAL IMAGES
         // ==========================================
-        const additionalImages = hasPrimaryImage
-            ? uploadedImages
-            : uploadedImages.slice(1);
+        const additionalImages = uploadedImages.filter((_, index) => index !== profileImageIndex);
         if (additionalImages.length) {
             await pool.query(
                 `INSERT INTO animal_images (animal_id, image_path) VALUES ?`,
                 [additionalImages.map(file => [id, file.path])]
+            );
+        }
+        if (uploadedImages.length && hasPrimaryImage) {
+            await pool.query(
+                `INSERT INTO animal_images (animal_id, image_path) VALUES (?, ?)`,
+                [id, existingPets[0].image_path]
             );
         }
 

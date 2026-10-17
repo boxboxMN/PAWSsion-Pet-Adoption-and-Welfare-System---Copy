@@ -238,6 +238,10 @@ const petImageInput = document.getElementById("petImageInput");
 const petImagePreview = document.getElementById("petImagePreview");
 const uploadPlaceholder = document.getElementById("uploadPlaceholder");
 const selectedFileName = document.getElementById("selectedFileName");
+const petImageThumbnails = document.getElementById("petImageThumbnails");
+const selectedPetImages = [];
+let profileImageIndex = 0;
+let currentPetImagePath = null;
 
 function resetToActiveView() {
         currentViewMode = "active";
@@ -259,19 +263,135 @@ function resetToActiveView() {
         statusFilter.value = "";
     }
 
-petImageInput.addEventListener("change", () => {
+function syncPetImageInput() {
+    const transfer = new DataTransfer();
+    selectedPetImages.forEach(image => transfer.items.add(image.file));
+    petImageInput.files = transfer.files;
+}
+
+function updatePetImageMainPreview() {
+    const selectedImage = selectedPetImages[profileImageIndex];
+    const imageUrl = selectedImage
+        ? selectedImage.previewUrl
+        : currentPetImagePath
+            ? getPetImageUrl(currentPetImagePath)
+            : null;
+
+    petImagePreview.classList.toggle("hidden", !imageUrl);
+    uploadPlaceholder.classList.toggle("hidden", Boolean(imageUrl));
+    petImagePreview.src = imageUrl || "";
+    petImageInput.required = !editingPetId && selectedPetImages.length === 0;
+}
+
+function renderPetImageThumbnails() {
+    petImageThumbnails.replaceChildren();
+
+    selectedPetImages.forEach((image, index) => {
+        const thumbnail = document.createElement("div");
+        thumbnail.className = "relative overflow-hidden rounded-lg border-2 bg-white";
+        thumbnail.classList.add(
+            index === profileImageIndex ? "border-blue-600" : "border-slate-200"
+        );
+
+        const imageElement = document.createElement("img");
+        imageElement.src = image.previewUrl;
+        imageElement.alt = `Selected pet photo ${index + 1}`;
+        imageElement.className = "aspect-square w-full object-cover";
+
+        const selectButton = document.createElement("button");
+        selectButton.type = "button";
+        selectButton.className = "absolute bottom-0 left-0 right-0 bg-black/60 px-1 py-1 text-[10px] font-semibold text-white";
+        selectButton.textContent = index === profileImageIndex
+            ? "Profile Picture"
+            : "Set as Profile";
+        selectButton.setAttribute(
+            "aria-pressed",
+            String(index === profileImageIndex)
+        );
+        selectButton.addEventListener("click", () => {
+            profileImageIndex = index;
+            renderPetImageThumbnails();
+            updatePetImageMainPreview();
+        });
+
+        const removeButton = document.createElement("button");
+        removeButton.type = "button";
+        removeButton.className = "absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white shadow hover:bg-red-700";
+        removeButton.textContent = "×";
+        removeButton.setAttribute("aria-label", `Remove photo ${index + 1}`);
+        removeButton.addEventListener("click", () => {
+            URL.revokeObjectURL(image.previewUrl);
+            selectedPetImages.splice(index, 1);
+
+            if (!selectedPetImages.length) {
+                profileImageIndex = 0;
+            } else if (index === profileImageIndex) {
+                profileImageIndex = 0;
+            } else if (index < profileImageIndex) {
+                profileImageIndex -= 1;
+            }
+
+            syncPetImageInput();
+            renderPetImageThumbnails();
+            updatePetImageMainPreview();
+            selectedFileName.textContent = selectedPetImages.length
+                ? `${selectedPetImages.length} photo${selectedPetImages.length === 1 ? "" : "s"} selected`
+                : currentPetImagePath
+                    ? "Current profile picture retained"
+                    : "";
+        });
+
+        thumbnail.append(imageElement, selectButton, removeButton);
+        petImageThumbnails.append(thumbnail);
+    });
+}
+
+function resetSelectedPetImages(existingImagePath = null) {
+    selectedPetImages.forEach(image => URL.revokeObjectURL(image.previewUrl));
+    selectedPetImages.length = 0;
+    profileImageIndex = 0;
+    currentPetImagePath = existingImagePath;
+    petImageInput.value = "";
+    syncPetImageInput();
+    renderPetImageThumbnails();
+    updatePetImageMainPreview();
+    selectedFileName.textContent = existingImagePath
+        ? "Current profile picture retained"
+        : "";
+}
+
+petImageInput.addEventListener("change", async () => {
     const files = Array.from(petImageInput.files || []);
-    if (!files.length) return;
-    selectedFileName.textContent = files.length === 1
-        ? `✔ ${files[0].name}`
-        : `✔ ${files.length} photos selected`;
-    const reader = new FileReader();
-    reader.onload = function(e){
-        petImagePreview.src = e.target.result;
-        petImagePreview.classList.remove("hidden");
-        uploadPlaceholder.classList.add("hidden");
-    };
-    reader.readAsDataURL(files[0]);
+    const knownFiles = new Set(
+        selectedPetImages.map(({ file }) =>
+            `${file.name}:${file.size}:${file.lastModified}`
+        )
+    );
+    const newFiles = files.filter(file => {
+        const signature = `${file.name}:${file.size}:${file.lastModified}`;
+        if (knownFiles.has(signature)) return false;
+        knownFiles.add(signature);
+        return true;
+    });
+    const availableSlots = 10 - selectedPetImages.length;
+
+    newFiles.slice(0, availableSlots).forEach(file => {
+        selectedPetImages.push({
+            file,
+            previewUrl: URL.createObjectURL(file)
+        });
+    });
+
+    if (newFiles.length > availableSlots) {
+        await showMessage("You can upload up to 10 pet photos.", "warning");
+    }
+
+    syncPetImageInput();
+    if (!selectedPetImages.length) return;
+    renderPetImageThumbnails();
+    updatePetImageMainPreview();
+    selectedFileName.textContent =
+        `${selectedPetImages.length} photo${selectedPetImages.length === 1 ? "" : "s"} selected`;
 });
 let editingPetId = null;
 
@@ -282,7 +402,7 @@ const submitButton = petForm.querySelector('button[type="submit"]');
 addPetBtn.addEventListener("click", () => {
     editingPetId = null;
     petForm.reset();
-    petImageInput.required = true;
+    resetSelectedPetImages();
     medicalList = [];
     renderMedicalTable();
 
@@ -360,6 +480,9 @@ petForm.addEventListener("submit", async (e)=>{
     e.preventDefault();
     
     const formData = new FormData(petForm);
+    formData.delete("images");
+    selectedPetImages.forEach(({ file }) => formData.append("images", file));
+    formData.set("profileImageIndex", String(profileImageIndex));
     // =======================================================
     // CHECK DUPLICATE PET DESCRIPTION
     // =======================================================
@@ -1099,19 +1222,8 @@ function openPetDetailsModal(pet){
         });
     }
     // Keep existing image unless user selects a new one
-    petImageInput.value = "";
+    resetSelectedPetImages(pet.image_path || null);
     petImageInput.required = false;
-    if (pet.image_path) {
-        petImagePreview.src = getPetImageUrl(pet.image_path);
-        petImagePreview.classList.remove("hidden");
-        uploadPlaceholder.classList.add("hidden");
-        selectedFileName.textContent = "Current profile picture";
-    } else {
-        petImagePreview.src = "";
-        petImagePreview.classList.add("hidden");
-        uploadPlaceholder.classList.remove("hidden");
-        selectedFileName.textContent = "";
-    }
     // Modal title
     modalTitle.innerHTML = `
         <i class="fa-solid fa-pen text-amber-500 mr-2"></i>
@@ -1258,13 +1370,11 @@ function closeModal(){
     modal.classList.remove("flex");
     modal.classList.add("hidden");
     medicalList = [];
+    editingPetId = null;
 
     renderMedicalTable();
     petForm.reset();
-    petImagePreview.src = "";
-    petImagePreview.classList.add("hidden");
-    uploadPlaceholder.classList.remove("hidden");
-    selectedFileName.textContent = "";
+    resetSelectedPetImages();
 
 
     // LIGTAS NA PAG-RESET NG ADOPTER DETAILS
