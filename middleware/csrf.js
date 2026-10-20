@@ -28,6 +28,10 @@ const csrfSynchronisedProtection = (req, res, next) => {
     console.log("Token in header:", req.headers["x-csrf-token"]);
     console.log("Cookie header:", req.headers.cookie ? "present" : "MISSING");
     console.log("=======================================");
+    console.log(
+        "CSRF tokens match:",
+        req.session?.csrfToken === req.headers["x-csrf-token"]
+    );
     return originalProtection(req, res, next);
 };
 
