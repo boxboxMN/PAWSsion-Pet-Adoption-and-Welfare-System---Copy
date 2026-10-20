@@ -620,7 +620,16 @@ exports.updatePet = async (req, res) => {
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
-            await connection.query(updateSQL, values);
+            const [result] = await connection.query(updateSQL, values);
+            // ==========================================
+            // CHECK PET
+            // ==========================================
+            if (result.affectedRows === 0) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Pet not found or does not belong to your organization."
+                });
+            }
             await connection.query(
                 `DELETE FROM animal_images WHERE animal_id = ?`,
                 [id]
