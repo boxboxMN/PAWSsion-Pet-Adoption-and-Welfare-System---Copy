@@ -306,8 +306,9 @@ async function fetchProfileData() {
             avatarDisplayEl.innerHTML = `
                 <img src="${imageUrl}" alt="Profile Picture" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null; this.src='/images/default-avatar.png';">
             `;
+        } else {
+            avatarDisplayEl.innerHTML = `<i class="fas fa-user"></i>`;
         }
-
     } catch (error) {
         console.error("Error loading profile:", error);
     }
