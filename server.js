@@ -13,6 +13,11 @@ app.disable("x-powered-by");
  // Anti-clickjacking security headers
 app.use((req, res, next) => {
     res.setHeader("X-Frame-Options", "DENY");
+    res.setHeader(
+      "Content-Security-Policy",
+      "frame-ancestors 'none'",
+       "font-src 'self'"
+    );
     next();
 });
 
