@@ -416,6 +416,272 @@ exports.updateProfile = async (req, res) => {
     }
 };
 
+// ==========================================
+ // SEND OTP FOR PROFILE EMAIL CHANGE
+ // ==========================================
+ exports.sendProfileEmailChangeOtp = async (req, res) => {
+    const accountId = req.session?.accountId;
+    const email = String(req.body.email || "").trim().toLowerCase();
+
+    if (!accountId) {
+        return res.status(401).json({
+            success: false,
+            message: "Please log in again."
+        });
+    }
+
+    if (!validator.isEmail(email)) {
+        return res.status(400).json({
+            success: false,
+            message: "Please enter a valid email address."
+        });
+    }
+
+    try {
+        // Get the current email of the logged-in account.
+        const [accounts] = await pool.query(
+            `SELECT email
+             FROM accounts
+             WHERE account_id = ?
+             LIMIT 1`,
+            [accountId]
+        );
+
+        if (accounts.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Account not found."
+            });
+        }
+
+        const currentEmail = String(accounts[0].email || "")
+            .trim()
+            .toLowerCase();
+
+        if (email === currentEmail) {
+            return res.status(400).json({
+                success: false,
+                message: "This is already your current email address."
+            });
+        }
+
+        // Prevent using an email that belongs to another account.
+        const [existingAccounts] = await pool.query(
+            `SELECT account_id
+             FROM accounts
+             WHERE LOWER(email) = LOWER(?)
+               AND account_id != ?
+             LIMIT 1`,
+            [email, accountId]
+        );
+
+        if (existingAccounts.length > 0) {
+            return res.status(409).json({
+                success: false,
+                message: "An account with this email already exists."
+            });
+        }
+
+        // Enforce the resend cooldown for this account and target email.
+        const [existingOtp] = await pool.query(
+            `SELECT id
+             FROM profile_email_change_otps
+             WHERE account_id = ?
+               AND email = ?
+               AND resend_after > NOW()
+             ORDER BY id DESC
+             LIMIT 1`,
+            [accountId, email]
+        );
+
+        if (existingOtp.length > 0) {
+            return res.status(429).json({
+                success: false,
+                message: "Please wait 60 seconds before requesting another code."
+            });
+        }
+
+        // Generate a 6-digit OTP and store only its hash.
+        const otp = String(crypto.randomInt(100000, 1000000));
+        const otpHash = await bcrypt.hash(otp, 10);
+
+        // Replace previous codes for this account and target email.
+        await pool.query(
+            `DELETE FROM profile_email_change_otps
+             WHERE account_id = ? AND email = ?`,
+            [accountId, email]
+        );
+
+        const [insertResult] = await pool.query(
+            `INSERT INTO profile_email_change_otps
+                (account_id, email, otp_hash, expires_at, resend_after)
+             VALUES
+                (?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE),
+                         DATE_ADD(NOW(), INTERVAL 60 SECOND))`,
+            [accountId, email, otpHash]
+        );
+
+        try {
+            await transporter.sendMail({
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: "PAWSsion Email Change Verification",
+                text: `Your PAWSsion email change verification code is ${otp}. It expires in 10 minutes. If you did not request this, you can ignore this email.`,
+                html: `
+                    <p>You requested to change the email address on your PAWSsion account.</p>
+                    <p>Your verification code is:</p>
+                    <h2>${otp}</h2>
+                    <p>This code expires in 10 minutes.</p>
+                    <p>If you did not request this, you can ignore this email.</p>
+                `
+            });
+        } catch (emailError) {
+            await pool.query(
+                `DELETE FROM profile_email_change_otps
+                 WHERE id = ?`,
+                [insertResult.insertId]
+            );
+
+            throw emailError;
+        }
+
+        return res.json({
+            success: true,
+            message: "Verification code sent. Please check your new email address."
+        });
+
+    } catch (error) {
+        console.error("sendProfileEmailChangeOtp error:", error.message);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to send the verification code right now. Please try again later."
+        });
+    }
+};
+
+ // ==========================================
+ // VERIFY OTP FOR PROFILE EMAIL CHANGE
+ // ==========================================
+ exports.verifyProfileEmailChangeOtp = async (req, res) => {
+    const accountId = req.session?.accountId;
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const otp = String(req.body.otp || "").trim();
+
+    if (!accountId) {
+        return res.status(401).json({
+            success: false,
+            message: "Please log in again."
+        });
+    }
+
+    if (!validator.isEmail(email) || !/^\d{6}$/.test(otp)) {
+        return res.status(400).json({
+            success: false,
+            message: "Enter a valid email address and 6-digit verification code."
+        });
+    }
+
+    try {
+        // Confirm the email is not already assigned to another account.
+        const [existingAccounts] = await pool.query(
+            `SELECT account_id
+             FROM accounts
+             WHERE LOWER(email) = LOWER(?)
+               AND account_id != ?
+             LIMIT 1`,
+            [email, accountId]
+        );
+
+        if (existingAccounts.length > 0) {
+            return res.status(409).json({
+                success: false,
+                message: "An account with this email already exists."
+            });
+        }
+
+        const [rows] = await pool.query(
+            `SELECT id, otp_hash, expires_at, attempts, verified_at
+             FROM profile_email_change_otps
+             WHERE account_id = ? AND email = ?
+             ORDER BY id DESC
+             LIMIT 1`,
+            [accountId, email]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "No verification code found. Please request a new one."
+            });
+        }
+
+        const record = rows[0];
+
+        if (Number(record.attempts) >= 5) {
+            return res.status(429).json({
+                success: false,
+                message: "Too many incorrect attempts. Please request a new code."
+            });
+        }
+
+        if (new Date(record.expires_at) <= new Date()) {
+            await pool.query(
+                `DELETE FROM profile_email_change_otps WHERE id = ?`,
+                [record.id]
+            );
+
+            return res.status(400).json({
+                success: false,
+                message: "This code has expired. Please request a new one."
+            });
+        }
+
+        if (record.verified_at) {
+            return res.json({
+                success: true,
+                message: "Email verified successfully."
+            });
+        }
+
+        const isMatch = await bcrypt.compare(otp, record.otp_hash);
+
+        if (!isMatch) {
+            await pool.query(
+                `UPDATE profile_email_change_otps
+                 SET attempts = attempts + 1
+                 WHERE id = ?`,
+                [record.id]
+            );
+
+            return res.status(400).json({
+                success: false,
+                message: "Incorrect verification code. Please check and try again."
+            });
+        }
+
+        await pool.query(
+            `UPDATE profile_email_change_otps
+             SET verified_at = NOW()
+             WHERE id = ?`,
+            [record.id]
+        );
+
+        return res.json({
+            success: true,
+            message: "Email verified successfully. You can continue updating your profile."
+        });
+
+    } catch (error) {
+        console.error("verifyProfileEmailChangeOtp error:", error.message);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to verify the code right now. Please try again."
+        });
+    }
+};
+
 const userPasswordAttempts = new Map();
 
 function getUserAttemptRecord(accountId) {
