@@ -1314,9 +1314,35 @@ async function updateProfileZipCodeFromLocation() {
 }
 
 // 2. Event Listeners para sa Cascading
-regionInput?.addEventListener('change', () => populateProvinces(regionInput.value));
-provinceInput?.addEventListener('change', () => populateCities(provinceInput.value));
-cityInput?.addEventListener('change', () => populateBarangays(cityInput.value));
+regionInput?.addEventListener('change', () => {
+    resetProfileAddressVerification();
+
+    zipInput.value = "";
+    zipInput.readOnly = true;
+    if (zipHelper) zipHelper.textContent = "";
+
+    populateProvinces(regionInput.value);
+});
+
+provinceInput?.addEventListener('change', () => {
+    resetProfileAddressVerification();
+
+    zipInput.value = "";
+    zipInput.readOnly = true;
+    if (zipHelper) zipHelper.textContent = "";
+
+    populateCities(provinceInput.value);
+});
+
+cityInput?.addEventListener('change', async () => {
+    resetProfileAddressVerification();
+    await populateBarangays(cityInput.value);
+    await updateProfileZipCodeFromLocation();
+});
+
+barangayInput?.addEventListener('change', () => {
+    resetProfileAddressVerification();
+});
 
 // 3. ZIP Code validation mask (Numbers only & exact 4 digits)
 zipInput?.addEventListener('input', function() {
