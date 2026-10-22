@@ -367,18 +367,35 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 async function loadUserName() {
+    const greetingElement = document.getElementById("welcomeGreeting");
+    const nameElement = document.getElementById("welcomeUserName");
+
     try {
 
         const response = await fetch("/api/current-user");
+
+        if (!response.ok) {
+            throw new Error("Unable to load current user.");
+        }
+        
         const data = await response.json();
 
-        document.getElementById("welcomeUserName").textContent =
-            data.name || "User";
+        // document.getElementById("welcomeUserName").textContent =
+        //     data.name || "User";
+         greetingElement.textContent = data.isFirstLogin
+            ? "Hello,"
+            : "Welcome back,";
+
+        nameElement.textContent = data.name || "User";
 
     } catch (err) {
 
-        console.error(err);
+        // console.error(err);
 
-        document.getElementById("welcomeUserName").textContent = "User";
+        // document.getElementById("welcomeUserName").textContent = "User";
+        console.error("Error loading welcome greeting:", err);
+
+        greetingElement.textContent = "Hello,";
+        nameElement.textContent = "User";
     }
 }
