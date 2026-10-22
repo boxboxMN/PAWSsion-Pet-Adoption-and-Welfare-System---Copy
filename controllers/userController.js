@@ -49,7 +49,7 @@ function normalizeImagePath(imagePath, legacyFolder, fallback = "") {
 }
 
 // =====================================================
-// addsdsdsddasd
+// SEUSR-03: ADOPTION APPLICATION VALIDATION HELPERS
 // =====================================================
 const ADOPTION_NAME_REGEX       = /^[a-zA-ZñÑáéíóúÁÉÍÓÚàèìòùÀÈÌÒÙ\s.'-]{2,100}$/;
 const ADOPTION_PHONE_REGEX      = /^(09\d{9}|\+639\d{9})$/;
