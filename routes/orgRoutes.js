@@ -219,7 +219,7 @@ router.post(
             await pool.query(query, [
                 organizationId,
                 dropoff_location_name || null,
-                dropoff_address || null,
+                dropoff_address,
                 dropoff_hours || null,
                 dropoff_notes || null,
                 dropoff_image
