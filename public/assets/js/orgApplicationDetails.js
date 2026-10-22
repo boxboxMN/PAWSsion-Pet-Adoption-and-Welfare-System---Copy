@@ -751,7 +751,7 @@ async function selectInterviewMethod(method, isUserClick = false) {
         textOnsite.className = "text-sm font-bold text-gray-600";
 
         label.textContent = "GMeet Link:";
-        input.placeholder = "https://meet.google.com/xyz-abc-123";
+        input.placeholder = "Please enter a valid Google Meet link";
     }
 
     
