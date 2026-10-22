@@ -901,6 +901,28 @@ exports.deletePet = async (req, res) => {
         // I-move sa Recycle Bin (soft delete) sa halip na tanggalin agad. 
         // Hindi na natin binabago ang animal_medical_history o adoption_status dito
         // para kumpleto pa rin ang record kapag na-restore.
+
+        // Prevent deleting if the pet has a scheduled interview
+        const [scheduledInterview] = await pool.query(
+            `SELECT app.application_id
+            FROM user_adoption_applications app
+            INNER JOIN application_interviews i
+                ON app.application_id = i.application_id
+            WHERE app.animal_id = ?
+            AND app.status = 'Interview Scheduled'
+            AND i.interview_date IS NOT NULL
+            AND i.interview_time IS NOT NULL
+            LIMIT 1`,
+            [id]
+        );
+
+        if (scheduledInterview.length > 0) {
+            return res.status(409).json({
+                success: false,
+                message: "Cannot delete this pet because it has a scheduled interview. Please complete or cancel the scheduled interview first."
+            });
+        }
+        
         const [result] = await pool.query(
             `UPDATE animals 
              SET deleted_at = NOW() 
