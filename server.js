@@ -31,7 +31,14 @@ const multer = require('multer');
 app.use(
   helmet({
     // Disable HSTS locally so it doesn't force http:// to https://
-    hsts: false,
+   hsts: false,
+   crossOriginOpenerPolicy: {
+        policy: "same-origin-allow-popups"
+      },
+  
+    referrerPolicy: {
+        policy: "no-referrer-when-downgrade"
+      },
   })
 );
 
