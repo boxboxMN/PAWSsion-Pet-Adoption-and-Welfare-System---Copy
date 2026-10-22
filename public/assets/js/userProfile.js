@@ -462,6 +462,188 @@ function showProfileModal(message, type = "success") {
     });
 }
 
+let pendingProfileEmail = "";
+let verifiedProfileEmail = "";
+let emailOtpResendTimer = null;
+let emailOtpResendSeconds = 0;
+
+const emailOtpModal = document.getElementById("emailOtpModal");
+const emailOtpTarget = document.getElementById("emailOtpTarget");
+const emailOtpInput = document.getElementById("emailOtpInput");
+const emailOtpMessage = document.getElementById("emailOtpMessage");
+const emailOtpCancelBtn = document.getElementById("emailOtpCancelBtn");
+const emailOtpResendBtn = document.getElementById("emailOtpResendBtn");
+const emailOtpVerifyBtn = document.getElementById("emailOtpVerifyBtn");
+
+function showEmailOtpMessage(message, isError = false) {
+    emailOtpMessage.textContent = message;
+    emailOtpMessage.className = isError
+        ? "mt-3 text-sm text-red-600"
+        : "mt-3 text-sm text-slate-600";
+}
+
+function openEmailOtpModal(email) {
+    pendingProfileEmail = email;
+    emailOtpTarget.textContent = email;
+    emailOtpInput.value = "";
+    showEmailOtpMessage("");
+    emailOtpResendBtn.textContent = "Send Code";
+    emailOtpResendBtn.disabled = false;
+    emailOtpVerifyBtn.disabled = false;
+    emailOtpModal.classList.remove("hidden");
+}
+
+function closeEmailOtpModal() {
+    emailOtpModal.classList.add("hidden");
+    pendingProfileEmail = "";
+    emailOtpInput.value = "";
+    showEmailOtpMessage("");
+
+    if (emailOtpResendTimer) {
+        clearInterval(emailOtpResendTimer);
+        emailOtpResendTimer = null;
+    }
+
+    emailOtpResendSeconds = 0;
+    emailOtpResendBtn.disabled = false;
+    emailOtpResendBtn.textContent = "Send Code";
+}
+
+function startEmailOtpResendCooldown(seconds = 60) {
+    if (emailOtpResendTimer) {
+        clearInterval(emailOtpResendTimer);
+    }
+
+    emailOtpResendSeconds = seconds;
+    emailOtpResendBtn.disabled = true;
+    emailOtpResendBtn.textContent =
+        `Resend in ${emailOtpResendSeconds}s`;
+
+    emailOtpResendTimer = setInterval(() => {
+        emailOtpResendSeconds--;
+
+        if (emailOtpResendSeconds <= 0) {
+            clearInterval(emailOtpResendTimer);
+            emailOtpResendTimer = null;
+            emailOtpResendBtn.disabled = false;
+            emailOtpResendBtn.textContent = "Resend Code";
+            return;
+        }
+
+        emailOtpResendBtn.textContent =
+            `Resend in ${emailOtpResendSeconds}s`;
+    }, 1000);
+}
+
+async function sendProfileEmailOtp() {
+    if (!pendingProfileEmail) return;
+
+    emailOtpResendBtn.disabled = true;
+    emailOtpVerifyBtn.disabled = true;
+    showEmailOtpMessage("Sending verification code...");
+
+    try {
+        const response = await fetch(
+            "/api/user/profile/email-change/send-otp",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: pendingProfileEmail })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            showEmailOtpMessage(
+                result.message || "Unable to send verification code.",
+                true
+            );
+
+            emailOtpResendBtn.disabled = false;
+            emailOtpResendBtn.textContent = "Resend Code";
+            return;
+        }
+
+        showEmailOtpMessage(result.message);
+        startEmailOtpResendCooldown(60);
+
+    } catch (error) {
+        console.error("Send profile email OTP error:", error);
+        showEmailOtpMessage(
+            "A network error occurred while sending the code.",
+            true
+        );
+
+        emailOtpResendBtn.disabled = false;
+        emailOtpResendBtn.textContent = "Send Code";
+    } finally {
+        emailOtpVerifyBtn.disabled = false;
+    }
+}
+
+async function verifyProfileEmailOtp() {
+    const otp = emailOtpInput.value.trim();
+
+    if (!/^\d{6}$/.test(otp)) {
+        showEmailOtpMessage(
+            "Please enter the 6-digit verification code.",
+            true
+        );
+        emailOtpInput.focus();
+        return;
+    }
+
+    emailOtpVerifyBtn.disabled = true;
+    showEmailOtpMessage("Verifying code...");
+
+    try {
+        const response = await fetch(
+            "/api/user/profile/email-change/verify-otp",
+            {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email: pendingProfileEmail,
+                    otp
+                })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            showEmailOtpMessage(
+                result.message || "Unable to verify the code.",
+                true
+            );
+            return;
+        }
+
+        verifiedProfileEmail = pendingProfileEmail;
+        closeEmailOtpModal();
+
+        showProfileModal(
+            "Email verified successfully. Click Save Profile again to save your changes."
+        );
+
+    } catch (error) {
+        console.error("Verify profile email OTP error:", error);
+        showEmailOtpMessage(
+            "A network error occurred while verifying the code.",
+            true
+        );
+    } finally {
+        emailOtpVerifyBtn.disabled = false;
+    }
+}
+
+emailOtpCancelBtn.addEventListener("click", closeEmailOtpModal);
+
+emailOtpResendBtn.addEventListener("click", sendProfileEmailOtp);
+
+emailOtpVerifyBtn.addEventListener("click", verifyProfileEmailOtp);
+
 async function saveProfile() {
     let firstName = '';
     let lastName = '';
