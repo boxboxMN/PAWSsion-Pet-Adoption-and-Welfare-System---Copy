@@ -675,29 +675,44 @@ async function saveProfile() {
 
     // 2. Client-side Validations
     if (!firstName || !lastName) {
-    alert('Please provide your complete First and Last Name.');
-    return;
+        showProfileModal(
+            'Please provide your complete First and Last Name.',
+            'error'
+        );
+        return;
     }
 
     if (!email) {
-    alert('Email cannot be empty.');
-    return;
+        showProfileModal(
+            'Email cannot be empty.',
+            'error'
+        );
+        return;
     }
 
     if (!validateEmail(email)) {
-    alert('Please enter a valid email address.');
-    inputEmail.focus();
-    return;
+        showProfileModal(
+            'Please enter a valid email address.',
+            'error'
+        );
+        inputEmail.focus();
+        return;
     }
 
     if (!mobile || !validatePhilippineMobile(mobile)) {
-    alert('Please enter a valid Philippine mobile number.');
-    return;
+        showProfileModal(
+            'Please enter a valid Philippine mobile number.',
+            'error'
+        );
+        return;
     }
 
     if (!birthday) {
-    alert('Please enter your birthday.');
-    return;
+         showProfileModal(
+            'Please enter your birthday.',
+            'error'
+        );
+        return;
     }
 
     // 18+ Age Validation
@@ -709,18 +724,110 @@ async function saveProfile() {
     age--;
     }
     if (age < 18) {
-    alert('You must be at least 18 years old.');
-    return;
+        showProfileModal(
+            'You must be at least 18 years old.',
+            'error'
+        );
+        return;
     }
 
     if (!streetAddress || !region || !province || !city || !barangay) {
-    alert('Please complete all address dropdowns and street address.');
-    return;
+        showProfileModal(
+            'Please complete all address dropdowns and street address.',
+            'error'
+        );
+        return;
     }
 
+    //new added
+    const streetAddressRegex = /^[a-zA-Z0-9\s.,#'/-]+$/;
+
+    if (streetAddress.length < 5) {
+        showProfileModal(
+            'Please enter a complete street address.',
+            'error'
+        );
+        inputStreet.focus();
+        return;
+    }
+
+    if (streetAddress.length > 150) {
+        showProfileModal(
+            'Street address must not exceed 150 characters.',
+            'error'
+        );
+        inputStreet.focus();
+        return;
+    }
+
+    const hasVowel = /[aeiouáéíóúàèìòù]/i.test(streetAddress);
+
+    if (!hasVowel || !/[A-Za-zÀ-ÖØ-öø-ÿ]/.test(streetAddress)) {
+        showProfileModal(
+            'Please enter a valid street or area name.',
+            'error'
+        );
+        inputStreet.focus();
+        return;
+    }
+
+    if (!streetAddressRegex.test(streetAddress)) {
+        showProfileModal(
+            'Street address can only contain letters, numbers, spaces, and common address characters such as . , # / and -.',
+            'error'
+        );
+        inputStreet.focus();
+        return;
+    }
+
+    if (/(.)\1{4,}/i.test(streetAddress)) {
+        showProfileModal(
+            'The street address appears to contain invalid or repeated text.',
+            'error'
+        );
+        inputStreet.focus();
+        return;
+    }
+
+    const normalizedStreetAddress = streetAddress
+        .toLowerCase()
+        .replace(/\s+/g, '');
+
+    const obviousGibberishPatterns = [
+        'asdf', 'asdfgh', 'qwer', 'qwerty',
+        'zxcv', 'zxcvb', 'poiuy', 'lkjh', 'mnbv'
+    ];
+
+    if (obviousGibberishPatterns.some(pattern =>
+        normalizedStreetAddress.includes(pattern)
+    )) {
+        showProfileModal(
+            'Please enter a valid street or area name.',
+            'error'
+        );
+        inputStreet.focus();
+        return;
+    }
+
+    const compactLetters = streetAddress
+        .toLowerCase()
+        .replace(/[^a-zà-öø-ÿñ]/gi, '');
+
+    if (/(.{2,3})\1{2,}/i.test(compactLetters)) {
+        showProfileModal(
+            'The street address appears to contain invalid or repeated text..',
+            'error'
+        );
+        inputStreet.focus();
+        return;
+    } //closing of new added
+    
     if (!/^\d{4}$/.test(zipCode)) {
-    alert('Please enter a valid 4-digit Philippine ZIP code.');
-    return;
+        showProfileModal(
+            'Please enter a valid 4-digit Philippine ZIP code.',
+            'error'
+        );
+        return;
     }
 
     // 3. Payload Construction
