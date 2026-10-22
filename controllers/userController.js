@@ -288,6 +288,27 @@ exports.updateProfile = async (req, res) => {
         });
     }
 
+     const [currentAccount] = await pool.query(
+        `SELECT email
+         FROM accounts
+         WHERE account_id = ?
+         LIMIT 1`,
+        [accountId]
+    );
+    
+    if (currentAccount.length === 0) {
+        return res.status(404).json({
+            success: false,
+            error: "Account not found."
+        });
+    }
+    
+    const currentEmail = String(currentAccount[0].email || "")
+        .trim()
+        .toLowerCase();
+    
+    const emailChanged = email !== currentEmail;
+
     const [existingEmail] = await pool.query(
         `SELECT account_id 
          FROM accounts 
