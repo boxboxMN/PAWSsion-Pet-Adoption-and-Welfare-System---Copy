@@ -196,9 +196,16 @@
                                 <input id="input-occupation" type="text" class="w-full mt-1 border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-300">
                             </div>
 
-                            <div>
+                            <!-- <div>
                                 <label class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Street Address</label>
                                 <input id="input-street" type="text" class="w-full mt-1 border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-300">
+                            </div> -->
+                             <div  class="relative">
+                                <label class="text-xs uppercase tracking-wider text-slate-500 font-semibold">Street Address</label>
+                                <input id="input-street" type="text" maxlength="150" autocomplete="street-address" placeholder="Enter house number and street" class="w-full mt-1 border border-slate-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-300">
+
+                                <div id="streetAddressHelper" class="text-xs mt-1" aria-live="polite"></div>
+                                <div id="addressSuggestions" class="hidden absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg"></div>
                             </div>
 
                             <!-- REGION & PROVINCE -->
