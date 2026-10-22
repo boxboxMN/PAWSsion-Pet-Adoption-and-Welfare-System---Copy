@@ -464,7 +464,43 @@
   margin-bottom:25px;
   
   }
+
+.modal-box {
+    position: relative;
+  }
   
+  .modal-close {
+    position: absolute;
+    top: 12px;
+    right: 15px;
+  
+    width: 38px;
+    height: 38px;
+  
+    border: none;
+    border-radius: 50%;
+  
+    background: #f1f1f1;
+    color: #555;
+  
+    font-size: 26px;
+    font-weight: 400;
+    line-height: 1;
+  
+    cursor: pointer;
+  
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  
+    z-index: 10;
+  }
+  
+  .modal-close:hover {
+    background: #e5e5e5;
+    color: #1656ff;
+  }
+
   .option{
   
   display:flex;
