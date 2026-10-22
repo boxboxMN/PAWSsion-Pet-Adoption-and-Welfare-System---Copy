@@ -64,20 +64,34 @@
       </div>
     </div>
 
-    <a
+    <!-- <a
       href="/org/profile"
       id="profileLink"
       class="w-11 h-11 rounded-full border border-gray-200 flex items-center justify-center hover:border-blue-900 hover:bg-blue-50/50 transition-colors text-blue-900 overflow-hidden shadow-inner"
+    > -->
+    <a
+      href="/org/profile"
+      id="profileLink"
+      class="flex items-center gap-2 rounded-full border border-gray-200 px-2 py-1.5 hover:border-blue-900 hover:bg-blue-50/50 transition-colors text-blue-900 shadow-inner max-w-64"
     >
-      <img 
+      <div class="w-9 h-9 rounded-full border border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
+        <img
+          id="headerProfilePic"
+          src=""
+          alt="Organization profile"
+          class="w-full h-full object-cover hidden"
+        />
+      <!-- <img 
         id="headerProfilePic"
         src="" 
         alt="Profile" 
         class="w-full h-full object-cover hidden"
-      />
+      /> -->
       
-    <i id="headerProfileIcon" class="fa-regular fa-user text-base hidden"></i>
+     <i id="headerProfileIcon" class="fa-regular fa-user text-base hidden"></i>
+     </div>
+     <span id="headerOrganizationName" class="hidden sm:inline font-medium text-sm truncate max-w-40" title="">Organization</span>
   </a>
-  </div>
+ </div>
 </header>
 </body>
