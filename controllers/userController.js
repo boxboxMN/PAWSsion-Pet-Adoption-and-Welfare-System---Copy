@@ -360,6 +360,14 @@ exports.updateProfile = async (req, res) => {
             [email, accountId]
         );
 
+        // Remove the verified OTP after the email change.
+        if (emailChanged) {
+            await connection.query(
+                `DELETE FROM profile_email_change_otps
+                WHERE account_id = ? AND email = ?`,
+                [accountId, email]
+            );
+        }
         
         await connection.query(
             `UPDATE adopters SET 
