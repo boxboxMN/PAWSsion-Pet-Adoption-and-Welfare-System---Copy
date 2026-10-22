@@ -2,6 +2,7 @@ require("dotenv").config();
 const express = require('express');
 const session = require('express-session');
 const helmet = require('helmet');
+const transporter = require("./config/email");
 
 const app = express();
 app.set("trust proxy", 1);
