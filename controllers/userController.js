@@ -325,6 +325,30 @@ exports.updateProfile = async (req, res) => {
         });
     }
 
+     // Require a verified OTP only when the email changes.
+    if (emailChanged) {
+        const [verifiedOtp] = await pool.query(
+            `SELECT id
+            FROM profile_email_change_otps
+            WHERE account_id = ?
+            AND email = ?
+            AND verified_at IS NOT NULL
+            AND expires_at > NOW()
+            AND attempts < 5
+            ORDER BY id DESC
+            LIMIT 1`,
+            [accountId, email]
+        );
+
+        if (verifiedOtp.length === 0) {
+            return res.status(403).json({
+                success: false,
+                error: "Please verify your new email address before saving your profile.",
+                requiresEmailVerification: true
+            });
+        }
+    }
+    
     const connection = await pool.getConnection();
     try {
       
