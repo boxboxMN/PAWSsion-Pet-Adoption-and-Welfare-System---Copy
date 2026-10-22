@@ -291,6 +291,73 @@
 
         </div>
 
+        <!-- Email Change Verification Modal -->
+        <div id="emailOtpModal"
+            class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+
+            <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+
+            <h2 class="text-xl font-bold text-slate-800">
+                Verify Your New Email
+            </h2>
+
+            <p class="mt-2 text-sm text-slate-600">
+                We will send a 6-digit verification code to your new email address.
+            </p>
+
+            <p id="emailOtpTarget"
+                class="mt-3 break-words font-semibold text-blue-900">
+            </p>
+
+            <div class="mt-5">
+                <label for="emailOtpInput"
+                        class="mb-1 block text-sm font-medium text-slate-700">
+                    Verification Code
+                </label>
+
+                <input
+                    id="emailOtpInput"
+                    type="text"
+                    inputmode="numeric"
+                    autocomplete="one-time-code"
+                    maxlength="6"
+                    pattern="[0-9]{6}"
+                    placeholder="Enter 6-digit code"
+                    class="w-full rounded-xl border border-slate-300 px-4 py-3 text-center text-lg tracking-[0.3em] focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
+            </div>
+
+            <p id="emailOtpMessage"
+                role="status"
+                aria-live="polite"
+                class="mt-3 text-sm text-slate-600">
+            </p>
+
+            <div class="mt-5 flex flex-wrap justify-end gap-2">
+                <button
+                    id="emailOtpCancelBtn"
+                    type="button"
+                    class="rounded-xl border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50">
+                    Cancel
+                </button>
+
+                <button
+                    id="emailOtpResendBtn"
+                    type="button"
+                    class="rounded-xl border border-blue-200 px-4 py-2 text-blue-900 hover:bg-blue-50">
+                    Send Code
+                </button>
+
+                <button
+                    id="emailOtpVerifyBtn"
+                    type="button"
+                    class="rounded-xl bg-blue-900 px-4 py-2 text-white hover:bg-blue-800">
+                    Verify Code
+                </button>
+            </div>
+
+            </div>
+        </div>
     </main>
 </body>
 </html>
