@@ -8,17 +8,42 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
 
     // organization name
+    // try {
+    //     const response = await fetch("/api/organization/profile");
+
+    //     if (response.ok) {
+    //         const organization = await response.json();
+
+    //         document.getElementById("organizationName").textContent =
+    //             organization.organization_name;
+    //     }
+    // } catch (error) {
+    //     console.error(error);
+    // }
+
+     // Organization dashboard greeting
     try {
-        const response = await fetch("/api/organization/profile");
+        const response = await fetch(
+            "/api/organization/dashboard-greeting",
+            { cache: "no-store" }
+        );
 
         if (response.ok) {
             const organization = await response.json();
 
             document.getElementById("organizationName").textContent =
                 organization.organization_name;
+
+            const greeting = document.getElementById("dashboardGreeting");
+
+            if (greeting) {
+                greeting.textContent = organization.isFirstDashboardAccess
+                    ? "Welcome,"
+                    : "Welcome back,";
+            }
         }
     } catch (error) {
-        console.error(error);
+        console.error("Error loading dashboard greeting:", error);
     }
 
     await loadDashboardStats();
