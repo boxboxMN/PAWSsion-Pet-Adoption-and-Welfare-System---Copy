@@ -3026,6 +3026,29 @@ exports.archivePet = async (req, res) => {
 
         const organizationId = org[0].organization_id;
 
+        // Prevent archiving if the pet has a scheduled interview
+         if (status === 'Archived') {
+            const [scheduledInterview] = await pool.query(
+                `SELECT app.application_id
+                FROM user_adoption_applications app
+                INNER JOIN application_interviews i
+                    ON app.application_id = i.application_id
+                WHERE app.animal_id = ?
+                AND app.status = 'Interview Scheduled'
+                AND i.interview_date IS NOT NULL
+                AND i.interview_time IS NOT NULL
+                LIMIT 1`,
+                [id]
+            );
+
+            if (scheduledInterview.length > 0) {
+                return res.status(409).json({
+                    success: false,
+                    message: "Cannot archive this pet because it has a scheduled interview. Please complete or cancel the scheduled interview first."
+                });
+            }
+        }
+        
         if (status === 'Archived') {
             // KAPAG I-AARCHIVE
             await pool.query(
