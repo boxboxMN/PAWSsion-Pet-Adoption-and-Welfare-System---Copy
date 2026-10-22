@@ -1368,3 +1368,159 @@ async function setEditAddressValues() {
         await populateBarangays(currentProfile.city, currentProfile.barangay);
     }
 }
+
+async function searchProfileAddressSuggestions() {
+    const street = inputStreet.value.trim();
+    const barangay = barangayInput.value.trim();
+    const city = cityInput.value.trim();
+    const province = provinceInput.value.trim();
+
+    console.log("Profile address search:", {
+        street,
+        barangay,
+        city,
+        province
+    });
+
+    if (
+        street.length < 2 ||
+        !barangay ||
+        !city ||
+        !province
+    ) {
+        addressSuggestions.hidden = true;
+        addressSuggestions.innerHTML = "";
+        return;
+    }
+
+    try {
+        const params = new URLSearchParams({
+            text: street,
+            barangay: barangay,
+            city: city,
+            province: province
+        });
+
+        const response = await fetch(
+            `/api/address/search?${params.toString()}`,
+            {
+                credentials: "same-origin"
+            }
+        );
+
+        const data = await response.json();
+
+        console.log("Profile address API response:", {
+            status: response.status,
+            data
+        });
+
+        if (!response.ok) {
+            throw new Error(
+                data.error || "Unable to search addresses."
+            );
+        }
+
+        console.log(
+            "Results sent to dropdown:",
+            data.results?.length,
+            data.results
+        );
+
+        renderProfileAddressSuggestions(
+            data.results || []
+        );
+
+    } catch (error) {
+        console.error(
+            "Profile address autocomplete error:",
+            error
+        );
+
+        addressSuggestions.hidden = true;
+        addressSuggestions.innerHTML = "";
+    }
+}
+
+function renderProfileAddressSuggestions(results) {
+    addressSuggestions.innerHTML = "";
+
+    if (!results.length) {
+        addressSuggestions.hidden = true;
+        return;
+    }
+
+    results.forEach(result => {
+        const suggestion = document.createElement("button");
+        suggestion.type = "button";
+        suggestion.className = "address-suggestion-item";
+
+        const street = result.street || result.name || "";
+        const details = [
+            result.suburb,
+            result.district,
+            result.city,
+            result.state,
+            result.postcode
+        ].filter(Boolean);
+
+        suggestion.textContent = details.length
+            ? `${street} — ${details.join(", ")}`
+            : street || result.formatted || "Address suggestion";
+
+        suggestion.addEventListener("click", () => {
+            const selectedStreet =
+                result.street || result.name || result.formatted || "";
+
+            inputStreet.value = selectedStreet;
+
+            verifiedStreetAddress = {
+                street: selectedStreet,
+                city: result.city || "",
+                province: result.state || "",
+                postcode: result.postcode || "",
+                formatted: result.formatted || "",
+                placeId: result.place_id || ""
+            };
+
+            addressSuggestions.classList.add("hidden");
+            addressSuggestions.hidden = true;
+            addressSuggestions.innerHTML = "";
+
+            if (streetAddressHelper) {
+                streetAddressHelper.textContent =
+                    "Address suggestion selected.";
+            }
+        });
+
+        addressSuggestions.appendChild(suggestion);
+    });
+
+    addressSuggestions.classList.remove("hidden");
+    addressSuggestions.hidden = false;
+}
+
+inputStreet?.addEventListener("input", () => {
+    clearTimeout(addressSearchTimer);
+
+    verifiedStreetAddress = null;
+
+    if (streetAddressHelper) {
+        streetAddressHelper.textContent = "";
+    }
+
+    addressSearchTimer = setTimeout(() => {
+        console.log("Calling profile address search...");
+        searchProfileAddressSuggestions();
+    }, 300);
+});
+
+document.addEventListener("click", (event) => {
+    if (
+        addressSuggestions &&
+        !addressSuggestions.contains(event.target) &&
+        event.target !== inputStreet
+    ) {
+        addressSuggestions.hidden = true;
+    }
+});
