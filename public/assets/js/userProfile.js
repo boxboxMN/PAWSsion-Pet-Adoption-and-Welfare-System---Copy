@@ -1200,7 +1200,15 @@ async function populateCities(provinceName, selectedCity = null) {
         citiesData = await res.json();
     }
 
-    const filtered = citiesData.filter(c => c.province_code === provCode || c.region_desc === regCode);
+    // const filtered = citiesData.filter(c => c.province_code === provCode || c.region_desc === regCode);
+    const filtered = citiesData.filter(c => {
+        if (String(provCode) === String(regCode)) {
+            return String(c.region_desc) === String(regCode);
+        }
+    
+        return String(c.province_code) === String(provCode);
+    });
+    
     filtered.sort((a, b) => a.city_name.localeCompare(b.city_name));
 
     filtered.forEach(c => {
