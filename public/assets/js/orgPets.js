@@ -1215,7 +1215,11 @@ function openPetDetailsModal(pet){
                         closeViewPetModal();
                         await loadPets();
                     } else {
-                        alert(data.message);
+                        // alert(data.message);
+                        await showMessage(
+                            data.message || "Unable to archive this pet.",
+                            "warning"
+                        );
                     }
                 } catch (err) {
                     console.error("ARCHIVE ERROR:", err);
