@@ -856,6 +856,13 @@ async function saveProfile() {
 
         const result = await response.json();
 
+        // Email changed but has not been verified yet
+        if (response.status === 403 && result.requiresEmailVerification) {
+            openEmailOtpModal(email);
+            await sendProfileEmailOtp();
+            return;
+        }
+
         if (result.success) {
             showProfileModal('Your profile has been updated successfully!');
             await fetchProfileData();
