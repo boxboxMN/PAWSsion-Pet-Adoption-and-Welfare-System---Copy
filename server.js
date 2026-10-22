@@ -57,7 +57,7 @@ app.use(
         "https://cdn.tailwindcss.com",
         "https://cdn.jsdelivr.net",
         "https://cdnjs.cloudflare.com",
-        "https://accounts.google.com",
+        "https://accounts.google.com/gsi/client"
       ],
 
       // Inline event handlers
