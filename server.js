@@ -334,7 +334,8 @@ app.get('/api/current-user', async (req, res) => {
 
     res.json({
       name: displayName,
-      profile_picture: rows[0].profile_picture || null
+      profile_picture: rows[0].profile_picture || null,
+      isFirstLogin: req.session.isFirstLogin === true
     });
   } catch (error) {
     console.error('current-user error:', error);
