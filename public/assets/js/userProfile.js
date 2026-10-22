@@ -935,22 +935,34 @@ async function updatePassword() {
     const confirm = confirmPassword.value.trim();
 
     if (!currentPasswordVerified) {
-        alert('Please enter your correct current password first.');
+        showProfileModal(
+            'Please enter your correct current password first.',
+            'error'
+        );
         return;
     }
 
     if (!currentPwd || !newPwd || !confirm) {
-        alert('Please fill in all password fields.');
+       showProfileModal(
+            'Please fill in all password fields.',
+            'error'
+        );
         return;
     }
 
     if (newPwd !== confirm) {
-        alert('New passwords do not match!');
+        showProfileModal(
+            'New passwords do not match!',
+            'error'
+        );
         return;
     }
 
     if (newPwd.length < 6) {
-        alert('New password must be at least 6 characters long.');
+        showProfileModal(
+            'New password must be at least 6 characters long.',
+            'error'
+        );
         return;
     }
 
@@ -967,15 +979,24 @@ async function updatePassword() {
         const result = await response.json();
 
         if (result.success) {
-            alert('Password Changed Successfully in Database!');
+            showProfileModal(
+                'Password Changed Successfully in Database!',
+                'error'
+            );
             currentPasswordVerified = false;
             togglePasswordForm();
         } else {
-            alert('Failed to change password: ' + result.error);
+            showProfileModal(
+                'Failed to change password: ' + result.error,
+                'error'
+            );
         }
     } catch (error) {
         console.error("Network update error for password:", error);
-        alert('A network error occurred while updating the password.');
+        showProfileModal(
+            'A network error occurred while updating the password.',
+            'error'
+        );
     }
 }
 
