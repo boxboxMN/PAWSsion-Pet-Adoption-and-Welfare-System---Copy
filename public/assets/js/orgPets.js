@@ -505,6 +505,15 @@ petForm.addEventListener("submit", async (e)=>{
     const newImages = selectedPetImages.filter(image => image.file);
     newImages.forEach(({ file }) => formData.append("images", file));
     const selectedProfileImage = selectedPetImages[profileImageIndex];
+   
+    if (!editingPetId && newImages.length === 0) {
+       await showMessage(
+           "Please upload a photo of the pet before submitting.",
+           "warning"
+       );
+       return;
+    }
+   
     formData.set(
         "retainedImagePaths",
         JSON.stringify(
