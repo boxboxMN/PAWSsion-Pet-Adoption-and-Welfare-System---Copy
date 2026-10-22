@@ -864,13 +864,11 @@ async function saveProfile() {
         }
 
         if (result.success) {
+            verifiedProfileEmail = "";
             showProfileModal('Your profile has been updated successfully!');
             await fetchProfileData();
             exitEditMode();
-            
-            // if(typeof loadComponent === "function") {
-            //     loadComponent("header", "/user/userHeader.html");
-            // }
+    
             await refreshTopbarAvatar();
 
         } else {
@@ -881,7 +879,10 @@ async function saveProfile() {
         }
     } catch (error) {
         console.error("Network update error:", error);
-        alert('A network error occurred while updating profile.');
+        showProfileModal(
+            'A network error occurred while updating profile.',
+            'error'
+        );
     }
 }
 
