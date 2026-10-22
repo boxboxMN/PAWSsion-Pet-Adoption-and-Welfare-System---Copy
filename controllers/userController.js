@@ -2299,50 +2299,6 @@ exports.getKamustahanHistory = async (req, res) => {
         return res.status(500).json({ success: false, error: "Failed to load kamustahan history." });
     }
 };
-// I-update din ang getKamustahanHistory para makuha ang created_at timestamp
-exports.getKamustahanHistory = async (req, res) => {
-    const accountId = req.session?.accountId;
-    if (!accountId) {
-        return res.status(401).json({ success: false, error: "Unauthorized access." });
-    }
-
-    try {
-        const [adopterRows] = await pool.query(
-            `SELECT adopter_id FROM adopters WHERE account_id = ? LIMIT 1`,
-            [accountId]
-        );
-
-        if (!adopterRows.length) {
-            return res.status(404).json({ success: false, error: "Adopter profile not found." });
-        }
-
-        const adopterId = adopterRows[0].adopter_id;
-
-        const [updates] = await pool.query(`
-            SELECT 
-                k.update_id,
-                k.update_date,
-                k.update_text,
-                k.photos,
-                k.status,
-                k.created_at,
-                a.name AS pet_name
-            FROM kamustahan_updates k
-            JOIN animals a ON k.animal_id = a.animal_id
-            WHERE k.adopter_id = ?
-            ORDER BY k.created_at DESC
-        `, [adopterId]);
-
-        return res.json({
-            success: true,
-            updates: updates
-        });
-
-    } catch (error) {
-        console.error("Get History Error:", error);
-        return res.status(500).json({ success: false, error: "Failed to load history." });
-    }
-};
 
 //check if there are any due kamustahan reminders for the user and create notifications if needed (new added)
 async function checkKamustahanRemindersDue(accountId) {
