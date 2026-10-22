@@ -1004,7 +1004,10 @@ avatarOverlay?.addEventListener('click', () => {
     if (isEditing) {
         avatarInput?.click();
     } else {
-        alert('Please click "Edit Profile" first before changing your profile picture.');
+       showProfileModal(
+            'Please click "Edit Profile" first before changing your profile picture.',
+            'error'
+        );
     }
 });
 
