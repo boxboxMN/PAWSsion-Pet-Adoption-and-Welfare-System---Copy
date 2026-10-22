@@ -19,8 +19,24 @@
 
     // 3. I-LOAD ANG PROFILE PICTURE MULA SA API
     try {
-        const userRes = await fetch("/api/current-user");
+        const userRes = await fetch("/api/current-user", {
+            credentials: "same-origin",
+            cache: "no-store"
+        });
+
+        if (!userRes.ok) {
+            throw new Error("Failed to load current user");
+        }
+        
         const userData = await userRes.json();
+
+        // Display user name
+        const userNameEl = document.getElementById("topbarUserName");
+
+        if (userNameEl) {
+            userNameEl.textContent = userData.name || "User";
+            userNameEl.title = userData.name || "User";
+        }
         
         const avatarContainer = document.getElementById("topbarAvatarContainer");
         if (avatarContainer && userData.profile_picture) {
