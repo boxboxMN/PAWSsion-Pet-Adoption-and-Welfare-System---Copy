@@ -1251,6 +1251,68 @@ async function populateBarangays(cityName, selectedBarangay = null) {
     if (selectedBarangay) barangayInput.value = selectedBarangay;
 }
 
+async function updateProfileZipCodeFromLocation() {
+    const province = provinceInput.value.trim();
+    const city = cityInput.value.trim();
+
+    if (!province || !city) {
+        zipInput.value = "";
+        zipInput.readOnly = true;
+
+        if (zipHelper) {
+            zipHelper.textContent = "";
+        }
+
+        return;
+    }
+
+    // Lock ZIP input while retrieving the correct value
+    zipInput.readOnly = true;
+
+    try {
+        const response = await fetch(
+            `/api/address/zip?province=${encodeURIComponent(province)}&city=${encodeURIComponent(city)}`,
+            { credentials: "same-origin" }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok && response.status !== 404) {
+            throw new Error(
+                data.message || "Unable to retrieve ZIP code."
+            );
+        }
+
+        if (data.found && data.zip_code) {
+            zipInput.value = String(data.zip_code);
+
+            zipInput.readOnly = true;
+
+            if (zipHelper) {
+                zipHelper.textContent = "ZIP code automatically filled.";
+            }
+        } else {
+            zipInput.value = "";
+            zipInput.readOnly = false;
+
+            if (zipHelper) {
+                zipHelper.textContent =
+                    "No ZIP code found. Please enter it manually.";
+            }
+        }
+    } catch (error) {
+        console.error("Profile ZIP lookup error:", error);
+
+        zipInput.value = "";
+        zipInput.readOnly = false;
+
+        if (zipHelper) {
+            zipHelper.textContent =
+                "Unable to retrieve ZIP code. Please enter it manually.";
+        }
+    }
+}
+
 // 2. Event Listeners para sa Cascading
 regionInput?.addEventListener('change', () => populateProvinces(regionInput.value));
 provinceInput?.addEventListener('change', () => populateCities(provinceInput.value));
