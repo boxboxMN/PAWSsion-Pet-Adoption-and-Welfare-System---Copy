@@ -227,7 +227,60 @@ router.post("/api/user/profile/update", checkUserSession, userController.updateP
 router.post("/api/user/profile/password", checkUserSession, userController.updatePassword);
 router.post("/api/user/profile/verify-password", checkUserSession, userController.verifyPassword);
 // Avatar route — keep only this one
-router.post( "/api/user/profile/avatar", checkUserSession, uploadAvatar.single("avatar"), userController.updateAvatar );
+// router.post( "/api/user/profile/avatar", checkUserSession, uploadAvatar.single("avatar"), userController.updateAvatar );
+router.post(
+  "/api/user/profile/avatar",
+  checkUserSession,
+  (req, res, next) => {
+      uploadAvatar.single("avatar")(req, res, async (err) => {
+
+          if (err instanceof multer.MulterError) {
+              return res.status(400).json({
+                  success: false,
+                  error: err.message
+              });
+          }
+
+          if (err) {
+              return res.status(400).json({
+                  success: false,
+                  error: err.message
+              });
+          }
+
+          try {
+              const isValidFile = await validateAvatarFile(req.file);
+
+              if (!isValidFile) {
+                  if (req.file?.path) {
+                      fs.unlink(req.file.path, () => {});
+                  }
+
+                  return res.status(400).json({
+                      success: false,
+                      error: "Invalid file content. Please upload a valid JPG or PNG image."
+                  });
+              }
+
+              next();
+
+          } catch (error) {
+              console.error("Avatar file validation error:", error);
+
+              if (req.file?.path) {
+                  fs.unlink(req.file.path, () => {});
+              }
+
+              return res.status(400).json({
+                  success: false,
+                  error: "Unable to validate the uploaded file."
+              });
+          }
+      });
+  },
+  userController.updateAvatar
+);
+
 router.get("/api/organizations", checkUserSession, userController.getOrganizations);
 router.post( "/api/user/donation/cash", checkUserSession, uploadReceipt.single("receipt"), userController.submitCashDonation);
 router.post('/api/user/donation/in-kind', checkUserSession, userController.submitInKindDonation);
