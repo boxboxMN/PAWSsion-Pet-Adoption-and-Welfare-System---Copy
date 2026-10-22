@@ -224,6 +224,16 @@ async function updateTopbarProfilePic() {
         const response = await fetch("/api/organization/profile");
         if (response.ok) {
             const data = await response.json();
+             // Display organization name beside the profile picture
+            const organizationNameEl = document.getElementById("headerOrganizationName");
+
+            if (organizationNameEl) {
+                const organizationName = data.organization_name || "Organization";
+
+                organizationNameEl.textContent = organizationName;
+                organizationNameEl.title = organizationName;
+            }
+            
             if (data && data.profile_pic) {
                 imgTag.src = data.profile_pic;
                 imgTag.classList.remove('hidden'); // Ipakita ang larawan
