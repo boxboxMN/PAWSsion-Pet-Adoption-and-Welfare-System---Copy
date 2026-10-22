@@ -527,7 +527,7 @@ function getSlotsForDate(dateStr) {
     const endTotalMin = endH * 60 + endM;
 
     const slots = [];
-    for (let totalMin = startTotalMin; totalMin <= endTotalMin; totalMin += 30) {
+    for (let totalMin = startTotalMin; totalMin <= endTotalMin; totalMin += 1) {
         const hStr = String(Math.floor(totalMin / 60)).padStart(2, '0');
         const mStr = String(totalMin % 60).padStart(2, '0');
         slots.push(`${hStr}:${mStr}`);
