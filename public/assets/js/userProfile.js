@@ -45,6 +45,21 @@ const zipDisplay = document.getElementById('zip-display');
 const zipInput = document.getElementById('zip-input');
 const zipHelper = document.getElementById('zipHelper');
 
+const streetAddressHelper = document.getElementById('streetAddressHelper');
+const addressSuggestions = document.getElementById('addressSuggestions');
+
+let verifiedStreetAddress = null;
+
+function resetProfileAddressVerification() {
+    verifiedStreetAddress = null;
+
+    if (streetAddressHelper) {
+        streetAddressHelper.textContent = "";
+    }
+}
+
+let addressSearchTimer = null;
+
 const editBtn = document.getElementById('edit-btn');
 const editActions = document.getElementById('edit-actions');
 const saveBtn = document.getElementById('save-btn');
