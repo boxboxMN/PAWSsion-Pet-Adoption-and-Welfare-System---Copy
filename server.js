@@ -424,6 +424,65 @@ try {
 }
 });
 
+app.get("/api/organization/dashboard-greeting", async (req, res) => {
+    const accountId = req.session?.accountId;
+
+    if (!accountId || req.session.role !== "organization") {
+        return res.status(401).json({
+            error: "Unauthorized"
+        });
+    }
+
+    try {
+        const [orgRows] = await pool.query(
+            `SELECT organization_name, verification_status
+             FROM organizations
+             WHERE account_id = ?
+             LIMIT 1`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            return res.status(404).json({
+                error: "Organization not found"
+            });
+        }
+
+        const organization = orgRows[0];
+
+        // Only approved organizations can access this dashboard greeting.
+        if (organization.verification_status !== "Approved") {
+            return res.status(403).json({
+                error: "Organization is not approved"
+            });
+        }
+
+        // Record the first approved-dashboard access only once.
+        const [updateResult] = await pool.query(
+            `UPDATE organizations
+             SET dashboard_first_at = NOW()
+             WHERE account_id = ?
+               AND verification_status = 'Approved'
+               AND dashboard_first_at IS NULL`,
+            [accountId]
+        );
+
+        res.set("Cache-Control", "no-store");
+
+        return res.json({
+            organization_name: organization.organization_name,
+            isFirstDashboardAccess: updateResult.affectedRows === 1
+        });
+
+    } catch (err) {
+        console.error("Dashboard greeting error:", err);
+
+        return res.status(500).json({
+            error: "Server error"
+        });
+    }
+});
+
 // =====================================================
 // FEEDBACK (shared by organizations and users)
 // =====================================================
