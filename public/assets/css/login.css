@@ -881,3 +881,27 @@ input::-ms-clear {
     }
 
 }
+
+.google-signin-section {
+  width: 90%;
+  margin-left: 100px;
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+/* Match the form's left offset on smaller desktops */
+@media (max-width: 1100px) {
+  .google-signin-section {
+    margin-left: 50px;
+  }
+}
+
+/* Stack layout on tablets and phones */
+@media (max-width: 900px) {
+  .google-signin-section {
+    width: 100%;
+    margin-left: 0;
+    justify-content: center;
+  }
+}
