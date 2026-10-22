@@ -1054,7 +1054,10 @@ avatarInput?.addEventListener('change', async function() {
             }
     } catch (error) {
         console.error("Avatar upload error detailed:", error);
-        alert('A network error occurred: ' + error.message);
+         showProfileModal(
+            'A network error occurred: ' + error.message,
+            'error'
+        );
     }
 });
 
