@@ -633,18 +633,32 @@
     }
   
     .right{
-      width:100%;
+      /* width:100%;
       margin-left:0;
       border-top-left-radius:60px;
       border-top-right-radius:60px;
       box-shadow:0 -5px 30px rgba(90, 125, 252, 0.06);
-      padding:10px 0 30px;
+      padding:10px 0 30px; */
+      width: 54%;
+      background: white;
+      border-top-left-radius: 250px;
+      margin-left: 30px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      box-shadow: -5px 0 30px rgba(90, 125, 252, 0.05);
+      overflow-y: auto;
+      height: 100vh;
+      min-height: 0;
     }
   
     .login-box{
-      width:100%;
+      /* width:100%;
       max-width:520px;
-      padding:0 20px;
+      padding:0 20px; */
+      width: 520px;
+      max-width: 100%;
+      margin: auto;
     }
   
     .header-section,
