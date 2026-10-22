@@ -1266,6 +1266,16 @@ app.get("/faqs", (req, res) => {
 //   console.log(`Server running on http://localhost:${PORT}`);
 // });
 
+app.get("/api/session-status", adminController.getSessionStatus);
+
+transporter.verify((error) => {
+    if (error) {
+        console.error("Email transporter connection failed:", error.message);
+    } else {
+        console.log("Email transporter is ready.");
+    }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, "0.0.0.0", () => {
