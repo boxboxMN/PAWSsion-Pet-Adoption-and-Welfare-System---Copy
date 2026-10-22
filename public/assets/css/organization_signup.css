@@ -581,3 +581,247 @@ input::-ms-clear {
     margin-left: 5px;
     color: #3498db;
 }
+
+/* ========================================================
+   EMAIL VERIFICATION
+   ======================================================== */
+
+   .email-input-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.email-input-row .input-box {
+    flex: 1;
+}
+
+.change-email-btn {
+    flex-shrink: 0;
+    padding: 9px 16px;
+    border-radius: 10px;
+    border: 1.5px solid #1656ff;
+    background: #eef3ff;
+    color: #1656ff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.change-email-btn:hover {
+    background: #1656ff;
+    color: #ffffff;
+}
+
+.verify-email-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    border-radius: 10px;
+    border: 1.5px solid #1656ff;
+    background: #eef3ff;
+    color: #1656ff;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.verify-email-btn:hover {
+    background: #1656ff;
+    color: #ffffff;
+}
+
+/* ========================================================
+   OTP MODAL
+   ======================================================== */
+
+.otp-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 16px;
+}
+
+.otp-modal-overlay[hidden] {
+    display: none;
+}
+
+.otp-popup {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    background-color: #ffffff;
+    border-radius: 24px;
+    padding: 36px 32px 32px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.25);
+    text-align: center;
+}
+
+.otp-popup-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: #f3f3f3;
+    border-radius: 50%;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    color: #555;
+    padding: 0;
+}
+
+.otp-popup-close:hover {
+    background: #e8e8e8;
+    color: #222;
+}
+
+.otp-popup-title {
+    margin-bottom: 16px;
+    font-size: 22px;
+    font-weight: 800;
+    color: #1656ff;
+}
+
+.otp-popup-divider {
+    height: 1px;
+    background: #eee;
+    margin-bottom: 20px;
+}
+
+.otp-popup-desc {
+    margin-bottom: 20px;
+    font-size: 13px;
+    color: #7f8c8d;
+    line-height: 1.5;
+}
+
+.otp-popup-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: #999;
+    text-align: left;
+}
+
+.otp-popup-input {
+    width: 100%;
+    margin-bottom: 20px;
+    padding: 12px 14px;
+    border: 1px solid #ddd;
+    border-radius: 14px;
+    font-size: 15px;
+    color: #111827;
+    text-align: center;
+    letter-spacing: 4px;
+    box-sizing: border-box;
+}
+
+.otp-popup-input:focus {
+    outline: none;
+    border-color: #1656ff;
+    box-shadow: 0 0 0 3px rgba(22, 86, 255, 0.15);
+}
+
+.otp-btn {
+    width: 100%;
+    padding: 13px;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.otp-btn-outline {
+    background: #ffffff;
+    border: 1px solid #ddd;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+.otp-btn-outline:hover {
+    border-color: #1656ff;
+    color: #1656ff;
+}
+
+.otp-btn-primary {
+    background: #1656ff;
+    color: #ffffff;
+    border: none;
+}
+
+.otp-btn-primary:hover {
+    background: #004cff;
+}
+
+.otp-btn:disabled {
+    background: #bdc3c7 !important;
+    border-color: #bdc3c7 !important;
+    color: #ffffff !important;
+    cursor: not-allowed !important;
+}
+
+.otp-btn + .otp-btn {
+    margin-top: 12px;
+}
+
+.otp-popup-helper {
+    margin-top: 14px;
+    justify-content: center;
+}
+
+.address-suggestions {
+    position: relative;
+    z-index: 1000;
+    width: 100%;
+    max-height: 220px;
+    overflow-y: auto;
+    margin-top: 4px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.address-suggestions[hidden] {
+    display: none !important;
+}
+
+.address-suggestion-item {
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.address-suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.address-suggestion-item:hover {
+    background: #f3f4f6;
+}
+
+.address-suggestion-title {
+    color: #111827;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.address-suggestion-details {
+    margin-top: 3px;
+    color: #6b7280;
+    font-size: 12px;
+}
