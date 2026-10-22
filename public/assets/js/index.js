@@ -721,7 +721,7 @@ async function handleInKindSubmit(event) {
            
             const summaryRows = [
                 { label: "Donor", value: isAnonymous ? "Anonymous Donor" : formData.get('donor_name') },
-                { label: "Category", value: formData.get('category') },
+                { label: "Category", value: categoryValue },
                 { label: "Item", value: formData.get('item_name') },
                 { label: "Quantity", value: `${formData.get('quantity')} ${formData.get('unit') || ''}`.trim() }
             ];
