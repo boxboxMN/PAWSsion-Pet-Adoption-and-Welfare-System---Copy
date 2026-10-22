@@ -8,6 +8,9 @@ const { logActivity } = require("./adminController");
 const { createNotification, notifyAllAdmins } = require("./adminController");
 const { uploadToCloudinary } = require("../services/cloudinaryUpload");
 
+const crypto = require("crypto");
+const transporter = require("../config/email");
+
 const regions = require("../public/data/regions.json");
 const provinces = require("../public/data/provinces.json");
 const cities = require("../public/data/cities.json");
