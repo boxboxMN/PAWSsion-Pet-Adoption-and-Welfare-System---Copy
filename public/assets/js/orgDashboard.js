@@ -49,8 +49,29 @@ document.addEventListener("DOMContentLoaded", async () => {
     await loadDashboardStats();
     await loadRecentApplications();
     await loadNewestPets();
-
+    await loadReturnRequestsCount();
 });
+
+// ⭐ Function para malaman kung may pending returns
+async function loadReturnRequestsCount() {
+    try {
+        // PALITAN ITO: Dapat /org/return-requests/count
+        const response = await fetch('/org/return-requests/count');
+        const data = await response.json();
+        
+        if (data.success && data.count > 0) {
+            const alertCard = document.getElementById('returnAlertCard');
+            const alertText = document.getElementById('returnAlertText');
+            
+            if (alertCard && alertText) {
+               alertText.textContent = `You have ${data.count} pet return request${data.count > 1 ? 's' : ''} that need${data.count === 1 ? 's' : ''} your attention.`;
+                alertCard.classList.remove('hidden');
+            }
+        }
+    } catch (err) {
+        console.error("Error fetching return count:", err);
+    }
+}
 
 async function loadDashboardStats() {
 

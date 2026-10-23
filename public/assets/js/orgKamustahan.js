@@ -188,7 +188,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     await fetchKamustahanData();
-    await fetchReturnRequests(); // ⭐ I-load ang Return Requests count sa badge
+    await fetchReturnRequests(); 
 
     window.addEventListener('click', function(e) {
         const menu = document.getElementById('exportDropdownMenu');
@@ -203,10 +203,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         searchInput.addEventListener("input", () => filterAndRenderTable(true));
     }
 
-    // ==========================================
-    // ⭐ TABS LOGIC (Active, Archive, Returns)
-    // ==========================================
-    const tabActive = document.getElementById("tabActive");
+     const tabActive = document.getElementById("tabActive");
     const tabArchive = document.getElementById("tabArchive");
     const tabReturns = document.getElementById("tabReturns");
     const tableView = document.getElementById("tableViewContainer");
@@ -503,7 +500,6 @@ async function processReturn(action) {
         }
     }, null, { title: action === 'Approved' ? 'Accept Return' : 'Decline Return', okText: 'Confirm', type: action === 'Approved' ? 'warning' : 'error' });
 }
-
 // ==========================================
 // EVENT DELEGATION
 // ==========================================

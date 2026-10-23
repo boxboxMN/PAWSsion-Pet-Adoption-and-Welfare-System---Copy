@@ -2111,11 +2111,7 @@ exports.getApprovedAdoptedPets = async (req, res) => {
         const adopterId = adopterRows[0].adopter_id;
         console.log("Found adopter_id:", adopterId);
 
-        // BAGONG QUERY: 
-        //  - UPPER(status) = 'APPROVED' para iwas case-sensitivity
-        //  - NOT EXISTS ... = 'COMPLETED' para mawala lang sa listahan
-        //    ANG MGA PET NA TALAGANG NAKUHA NA NG ORG
-        //    (Pending / Approved / Rejected returns → pet stays visible)
+    
         const [pets] = await pool.query(`
             SELECT DISTINCT
                 a.animal_id,
@@ -2136,7 +2132,7 @@ exports.getApprovedAdoptedPets = async (req, res) => {
               )
         `, [adopterId]);
 
-        console.log("Pets found:", pets); // I-check sa console kung may laman ang pets array
+        console.log("Pets found:", pets); 
 
         return res.json({
             success: true,
@@ -2821,29 +2817,47 @@ exports.submitFeedback = async (req, res) => {
     }
 };
 
-/**
- * GET /api/user/kamustahan-due
- * Returns Kamustahan updates that are due today or overdue for the logged-in adopter.
- */
 exports.getKamustahanDue = async (req, res) => {
-    const accountId = req.session?.accountId;
-    if (!accountId) return res.status(401).json({ success: false, message: "Unauthorized" });
-
     try {
-        const [dueUpdates] = await pool.query(`
+        const [adopterRows] = await pool.query(
+            `SELECT adopter_id FROM adopters WHERE account_id = ?`,
+            [req.session.accountId]
+        );
+
+        if (!adopterRows.length) {
+            return res.json({ success: true, dueUpdates: [] });
+        }
+
+        const adopterId = adopterRows[0].adopter_id;
+
+        const [updates] = await pool.query(`
             SELECT ku.update_id, ku.animal_id, ku.scheduled_date, a.name AS pet_name
             FROM kamustahan_updates ku
-            JOIN animals a ON a.animal_id = ku.animal_id
-            WHERE ku.adopter_id = (SELECT adopter_id FROM adopters WHERE account_id = ?)
+            JOIN animals a ON ku.animal_id = a.animal_id
+            WHERE ku.adopter_id = ?
               AND ku.status = 'For Update'
+              AND ku.is_archived = 0
               AND ku.scheduled_date IS NOT NULL
               AND ku.scheduled_date <= CURDATE()
-            ORDER BY ku.scheduled_date ASC
-        `, [accountId]);
 
-        res.json({ success: true, dueUpdates });
-    } catch (err) {
-        console.error("Get Kamustahan Due Error:", err);
-        res.status(500).json({ success: false, message: "Database Error" });
+              AND NOT EXISTS (
+                  SELECT 1 FROM pet_returns pr
+                  WHERE pr.animal_id = ku.animal_id
+                    AND pr.adopter_id = ku.adopter_id
+                    AND UPPER(pr.status) = 'COMPLETED'
+              )
+              AND EXISTS (
+                  SELECT 1 FROM user_adoption_applications app
+                  WHERE app.animal_id = ku.animal_id
+                    AND app.adopter_id = ku.adopter_id
+                    AND UPPER(app.status) = 'APPROVED'
+              )
+            ORDER BY ku.scheduled_date ASC
+        `, [adopterId]);
+
+        res.json({ success: true, dueUpdates: updates });
+    } catch (error) {
+        console.error("Get Kamustahan Due Error:", error);
+        res.status(500).json({ success: false, message: "Server error." });
     }
 };

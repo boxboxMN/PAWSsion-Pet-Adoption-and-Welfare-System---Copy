@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+\<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -92,12 +92,17 @@
                                 <input type="hidden" id="orgIdInput" name="organization_id">
                             </div>
 
-                            <!-- DATE (PH TIME LOCKED) -->
+                            <!-- DATE (PH TIME LOCKED) & RETURN ACTION -->
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 mb-2">
                                     <i class="fas fa-calendar-alt text-blue-600 mr-1.5"></i> Date of Update <span class="text-rose-500">*</span>
                                 </label>
                                 <input type="date" id="updateDate" name="update_date" required readonly class="w-full border border-slate-200 rounded-2xl px-4 py-3.5 bg-slate-100 text-slate-600 font-medium cursor-not-allowed" />
+                                
+                                <!-- ⭐ DYNAMIC RETURN BUTTON / STATUS BOX -->
+                                <div id="petReturnAction" class="hidden mt-2 flex justify-end">
+                                    <!-- Lalabas dito ang button or status box -->
+                                </div>
                             </div>
                         </div>
 
@@ -331,5 +336,86 @@
         </div>
     </div>
 
+    <!-- ⭐ RETURN PET MODAL -->
+    <div id="returnPetModal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/45 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200">
+        <div class="bg-white rounded-2xl max-w-md w-full mx-4 p-6 shadow-2xl scale-95 transition-transform duration-200">
+            <div class="text-center mb-4">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-rose-50 mb-3">
+                    <i class="fa-solid fa-triangle-exclamation text-rose-600 text-xl"></i>
+                </div>
+                <h3 class="text-lg font-bold text-gray-900">Return <span id="returnPetName" class="text-indigo-600">Pet</span>?</h3>
+                <p class="text-xs text-gray-500 mt-1">Returning a pet should be a last resort. The shelter will review your request.</p>
+            </div>
+
+            <form id="returnPetForm" onsubmit="submitReturnRequest(event)">
+                <input type="hidden" id="returnPetId" value="">
+                
+                <div class="space-y-4 mb-5">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Reason for Return</label>
+                        <select id="returnReason" required class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-rose-500">
+                            <option value="">Select a reason...</option>
+                            <option value="Financial Constraints">Financial Constraints</option>
+                            <option value="Moving to a new location">Moving to a new location</option>
+                            <option value="Allergic reaction">Allergic reaction</option>
+                            <option value="Behavioral Issues">Behavioral Issues</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 mb-1">Detailed Explanation</label>
+                        <textarea id="returnDetails" required rows="3" placeholder="Please explain your situation so the shelter can understand..." class="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-rose-500"></textarea>
+                    </div>
+                </div>
+                <div id="returnHistoryModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl p-6 md:p-8 max-w-3xl w-full shadow-2xl border border-slate-100 my-8 max-h-[85vh] flex flex-col">
+        <div class="pb-4 border-b border-slate-100 mb-4 flex items-center justify-between">
+            <div>
+                <h3 class="text-xl font-bold text-slate-900">My Pet Return Requests</h3>
+                <p class="text-xs text-slate-500">Track the status of your return requests and view the shelter's response.</p>
+            </div>
+            <button onclick="closeReturnHistoryModal()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div id="returnHistoryFeedContainer" class="overflow-y-auto flex-1 space-y-4 pr-1"></div>
+    </div>
+</div>
+                <button onclick="openReturnHistoryModal()" class="bg-white/10 hover:bg-white/20 border border-white/25 text-white px-6 py-3.5 rounded-2xl text-sm font-semibold transition duration-200 flex items-center gap-2.5 backdrop-blur-md shadow-sm group shrink-0">
+                    <i class="fas fa-rotate-left group-hover:-rotate-45 transition-transform"></i> My Return Requests
+                </button>
+                <div class="flex gap-2">
+                    <button type="button" onclick="closeReturnModal()" class="flex-1 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-lg transition">Cancel</button>
+                    <button type="submit" class="flex-1 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-lg transition shadow-sm">Submit Request</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+<!-- ⭐ RETURN SUCCESS MODAL (User Side) -->
+<div id="returnSuccessModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4 overflow-y-auto">
+    <div class="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-2xl border border-slate-100 my-8">
+        <div class="w-16 h-16 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto mb-4 text-2xl shadow-inner">
+            <i class="fas fa-paper-plane"></i>
+        </div>
+        <h3 class="text-2xl font-bold text-slate-900 mb-1">Return Request Submitted</h3>
+        <p class="text-sm text-slate-600 mb-6">The shelter has been notified. They will review your request and respond soon.</p>
+
+        <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-left mb-6">
+            <div class="flex items-start gap-3">
+                <i class="fas fa-info-circle text-amber-600 mt-0.5 text-base shrink-0"></i>
+                <p class="text-xs text-amber-800 leading-relaxed">
+                    <strong>What happens next?</strong><br>
+                    Your pet <strong>stays in your Kamustahan list</strong> until the shelter confirms they have physically received the pet.
+                    You can track the status under <strong>"My Return Requests"</strong>.
+                </p>
+            </div>
+        </div>
+
+        <button type="button" onclick="closeReturnSuccessModal()" class="w-full bg-slate-900 hover:bg-slate-800 text-white py-3.5 rounded-2xl font-semibold transition shadow-md">
+            Got it
+        </button>
+    </div>
+</div>
 </body>
 </html>
