@@ -363,15 +363,14 @@ function viewDetails(type, id) {
         receipt_path: donation.receipt_path
     });
 
-    if (type === 'Cash') {
+        if (type === 'Cash') {
         // ============ CASH ============
         if (donation.receipt_path) {
             proofSection.classList.remove("hidden");
             proofLabel.textContent = "Proof of Payment";
 
-            const fullPath = donation.receipt_path.startsWith('/')
-                ? donation.receipt_path
-                : `/uploads/receipts/${donation.receipt_path}`;
+            // ✅ GAMITIN ANG HELPER FUNCTION PARA MA-DETECT KUNG CLOUDINARY O LOCAL
+            const fullPath = getReceiptImageUrl(donation.receipt_path);
 
             currentActiveReceiptPath = fullPath;
             previewImg.src = fullPath;
@@ -379,8 +378,7 @@ function viewDetails(type, id) {
         } else {
             proofSection.classList.add("hidden");
         }
-
-    } else {
+    }else {
         // ============ IN-KIND ============
         // Ipakita ang org's uploaded photo kapag Approved o Rejected na
         if (isFinalized && donation.proof_image_path) {
