@@ -451,13 +451,19 @@ router.patch('/applications/:id/status', async (req, res) => {
             );
 
             await connection.query(`
-                INSERT INTO kamustahan_updates (organization_id, animal_id, adopter_id, status, created_at)
-                SELECT p.organization_id, app.animal_id, app.adopter_id, 'For Update', NOW()
+                INSERT INTO kamustahan_updates (
+                    organization_id, animal_id, adopter_id, update_date,
+                    update_text, photos, status, created_at
+                )
+                SELECT
+                    p.organization_id, app.animal_id, app.adopter_id, CURDATE(),
+                    '', '', 'For Update', NOW()
                 FROM user_adoption_applications app
                 JOIN animals p ON app.animal_id = p.animal_id
                 WHERE app.application_id = ?
-                ON DUPLICATE KEY UPDATE status = 'For Update'
-                update_date = CURDATE()
+                ON DUPLICATE KEY UPDATE
+                    status = 'For Update',
+                    update_date = CURDATE()
             `, [id]);
 
             // =========================================================================
