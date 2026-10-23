@@ -4,17 +4,14 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-     <link rel="icon" type="image/png" href="../assets/images/Pawpon_logo.png">
+    <link rel="icon" type="image/png" href="../assets/images/Pawpon_logo.png">
     <title>PAWPON – Kamustahan</title>
 
-     <link rel="stylesheet" href="/css/tailwind.css">
-    <!-- Local Font Awesome -->
+    <link rel="stylesheet" href="/css/tailwind.css">
     <link rel="stylesheet" href="/css/fontawesome/all.min.css">
-    
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="/css/inter.css">
 
-    <!-- Scripts in Head (Matching Adoption Hub & Donation Pages) -->
     <script src="/assets/js/userSidebar.js"></script>
     <script src="/assets/js/userHeader.js"></script>
     <script src="/assets/js/userKamustahan.js" defer></script>
@@ -54,8 +51,8 @@
                     </button>
                 </div>
 
-                 <!-- KAMUSTAHAN DUE BANNER -->
-                 <div id="kamustahanDueBanner" class="hidden mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5">
+                <!-- KAMUSTAHAN DUE BANNER -->
+                <div id="kamustahanDueBanner" class="hidden mb-6 bg-amber-50 border border-amber-200 rounded-2xl p-4 sm:p-5">
                     <div class="flex items-start gap-3">
                         <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
                             <i class="fa-solid fa-triangle-exclamation"></i>
@@ -70,7 +67,7 @@
                 <!-- FORM CONTAINER -->
                 <div class="bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-200/70 p-8 md:p-10">
                     
-                    <!-- UI ALERT / MESSAGE BOX (Replaces browser alert) -->
+                    <!-- UI ALERT / MESSAGE BOX -->
                     <div id="uiAlertBox" class="hidden mb-6 p-4 rounded-2xl border text-sm flex items-start gap-3 transition-all">
                         <i id="uiAlertIcon" class="fas fa-exclamation-circle mt-0.5 text-lg shrink-0"></i>
                         <div class="flex-1">
@@ -82,7 +79,7 @@
                         </button>
                     </div>
 
-                    <form id="kamustahanForm" class="space-y-6">
+                    <form id="kamustahanForm" class="space-y-4">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <!-- PET SELECT -->
                             <div>
@@ -98,22 +95,86 @@
                             <!-- DATE (PH TIME LOCKED) -->
                             <div>
                                 <label class="block text-sm font-semibold text-slate-700 mb-2">
-                                    <i class="fas fa-calendar-alt text-blue-600 mr-1.5"></i> Date of Update (Philippine Standard Time) <span class="text-rose-500">*</span>
+                                    <i class="fas fa-calendar-alt text-blue-600 mr-1.5"></i> Date of Update <span class="text-rose-500">*</span>
                                 </label>
                                 <input type="date" id="updateDate" name="update_date" required readonly class="w-full border border-slate-200 rounded-2xl px-4 py-3.5 bg-slate-100 text-slate-600 font-medium cursor-not-allowed" />
                             </div>
                         </div>
 
-                        <!-- PET UPDATE (Textarea) -->
-                        <div>
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">
-                                <i class="fas fa-comment-dots text-blue-600 mr-1.5"></i> How is your pet doing? <span class="text-rose-500">*</span>
-                            </label>
-                            <textarea id="updateText" name="update_text" rows="4" required placeholder="Describe their current condition, behavior, meals, or favorite activities..." class="w-full border border-slate-200 rounded-2xl p-4 bg-slate-50/50 resize-none text-slate-800 font-medium focus:bg-white transition"></textarea>
-                        </div>
+                        <!-- HEALTH CHECKLIST ACCORDION -->
+                        <details class="group bg-emerald-50/40 border border-emerald-100 rounded-2xl overflow-hidden" open>
+                            <summary class="flex items-center justify-between p-5 cursor-pointer hover:bg-emerald-50 transition-colors list-none [&::-webkit-details-marker]:hidden">
+                                <h3 class="text-sm font-bold text-emerald-800 flex items-center gap-2">
+                                    <i class="fas fa-stethoscope"></i> Health Check
+                                </h3>
+                                <i class="fas fa-chevron-down text-emerald-600 text-xs transition-transform duration-300 group-open:rotate-180"></i>
+                            </summary>
+                            <div class="p-5 pt-0 border-t border-emerald-100/50">
+                                <p class="text-xs text-emerald-700 mb-4 mt-3 leading-relaxed">
+                                    Select the most appropriate answer for your pet's current condition.
+                                </p>
+                                <div id="healthChecklistGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                            </div>
+                        </details>
+
+                        <!-- BEHAVIOR CHECKLIST ACCORDION -->
+                        <details class="group bg-indigo-50/40 border border-indigo-100 rounded-2xl overflow-hidden">
+                            <summary class="flex items-center justify-between p-5 cursor-pointer hover:bg-indigo-50 transition-colors list-none [&::-webkit-details-marker]:hidden">
+                                <h3 class="text-sm font-bold text-indigo-800 flex items-center gap-2">
+                                    <i class="fas fa-brain"></i> Behavior Check
+                                </h3>
+                                <i class="fas fa-chevron-down text-indigo-600 text-xs transition-transform duration-300 group-open:rotate-180"></i>
+                            </summary>
+                            <div class="p-5 pt-0 border-t border-indigo-100/50">
+                                <p class="text-xs text-indigo-700 mb-4 mt-3 leading-relaxed">
+                                    Observe their behavior at home, around people, and with other pets.
+                                </p>
+                                <div id="behaviorChecklistGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                            </div>
+                        </details>
+
+                        <!-- Risk preview (auto-computed) -->
+                        <div id="riskPreview" class="hidden mb-2"></div>
+
+                        <!-- VET VISIT ACCORDION -->
+                        <details class="group bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                            <summary class="flex items-center justify-between p-5 cursor-pointer hover:bg-slate-50 transition-colors list-none [&::-webkit-details-marker]:hidden">
+                                <h3 class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                    <i class="fas fa-hospital text-blue-600"></i> Vet Visit & Concerns
+                                </h3>
+                                <i class="fas fa-chevron-down text-slate-400 text-xs transition-transform duration-300 group-open:rotate-180"></i>
+                            </summary>
+                            <div class="p-5 pt-0 border-t border-slate-100">
+                                <div class="mt-4">
+                                    <label class="flex items-center gap-3 cursor-pointer">
+                                        <input type="checkbox" id="vetVisitToggle" class="w-5 h-5 rounded text-blue-600" />
+                                        <span class="text-sm font-semibold text-slate-700">
+                                            Have you visited a vet since the last update?
+                                        </span>
+                                    </label>
+                                    <div id="vetVisitFields" class="hidden mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                        <div>
+                                            <label class="block text-xs font-semibold text-slate-600 mb-1">Vet Visit Date</label>
+                                            <input type="date" id="vetVisitDate" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-semibold text-slate-600 mb-1">Diagnosis / Findings</label>
+                                            <input type="text" id="vetDiagnosis" placeholder="Optional"
+                                                class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-4">
+                                    <label class="block text-sm font-semibold text-slate-700 mb-2">Concerns / Questions for the org</label>
+                                    <textarea id="petConcerns" rows="2" placeholder="Do you have any concerns you'd like to raise?"
+                                        class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm resize-none bg-slate-50/50"></textarea>
+                                </div>
+                            </div>
+                        </details>
 
                         <!-- PHOTO UPLOAD SECTION -->
-                        <div>
+                        <div class="pt-2">
                             <div class="flex items-center justify-between mb-3">
                                 <label class="block text-sm font-semibold text-slate-700">
                                     <i class="fas fa-image text-blue-600 mr-1.5"></i> Upload Pet Photo <span class="text-rose-500">*</span>
@@ -122,21 +183,11 @@
                             </div>
                             
                             <div id="previewContainer" class="flex gap-4 flex-wrap items-center">
-                                <!-- ADD PHOTO BUTTON -->
                                 <label class="w-32 h-32 border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/30 transition duration-200 bg-slate-50/50 group">
                                     <i class="fas fa-camera text-2xl text-slate-400 group-hover:text-blue-600 mb-1.5 transition-colors"></i>
                                     <span class="text-xs font-semibold text-slate-500 group-hover:text-blue-600">Select Image</span>
                                     <input type="file" id="photoInput" name="photos" accept="image/*" class="hidden" />
                                 </label>
-                            </div>
-                        </div>
-
-                        <!-- GUIDELINES NOTICE -->
-                        <div class="bg-blue-50/60 backdrop-blur-sm border border-blue-100 rounded-2xl p-4 flex gap-3.5 items-start">
-                            <i class="fas fa-info-circle text-blue-600 mt-1 text-base shrink-0"></i>
-                            <div class="text-xs text-blue-900 leading-relaxed">
-                                <span class="font-bold block mb-0.5">Submission Guideline:</span>
-                                Please ensure the uploaded image clearly displays your adopted pet. You can replace the selected image anytime before final submission by clicking the removal option.
                             </div>
                         </div>
 
@@ -160,7 +211,7 @@
                 <i class="fas fa-check"></i>
             </div>
             <h3 class="text-2xl font-bold text-slate-900 mb-1">Update Submitted Successfully!</h3>
-            <p class="text-sm text-slate-600 mb-6">Your pet condition report has been recorded in Philippine Standard Time.</p>
+            <p class="text-sm text-slate-600 mb-6">Your pet condition report has been recorded.</p>
             
             <div class="bg-slate-50 rounded-2xl p-4 text-left border border-slate-200/80 mb-6 space-y-3">
                 <div>
@@ -170,10 +221,6 @@
                 <div>
                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Timestamp (PST):</span>
                     <p id="modalTimestamp" class="text-xs font-medium text-slate-700">-</p>
-                </div>
-                <div>
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Message:</span>
-                    <p id="modalUpdateText" class="text-xs text-slate-600 italic bg-white p-2.5 rounded-xl border border-slate-100 max-h-24 overflow-y-auto">-</p>
                 </div>
                 <div>
                     <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Uploaded Photo:</span>
@@ -190,27 +237,40 @@
     <!-- HISTORY / POSTS MODAL -->
     <div id="historyModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4 overflow-y-auto">
         <div class="bg-white rounded-3xl p-6 md:p-8 max-w-3xl w-full shadow-2xl border border-slate-100 transform transition-all my-8 max-h-[85vh] flex flex-col">
-            <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-                <div>
-                    <h3 class="text-xl font-bold text-slate-900">Kamustahan History Log</h3>
-                    <p class="text-xs text-slate-500">Chronological history of your previously submitted updates.</p>
+            
+            <!-- Header & Filters -->
+            <div class="pb-4 border-b border-slate-100 mb-4">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h3 class="text-xl font-bold text-slate-900">Kamustahan History Log</h3>
+                        <p class="text-xs text-slate-500">Chronological history of your previously submitted updates.</p>
+                    </div>
+                    <button onclick="closeHistoryModal()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition">
+                        <i class="fas fa-times"></i>
+                    </button>
                 </div>
-                <button onclick="closeHistoryModal()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition">
-                    <i class="fas fa-times"></i>
-                </button>
+
+                <!-- Filter Controls -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <div class="relative flex-1">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                        <input type="text" id="historySearch" placeholder="Search by pet name..." 
+                            class="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:border-blue-500 transition-colors">
+                    </div>
+                    <select id="historyStatusFilter" class="px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:bg-white focus:border-blue-500 transition-colors">
+                        <option value="all">All Updates</option>
+                        <option value="reviewed">Reviewed by Org</option>
+                        <option value="pending">Awaiting Review</option>
+                    </select>
+                </div>
             </div>
 
+            <!-- Container -->
             <div id="historyFeedContainer" class="overflow-y-auto flex-1 space-y-4 pr-1">
                 <div class="text-center py-12 text-slate-400">
                     <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
                     <p class="text-sm">Loading history records...</p>
                 </div>
-            </div>
-
-            <div class="pt-4 border-t border-slate-100 mt-4 text-right">
-                <button onclick="closeHistoryModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-6 py-2.5 rounded-xl text-sm font-semibold transition">
-                    Close Window
-                </button>
             </div>
         </div>
     </div>
@@ -224,46 +284,52 @@
             <img id="lightboxImage" src="" class="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl border border-white/10" alt="Enlarged Pet View">
         </div>
     </div>
+
     <!-- EDIT UPDATE MODAL -->
-<div id="editModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4 overflow-y-auto">
-    <div class="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl border border-slate-100 transform transition-all my-8">
-        <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
-            <h3 class="text-xl font-bold text-slate-900">Edit Pet Update</h3>
-            <button onclick="closeEditModal()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-
-        <form id="editKamustahanForm" class="space-y-4">
-            <input type="hidden" id="editUpdateId" name="update_id">
-            
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">Update Message</label>
-                <textarea id="editUpdateText" name="update_text" rows="4" required class="w-full border border-slate-200 rounded-2xl p-4 bg-slate-50/50 text-slate-800 font-medium focus:bg-white transition"></textarea>
+    <div id="editModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4 overflow-y-auto">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full shadow-2xl border border-slate-100 transform transition-all my-8">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-4">
+                <h3 class="text-xl font-bold text-slate-900">Edit Pet Update</h3>
+                <button onclick="closeEditModal()" class="w-9 h-9 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
 
-            <!-- PHOTO UPDATE SECTION -->
-            <div>
-                <label class="block text-sm font-semibold text-slate-700 mb-2">Update Photo (Optional)</label>
-                <div class="flex items-center gap-4">
-                    <div id="editPreviewContainer" class="relative w-24 h-24 border border-slate-200 rounded-2xl overflow-hidden bg-slate-50 flex items-center justify-center">
-                        <img id="editCurrentPhotoPreview" src="" class="w-full h-full object-cover" alt="Current Photo">
-                    </div>
-                    <label class="flex-1 border-2 border-dashed border-slate-300 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/30 transition bg-slate-50/50">
-                        <i class="fas fa-camera text-slate-400 mb-1"></i>
-                        <span class="text-xs font-semibold text-slate-600">Choose New Image</span>
-                        <input type="file" id="editPhotoInput" name="photos" accept="image/*" class="hidden" />
-                    </label>
+            <form id="editKamustahanForm" class="space-y-4">
+                <input type="hidden" id="editUpdateId" name="update_id">
+                
+                <!-- DISPLAY BOX PARA SA CHECKLIST AT VET -->
+                <div id="editDetailsDisplay" class="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-2">
+                    <!-- Dito ilalagay ng JS yung mga sagot -->
                 </div>
-            </div>
 
-            <div class="flex gap-3 pt-2">
-                <button type="button" onclick="closeEditModal()" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-2xl font-semibold transition">Cancel</button>
-                <button type="submit" id="saveEditBtn" class="w-1/2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-2xl font-semibold transition shadow-md">Save Changes</button>
-            </div>
-        </form>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Update Message</label>
+                    <textarea id="editUpdateText" name="update_text" rows="3" required class="w-full border border-slate-200 rounded-2xl p-4 bg-slate-50/50 text-slate-800 font-medium focus:bg-white transition"></textarea>
+                </div>
+
+                <!-- PHOTO UPDATE SECTION -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Update Photo (Optional)</label>
+                    <div class="flex items-center gap-4">
+                        <div id="editPreviewContainer" class="relative w-24 h-24 border border-slate-200 rounded-2xl overflow-hidden bg-slate-50 flex items-center justify-center">
+                            <img id="editCurrentPhotoPreview" src="" class="w-full h-full object-cover" alt="Current Photo">
+                        </div>
+                        <label class="flex-1 border-2 border-dashed border-slate-300 rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50/30 transition bg-slate-50/50">
+                            <i class="fas fa-camera text-slate-400 mb-1"></i>
+                            <span class="text-xs font-semibold text-slate-600">Choose New Image</span>
+                            <input type="file" id="editPhotoInput" name="photos" accept="image/*" class="hidden" />
+                        </label>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 pt-2">
+                    <button type="button" onclick="closeEditModal()" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-700 py-3 rounded-2xl font-semibold transition">Cancel</button>
+                    <button type="submit" id="saveEditBtn" class="w-1/2 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-2xl font-semibold transition shadow-md">Save Changes</button>
+                </div>
+            </form>
+        </div>
     </div>
-</div>
-</body>
 
+</body>
 </html>

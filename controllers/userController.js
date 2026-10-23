@@ -2088,10 +2088,6 @@ exports.cancelAdoptionApplication = async (req, res) => {
         });
     }
 };
-// ==========================================
-// KAMUSTAHAN MODULE (USER SIDE)
-// ==========================================
-
 exports.getApprovedAdoptedPets = async (req, res) => {
     const accountId = req.session?.accountId;
     if (!accountId) {
@@ -2115,7 +2111,11 @@ exports.getApprovedAdoptedPets = async (req, res) => {
         const adopterId = adopterRows[0].adopter_id;
         console.log("Found adopter_id:", adopterId);
 
-        // BAGONG QUERY: Ginawang UPPER(status) para iwas case-sensitivity
+        // BAGONG QUERY: 
+        //  - UPPER(status) = 'APPROVED' para iwas case-sensitivity
+        //  - NOT EXISTS ... = 'COMPLETED' para mawala lang sa listahan
+        //    ANG MGA PET NA TALAGANG NAKUHA NA NG ORG
+        //    (Pending / Approved / Rejected returns → pet stays visible)
         const [pets] = await pool.query(`
             SELECT DISTINCT
                 a.animal_id,
@@ -2126,7 +2126,14 @@ exports.getApprovedAdoptedPets = async (req, res) => {
             FROM user_adoption_applications app
             JOIN animals a ON app.animal_id = a.animal_id
             WHERE app.adopter_id = ? 
-            AND UPPER(app.status) = 'APPROVED'
+              AND UPPER(app.status) = 'APPROVED'
+              AND NOT EXISTS (
+                  SELECT 1 
+                  FROM pet_returns pr
+                  WHERE pr.animal_id = a.animal_id
+                    AND pr.adopter_id = app.adopter_id
+                    AND UPPER(pr.status) = 'COMPLETED'
+              )
         `, [adopterId]);
 
         console.log("Pets found:", pets); // I-check sa console kung may laman ang pets array
@@ -2148,6 +2155,9 @@ exports.submitKamustahanUpdate = async (req, res) => {
     }
 
     try {
+        // ==========================================
+        // 1. VERIFY ADOPTER
+        // ==========================================
         const [adopterRows] = await pool.query(
             `SELECT adopter_id FROM adopters WHERE account_id = ? LIMIT 1`,
             [accountId]
@@ -2158,14 +2168,26 @@ exports.submitKamustahanUpdate = async (req, res) => {
         }
 
         const adopterId = adopterRows[0].adopter_id;
-        const { animal_id, organization_id, update_text } = req.body;
+
+        // ==========================================
+        // 2. EXTRACT BODY FIELDS (existing + new)
+        // ==========================================
+        const {
+            animal_id, organization_id, update_text,
+            health_checklist, behavior_checklist,
+            vet_visit, vet_visit_date, vet_diagnosis,
+            weight_kg, concerns, risk_level
+        } = req.body;
+
         const photoPath = req.file ? `/uploads/kamustahan/${req.file.filename}` : '';
 
         if (!animal_id || !organization_id || !update_text) {
             return res.status(400).json({ success: false, error: "Please fill in all required fields." });
         }
 
-        // 1. Check if there is an active scheduled update ('For Update') for this pet
+        // ==========================================
+        // 3. FIND ACTIVE 'For Update' SCHEDULE
+        // ==========================================
         const [scheduleRows] = await pool.query(`
             SELECT update_id, status, scheduled_date as target_schedule 
             FROM kamustahan_updates 
@@ -2183,7 +2205,9 @@ exports.submitKamustahanUpdate = async (req, res) => {
         const currentSchedule = scheduleRows[0];
         const updateId = currentSchedule.update_id;
 
-        // 2. Check if a scheduled_date actually exists and is valid in the database
+        // ==========================================
+        // 4. VALIDATE SCHEDULE DATE
+        // ==========================================
         if (!currentSchedule.target_schedule) {
             return res.status(400).json({ 
                 success: false, 
@@ -2191,49 +2215,134 @@ exports.submitKamustahanUpdate = async (req, res) => {
             });
         }
 
-       // 3. Format Philippine Time and the database target schedule accurately
-            const phTimeOptions = { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' };
-            const formatter = new Intl.DateTimeFormat('en-CA', phTimeOptions);
+        const phTimeOptions = { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' };
+        const formatter = new Intl.DateTimeFormat('en-CA', phTimeOptions);
 
-            const phToday = formatter.format(new Date());
-            const targetDateStr = formatter.format(new Date(currentSchedule.target_schedule));
+        const phToday = formatter.format(new Date());
+        const targetDateStr = formatter.format(new Date(currentSchedule.target_schedule));
 
-            // Prevent 1970-01-01 or invalid empty database date traps
-            if (targetDateStr === '1970-01-01' || !targetDateStr) {
-                return res.status(400).json({
-                    success: false,
-                    error: "The deadline for this pet is not yet properly configured in the system."
-                });
+        if (targetDateStr === '1970-01-01' || !targetDateStr) {
+            return res.status(400).json({
+                success: false,
+                error: "The deadline for this pet is not yet properly configured in the system."
+            });
+        }
+
+        // DEADLINE CHECK
+        if (phToday > targetDateStr) {
+            return res.status(400).json({
+                success: false,
+                error: `The deadline to submit this update has already passed. The scheduled deadline was on ${targetDateStr}.`
+            });
+        }
+
+        // ==========================================
+        // 5. SANITIZE NEW FIELDS
+        // ==========================================
+        // Basic JSON validation — reject kung hindi array/object
+        let cleanHealthChecklist   = null;
+        let cleanBehaviorChecklist = null;
+
+        if (health_checklist) {
+            try {
+                const parsed = typeof health_checklist === 'string'
+                    ? JSON.parse(health_checklist)
+                    : health_checklist;
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    cleanHealthChecklist = JSON.stringify(parsed);
+                }
+            } catch (e) {
+                console.warn("Invalid health_checklist JSON:", e.message);
             }
+        }
 
-            // ==========================================
-            // DEADLINE CHECK (hindi na exact-date)
-            // ==========================================
-            if (phToday > targetDateStr) {
-                return res.status(400).json({
-                    success: false,
-                    error: `The deadline to submit this update has already passed. The scheduled deadline was on ${targetDateStr}.`
-                });
+        if (behavior_checklist) {
+            try {
+                const parsed = typeof behavior_checklist === 'string'
+                    ? JSON.parse(behavior_checklist)
+                    : behavior_checklist;
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+                    cleanBehaviorChecklist = JSON.stringify(parsed);
+                }
+            } catch (e) {
+                console.warn("Invalid behavior_checklist JSON:", e.message);
             }
-        // 4. Update the record and set the upload timestamp
+        }
+
+        // Risk level: trust client but restrict to allowed values
+        const allowedRisk = ['low', 'medium', 'high'];
+        const cleanRiskLevel = allowedRisk.includes(risk_level) ? risk_level : 'low';
+
+        // Vet visit: strict 0/1
+        const cleanVetVisit = (vet_visit === '1' || vet_visit === 1 || vet_visit === true) ? 1 : 0;
+
+        // Weight: numeric or null
+        let cleanWeight = null;
+        if (weight_kg !== undefined && weight_kg !== null && String(weight_kg).trim() !== '') {
+            const parsedWeight = parseFloat(weight_kg);
+            if (!isNaN(parsedWeight) && parsedWeight > 0 && parsedWeight < 200) {
+                cleanWeight = parsedWeight;
+            }
+        }
+
+        // Date: only accept YYYY-MM-DD or null
+        const cleanVetDate = (vet_visit_date && /^\d{4}-\d{2}-\d{2}$/.test(vet_visit_date))
+            ? vet_visit_date
+            : null;
+
+        // Trim strings
+        const cleanVetDiagnosis = vet_diagnosis ? String(vet_diagnosis).trim().slice(0, 500) : null;
+        const cleanConcerns     = concerns     ? String(concerns).trim().slice(0, 1000) : null;
+
+        // ==========================================
+        // 6. UPDATE RECORD
+        // ==========================================
         await pool.query(`
             UPDATE kamustahan_updates 
-            SET update_date = CURDATE(), 
-                update_text = ?, 
-                photos = ?, 
-                status = 'Pending',
-                created_at = NOW()
+            SET update_date          = CURDATE(), 
+                update_text          = ?, 
+                photos               = ?, 
+                health_checklist     = ?,
+                behavior_checklist   = ?,
+                vet_visit            = ?,
+                vet_visit_date       = ?,
+                vet_diagnosis        = ?,
+                weight_kg            = ?,
+                concerns             = ?,
+                risk_level           = ?,
+                status               = 'Pending',
+                consultation_status  = 'awaiting_org',
+                created_at           = NOW()
             WHERE update_id = ?
-        `, [update_text, photoPath, updateId]);
-        
+        `, [
+            update_text,
+            photoPath,
+            cleanHealthChecklist,
+            cleanBehaviorChecklist,
+            cleanVetVisit,
+            cleanVetDate,
+            cleanVetDiagnosis,
+            cleanWeight,
+            cleanConcerns,
+            cleanRiskLevel,
+            updateId
+        ]);
+
+        // ==========================================
+        // 7. LOG ACTIVITY
+        // ==========================================
         await logActivity(accountId, "kamustahan_submitted", "kamustahan_update", updateId);
-        
+
+        // ==========================================
+        // 8. NOTIFY ORGANIZATION
+        // ==========================================
         const [[orgAccountKamustahan]] = await pool.query(
             `SELECT account_id FROM organizations WHERE organization_id = ?`,
             [organization_id]
         );
 
         if (orgAccountKamustahan) {
+            // Standard notification
             await createNotification(
                 orgAccountKamustahan.account_id,
                 "New Kamustahan Update",
@@ -2241,21 +2350,34 @@ exports.submitKamustahanUpdate = async (req, res) => {
                 "kamustahan_submitted",
                 "/org/kamustahan"
             );
+
+            // 🚨 URGENT notification kung HIGH RISK
+            if (cleanRiskLevel === 'high') {
+                await createNotification(
+                    orgAccountKamustahan.account_id,
+                    "⚠️ HIGH RISK Kamustahan Update",
+                    "An adopter flagged a high-risk health/behavior concern. Please review immediately and consider reaching out for consultation.",
+                    "kamustahan_high_risk",
+                    "/org/kamustahan"
+                );
+            }
         }
 
+        // ==========================================
+        // 9. SUCCESS RESPONSE
+        // ==========================================
         return res.json({
             success: true,
-            message: "Kamustahan update successfully submitted!"
+            message: cleanRiskLevel === 'high'
+                ? "Update submitted. Na-notify na ang organization tungkol sa high-risk concern mo — i-review nila ito agad."
+                : "Kamustahan update successfully submitted!"
         });
-
-        await createNotification(orgAccountId, "New Kamustahan Update", `An adopter posted an update for ${petName}.`, "kamustahan_submitted", "/org/kamustahan");
 
     } catch (error) {
         console.error("Submit Kamustahan Error:", error);
         return res.status(500).json({ success: false, error: "Database error during submission." });
     }
 };
-
 exports.getKamustahanHistory = async (req, res) => {
     const accountId = req.session?.accountId;
     if (!accountId) {
@@ -2274,6 +2396,7 @@ exports.getKamustahanHistory = async (req, res) => {
 
         const adopterId = adopterRows[0].adopter_id;
 
+        // IDINAGDAG: org_response at org_responded_at
         const [updates] = await pool.query(`
             SELECT 
                 k.update_id,
@@ -2282,6 +2405,16 @@ exports.getKamustahanHistory = async (req, res) => {
                 k.photos,
                 k.status,
                 k.created_at,
+                k.health_checklist,
+                k.behavior_checklist,
+                k.vet_visit,
+                k.vet_visit_date,
+                k.vet_diagnosis,
+                k.weight_kg,
+                k.concerns,
+                k.risk_level,
+                k.org_response,
+                k.org_responded_at,
                 a.name AS pet_name
             FROM kamustahan_updates k
             JOIN animals a ON k.animal_id = a.animal_id
@@ -2299,6 +2432,50 @@ exports.getKamustahanHistory = async (req, res) => {
         return res.status(500).json({ success: false, error: "Failed to load kamustahan history." });
     }
 };
+// I-update din ang getKamustahanHistory para makuha ang created_at timestamp
+// exports.getKamustahanHistory = async (req, res) => {
+//     const accountId = req.session?.accountId;
+//     if (!accountId) {
+//         return res.status(401).json({ success: false, error: "Unauthorized access." });
+//     }
+
+//     try {
+//         const [adopterRows] = await pool.query(
+//             `SELECT adopter_id FROM adopters WHERE account_id = ? LIMIT 1`,
+//             [accountId]
+//         );
+
+//         if (!adopterRows.length) {
+//             return res.status(404).json({ success: false, error: "Adopter profile not found." });
+//         }
+
+//         const adopterId = adopterRows[0].adopter_id;
+
+//         const [updates] = await pool.query(`
+//             SELECT 
+//                 k.update_id,
+//                 k.update_date,
+//                 k.update_text,
+//                 k.photos,
+//                 k.status,
+//                 k.created_at,
+//                 a.name AS pet_name
+//             FROM kamustahan_updates k
+//             JOIN animals a ON k.animal_id = a.animal_id
+//             WHERE k.adopter_id = ?
+//             ORDER BY k.created_at DESC
+//         `, [adopterId]);
+
+//         return res.json({
+//             success: true,
+//             updates: updates
+//         });
+
+//     } catch (error) {
+//         console.error("Get History Error:", error);
+//         return res.status(500).json({ success: false, error: "Failed to load history." });
+//     }
+// };
 
 //check if there are any due kamustahan reminders for the user and create notifications if needed (new added)
 async function checkKamustahanRemindersDue(accountId) {
@@ -2330,6 +2507,7 @@ async function checkKamustahanRemindersDue(accountId) {
     }
 }
 exports.checkKamustahanRemindersDue = checkKamustahanRemindersDue;
+
 
 //functions for recent activities in user dashboard
 exports.getUserRecentActivities = async (req, res) => {

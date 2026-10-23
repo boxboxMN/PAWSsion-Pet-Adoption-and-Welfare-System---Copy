@@ -3171,8 +3171,9 @@ exports.getApplicationByAnimalId = async (req, res) => {
 };
 exports.getKamustahanUpdates = async (req, res) => {
     try {
+        // IDINAGDAG: Kunin din ang organization_name
         const [org] = await pool.query(
-            `SELECT organization_id FROM organizations WHERE account_id = ?`,
+            `SELECT organization_id, organization_name FROM organizations WHERE account_id = ?`,
             [req.session.accountId]
         );
 
@@ -3181,6 +3182,7 @@ exports.getKamustahanUpdates = async (req, res) => {
         }
 
         const organization_id = org[0].organization_id;
+        const organization_name = org[0].organization_name; // <-- I-save sa variable
 
         const [updates] = await pool.query(
             `
@@ -3191,23 +3193,36 @@ exports.getKamustahanUpdates = async (req, res) => {
                 DATE_FORMAT(k.scheduled_date, '%b %d, %Y') AS formatted_scheduled_date,
                 DATE_FORMAT(k.update_date, '%b %d, %Y') AS formatted_date,
                 k.is_archived,
-                k.update_text, -- <--- IDINAGDAG DITO PARA MA-FETCH ANG ADOPTER MESSAGE
+                k.update_text,
                 k.photos AS update_photos,
+                k.health_checklist,
+                k.behavior_checklist,
+                k.vet_visit,
+                k.vet_visit_date,
+                k.vet_diagnosis,
+                k.weight_kg,
+                k.concerns,
+                k.risk_level,
+                k.consultation_status,
+                k.org_response,
+                k.org_responded_at,
                 p.name AS pet_name,
                 p.species,
                 p.image_path AS pet_image,
-                CONCAT(a.first_name, ' ', a.last_name) AS adopter_name
+                CONCAT(a.first_name, ' ', a.last_name) AS adopter_name,
+                acc.email AS adopter_email
             FROM kamustahan_updates k
             JOIN animals p ON k.animal_id = p.animal_id
             JOIN adopters a ON k.adopter_id = a.adopter_id
+            LEFT JOIN accounts acc ON a.account_id = acc.account_id
             WHERE k.organization_id = ?
             ORDER BY k.created_at DESC
-            
             `,
             [organization_id]
         );
 
-        res.json({ success: true, updates });
+        // IDINAGDAG: Isama ang organization_name sa response
+        res.json({ success: true, updates, organization_name });
     } catch (err) {
         console.error("Get Kamustahan Updates Error:", err);
         res.status(500).json({ success: false, message: err.message });
@@ -3227,7 +3242,6 @@ exports.schedulePetUpdate = async (req, res) => {
             });
         }
 
-        // Validate date format (YYYY-MM-DD)
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
         if (!dateRegex.test(String(scheduled_date).trim())) {
             return res.status(400).json({
@@ -3244,7 +3258,6 @@ exports.schedulePetUpdate = async (req, res) => {
             });
         }
 
-        // Bawal ang past date
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         if (parsedDate < today) {
@@ -3272,26 +3285,53 @@ exports.schedulePetUpdate = async (req, res) => {
         const organizationId = org[0].organization_id;
 
         // ==========================================
-        // UPDATE (with ownership check)
+        // 1. KUNIN ANG PET AT ADOPTER ID MULA SA PININDOT NA UPDATE
         // ==========================================
-        const [result] = await pool.query(
-            `UPDATE kamustahan_updates 
-             SET scheduled_date = ?, status = 'For Update' 
-             WHERE update_id = ? AND organization_id = ?`,
-            [scheduled_date, update_id, organizationId]
+        const [[currentUpdate]] = await pool.query(
+            `SELECT animal_id, adopter_id, status FROM kamustahan_updates WHERE update_id = ? AND organization_id = ?`,
+            [update_id, organizationId]
         );
 
-        if (result.affectedRows === 0) {
+        if (!currentUpdate) {
             return res.status(404).json({
                 success: false,
                 message: "Update record not found or does not belong to your organization."
             });
         }
 
-        return res.json({
-            success: true,
-            message: `Deadline set to ${scheduled_date}. The adopter may submit anytime on or before this date.`
-        });
+        // ==========================================
+        // 2. CHECK KUNG MAY PENDING NANG 'For Update' PARA SA PET NA ITO
+        // ==========================================
+        const [[existingPending]] = await pool.query(
+            `SELECT update_id FROM kamustahan_updates 
+             WHERE animal_id = ? AND adopter_id = ? AND organization_id = ? AND status = 'For Update'`,
+            [currentUpdate.animal_id, currentUpdate.adopter_id, organizationId]
+        );
+
+        if (existingPending) {
+            // Kung may nakabinbin na (For Update), i-update lang ang deadline date niya
+            await pool.query(
+                `UPDATE kamustahan_updates SET scheduled_date = ? WHERE update_id = ?`,
+                [scheduled_date, existingPending.update_id]
+            );
+            return res.json({
+                success: true,
+                message: `Deadline for the pending update has been changed to ${scheduled_date}.`
+            });
+        } else {
+
+            await pool.query(
+                `INSERT INTO kamustahan_updates 
+                 (organization_id, animal_id, adopter_id, scheduled_date, status, created_at) 
+                 VALUES (?, ?, ?, ?, 'For Update', NOW())`,
+                [organizationId, currentUpdate.animal_id, currentUpdate.adopter_id, scheduled_date]
+            );
+
+            return res.json({
+                success: true,
+                message: `New schedule created for ${scheduled_date}. The previous update is safely saved in history.`
+            });
+        }
 
     } catch (err) {
         console.error("Schedule Pet Update Error:", err);

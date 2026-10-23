@@ -1194,4 +1194,123 @@ router.post(
         }
     }
 );
+router.get('/kamustahan/:updateId/consultations', async (req, res) => {
+    try {
+        if (!req.session?.accountId) {
+            return res.status(401).json({ success: false, message: "Unauthorized." });
+        }
+
+        const [org] = await pool.query(
+            `SELECT organization_id FROM organizations WHERE account_id = ?`,
+            [req.session.accountId]
+        );
+
+        if (!org.length) {
+            return res.status(404).json({ success: false, message: "Organization not found." });
+        }
+
+        const orgId = org[0].organization_id;
+
+        // Verify the update belongs to this org before exposing consultations
+        const [[update]] = await pool.query(
+            `SELECT update_id FROM kamustahan_updates WHERE update_id = ? AND organization_id = ?`,
+            [req.params.updateId, orgId]
+        );
+
+        if (!update) {
+            return res.status(404).json({ success: false, message: "Update not found or unauthorized." });
+        }
+
+        const [rows] = await pool.query(
+            `SELECT * FROM kamustahan_consultations WHERE update_id = ? ORDER BY created_at ASC`,
+            [req.params.updateId]
+        );
+
+        res.json({ success: true, consultations: rows });
+    } catch (err) {
+        console.error("Get Consultations Error:", err);
+        res.status(500).json({ success: false, message: "Server error." });
+    }
+});
+router.post('/kamustahan/:updateId/acknowledge', async (req, res) => {
+    try {
+        if (!req.session?.accountId) {
+            return res.status(401).json({ success: false, message: "Unauthorized." });
+        }
+
+        const { message } = req.body; 
+        const { updateId } = req.params;
+
+        const [org] = await pool.query(
+            `SELECT organization_id FROM organizations WHERE account_id = ?`,
+            [req.session.accountId]
+        );
+
+        if (!org.length) {
+            return res.status(404).json({ success: false, message: "Organization not found." });
+        }
+        const orgId = org[0].organization_id;
+
+        // ==========================================
+        // CHECK KUNG NAKA-ARCHIVE NA
+        // ==========================================
+        const [[currentRecord]] = await pool.query(
+            `SELECT is_archived, status FROM kamustahan_updates WHERE update_id = ? AND organization_id = ?`,
+            [updateId, orgId]
+        );
+
+        if (!currentRecord) {
+            return res.status(404).json({ success: false, message: "Record not found." });
+        }
+
+        if (currentRecord.is_archived == 1 || currentRecord.status === 'Archived') {
+            return res.status(403).json({ 
+                success: false, 
+                message: "This record has been archived. You can no longer edit notes." 
+            });
+        }
+
+        // ==========================================
+        // I-UPDATE ANG RECORD
+        // ==========================================
+        await pool.query(`
+            UPDATE kamustahan_updates 
+            SET consultation_status = 'resolved',
+                org_response = ?,
+                org_responded_at = NOW()
+            WHERE update_id = ? AND organization_id = ?
+        `, [message ? message.trim() : null, updateId, orgId]);
+
+        // Notify Adopter (Safe Try-Catch)
+        try {
+            const [[update]] = await pool.query(
+                `SELECT adopter_id FROM kamustahan_updates WHERE update_id = ?`,
+                [updateId]
+            );
+            
+            if (update && update.adopter_id) {
+                const [[adopterAcct]] = await pool.query(
+                    `SELECT account_id FROM adopters WHERE adopter_id = ?`,
+                    [update.adopter_id]
+                );
+                if (adopterAcct && adopterAcct.account_id) {
+                    await createNotification(
+                        adopterAcct.account_id,
+                        "Update Reviewed",
+                        "The organization has reviewed your pet update.",
+                        "kamustahan_reviewed",
+                        "/kamustahan"
+                    );
+                }
+            }
+        } catch (notifErr) {
+            console.warn("Notification failed, but review saved:", notifErr.message);
+        }
+
+        res.json({ success: true, message: "Marked as reviewed." });
+    } catch (err) {
+        console.error("Acknowledge Error:", err);
+        res.status(500).json({ success: false, message: err.message });
+    }
+});
 module.exports = router;
