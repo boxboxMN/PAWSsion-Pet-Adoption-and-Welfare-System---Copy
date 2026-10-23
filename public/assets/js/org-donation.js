@@ -767,15 +767,11 @@ function renderDonationsTable(donations) {
                     <span class="text-xs text-gray-400 block mt-0.5">ref no: ${d.reference_number || 'N/A'}</span>
                 </td>
                 <td class="py-4 px-6">${statusBadge}</td>
-                <td class="py-4 px-6 text-center relative">
-                    <button onclick="toggleActionDropdown(event, ${donationId})" class="action-dropdown-btn text-gray-400 hover:text-gray-700 p-1.5 rounded-lg hover:bg-gray-100 transition">
-                        <i class="fa-solid fa-ellipsis-vertical text-lg"></i>
+                <td class="py-4 px-6 text-center">
+                    <button onclick="openReviewModal(${donationId})" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-lg transition flex items-center gap-1.5 mx-auto">
+                        <i class="fa-regular fa-eye"></i> Review
                     </button>
-                    <div id="actionMenu-${donationId}" class="action-dropdown-menu hidden absolute right-6 top-12 z-50 w-40 bg-white border border-gray-100 rounded-xl shadow-lg py-1 text-left text-xs font-medium">
-                        <button onclick="openReviewModal(${donationId})" class="w-full px-4 py-2 hover:bg-gray-50 text-gray-700 flex items-center gap-2">
-                            <i class="fa-regular fa-eye text-indigo-600"></i> Review Details
-                        </button>
-                    </div>
+                    
                 </td>
             </tr>
         `;
@@ -1911,72 +1907,376 @@ function refreshData() {
     if (typeof fetchInKindDonations === "function") fetchInKindDonations();
     showToast("Donation list refreshed!", "success");
 }
+let cachedOrganizationName = null;
 
-async function exportFile(format) {
-    const filterType = document.getElementById("filterType")?.value || "";
-    const dateValue = document.getElementById("datePicker")?.value || "";
-    const currentTab = typeof activeTab !== "undefined" ? activeTab : "cash";
+/**
+ * Resolves the logged-in organization name dynamically.
+ * Priority: DOM (topbar/sidebar/greeting) → API fallback → safe default.
+ * Ensures the export never prints a hardcoded name.
+ */
+async function getLoggedInOrganizationName() {
+    if (cachedOrganizationName) return cachedOrganizationName;
 
-    const url =
-        `/org/donations/export?format=${encodeURIComponent(format)}` +
-        `&tab=${encodeURIComponent(currentTab)}` +
-        `&type=${encodeURIComponent(filterType)}` +
-        `&date=${encodeURIComponent(dateValue)}`;
+    // 1) Known DOM element IDs
+    const domIds = [
+        'orgName', 'organizationName', 'org-name', 'organization-name',
+        'greetingOrgName', 'topbarOrgName', 'welcomeOrgName', 'headerOrgName',
+        'sidebarOrgName', 'userOrgName', 'profileOrgName'
+    ];
+    for (const id of domIds) {
+        const el = document.getElementById(id);
+        if (el) {
+            const txt = (el.dataset?.orgName || el.textContent || '').trim();
+            if (txt) { cachedOrganizationName = txt; return txt; }
+        }
+    }
 
+    // 2) Known CSS selectors / data attributes
+    const domSelectors = [
+        '.org-name', '.organization-name', '.greeting-name',
+        '[data-org-name]', '.topbar-org-name', '.sidebar-org-name'
+    ];
+    for (const sel of domSelectors) {
+        const el = document.querySelector(sel);
+        if (el) {
+            const txt = (el.dataset?.orgName || el.textContent || '').trim();
+            if (txt) { cachedOrganizationName = txt; return txt; }
+        }
+    }
+
+    // 3) Fallback: fetch from organization profile API
     try {
-        const response = await fetch(url, {
-            method: "GET",
-            headers: {
-                Authorization: "Bearer " + (localStorage.getItem("token") || "")
+        const res = await fetch('/api/organization/profile', { credentials: 'include' });
+        if (res.ok) {
+            const data = await res.json();
+            const name =
+                data?.name ||
+                data?.organization_name ||
+                data?.org_name ||
+                data?.orgName ||
+                data?.data?.name ||
+                data?.data?.organization_name ||
+                data?.data?.org_name;
+            if (name && String(name).trim()) {
+                cachedOrganizationName = String(name).trim();
+                return cachedOrganizationName;
             }
-        });
+        }
+    } catch (err) {
+        console.warn('Unable to fetch organization name from profile:', err);
+    }
 
-        if (!response.ok) {
-            const serverError = await response.json().catch(() => null);
+    return 'Organization';
+}
 
-            if (
-                response.status === 404 &&
-                serverError?.message?.includes("No verified/approved")
-            ) {
-                let noRecordMessage = "No records found for the selected period.";
-                if (filterType === "month") {
-                    noRecordMessage = "No records found for this month.";
-                } else if (filterType === "year") {
-                    noRecordMessage = "No records found for this year.";
-                }
-                showToast(noRecordMessage, "warning");
-                return;
+/** Makes a safe filename fragment. */
+function sanitizeFilenamePart(str) {
+    return String(str || '')
+        .replace(/[\\/:*?"<>|]+/g, '')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .trim() || 'report';
+}
+
+/** Returns "Year 2026", "August 2026", or "All Records". */
+function getReportPeriodLabel(filterType, dateValue) {
+    if (!dateValue) return 'All Records';
+    if (filterType === 'year') return `Year ${dateValue}`;
+    if (filterType === 'month') {
+        const [y, m] = String(dateValue).split('-').map(n => parseInt(n, 10));
+        if (y && m) {
+            return new Date(y, m - 1, 1).toLocaleDateString('en-US', {
+                month: 'long', year: 'numeric'
+            });
+        }
+    }
+    return String(dateValue);
+}
+
+/** Formats a date for export tables (date only, no time). */
+function formatExportDate(raw) {
+    if (!raw) return 'N/A';
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+/**
+ * Applies the same filters the table is currently showing:
+ * search input + status sub-tab + date picker.
+ */
+function buildExportData(tab, filterType, dateValue) {
+    const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
+    const source = tab === 'cash' ? allDonations : allInKindDonations;
+
+    return (source || []).filter(item => {
+        // Date filter
+        if (filterType && dateValue) {
+            const raw = item.created_at || item.date_created;
+            if (!raw) return false;
+            const d = new Date(raw);
+            if (isNaN(d.getTime())) return false;
+            if (filterType === 'year') {
+                if (d.getFullYear() !== parseInt(dateValue, 10)) return false;
+            } else if (filterType === 'month') {
+                const [y, m] = String(dateValue).split('-').map(n => parseInt(n, 10));
+                if (d.getFullYear() !== y || (d.getMonth() + 1) !== m) return false;
             }
-
-            throw new Error(
-                serverError?.message ||
-                `Server error ${response.status}: ${response.statusText}`
-            );
         }
 
-        const blob = await response.blob();
-        if (blob.size === 0) throw new Error("The server returned an empty file.");
+        // Status sub-tab filter
+        if (tab === 'cash' && cashStatusFilter !== 'ALL' &&
+            getStatusCategory(item.status) !== cashStatusFilter) return false;
+        if (tab === 'inkind' && inkindStatusFilter !== 'ALL' &&
+            getStatusCategory(item.status) !== inkindStatusFilter) return false;
 
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = downloadUrl;
+        // Search filter
+        if (searchTerm) {
+            const haystack = tab === 'cash'
+                ? `${item.donor_name || ''} ${item.reference_number || ''} ${item.amount || ''}`
+                : `${item.donor_name || ''} ${item.item_name || ''}`;
+            if (!haystack.toLowerCase().includes(searchTerm)) return false;
+        }
 
-        const fileExtension = format === "excel" ? "xlsx" : "pdf";
-        link.download = `${currentTab}_donations_report_${dateValue || "all"}.${fileExtension}`;
+        return true;
+    });
+}
+// =====================================================
+// ⭐ PDF EXPORT (jsPDF + AutoTable) — PERFECT ALIGNMENT
+// =====================================================
+function generateDonationPDF(orgName, tab, data, reportPeriod) {
+    const { jsPDF } = window.jspdf;
+    if (!jsPDF) {
+        showToast('PDF library not loaded.', 'error');
+        return;
+    }
 
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const pageWidth  = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
 
-        window.URL.revokeObjectURL(downloadUrl);
+    const generatedAt = new Date().toLocaleDateString('en-US', {
+        year: 'numeric', month: 'long', day: 'numeric'
+    });
 
-        showToast(
-            `${currentTab.toUpperCase()} report successfully downloaded!`,
-            "success"
-        );
-    } catch (error) {
-        console.error("Export error:", error);
-        showToast("Failed to download file: " + error.message, "error");
+    const reportTitle = tab === 'cash'
+        ? 'Cash Donations Report'
+        : 'In-Kind Donations Report';
+
+    // ---- Header ----
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.setTextColor(31, 41, 55);
+    doc.text(orgName, pageWidth / 2, 15, { align: 'center' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(12);
+    doc.setTextColor(79, 70, 229);
+    doc.text(reportTitle, pageWidth / 2, 22, { align: 'center' });
+
+    doc.setFontSize(9);
+    doc.setTextColor(107, 114, 128);
+    doc.text(`Period: ${reportPeriod}`, pageWidth / 2, 28, { align: 'center' });
+    doc.text(`Generated on: ${generatedAt}`, pageWidth / 2, 33, { align: 'center' });
+
+    // ---- Table data ----
+    let head, body;
+    if (tab === 'cash') {
+        head = [['Date', 'Donor', 'Amount (PHP)', 'Method', 'Reference No.', 'Status']];
+        body = data.map(d => {
+            const amount = parseFloat(d.amount || 0).toLocaleString('en-US', {
+                minimumFractionDigits: 2, maximumFractionDigits: 2
+            });
+            return [
+                formatExportDate(d.created_at),
+                d.donor_name || 'N/A',
+                amount,
+                String(d.payment_method || d.gateway || 'gcash').toUpperCase(),
+                d.reference_number || '—',
+                getStatusCategory(d.status)
+            ];
+        });
+    } else {
+       
+        head = [['Date', 'Donor', 'Item Name', 'Quantity', 'Status']];
+        body = data.map(d => [
+            formatExportDate(d.created_at),
+            d.donor_name || 'Anonymous',
+            d.item_name || 'N/A',
+            String(d.quantity ?? 'N/A'),
+            getStatusCategory(d.status)
+        ]);
+    }
+
+     doc.autoTable({
+        head,
+        body,
+        startY: 38,
+        styles: { 
+            fontSize: 9, 
+            cellPadding: 4, 
+            overflow: 'linebreak', 
+            valign: 'middle',
+            halign: 'center' // Center lahat ng data
+        },
+        headStyles: { 
+            fillColor: [79, 70, 229], 
+            textColor: 255, 
+            fontStyle: 'bold', 
+            halign: 'center',
+            valign: 'middle'
+        },
+        bodyStyles: {
+            halign: 'center',
+            valign: 'middle'
+        },
+        alternateRowStyles: { fillColor: [249, 250, 251] },
+        margin: { left: 15, right: 15, top: 38, bottom: 14 },
+        didDrawPage: (hookData) => {
+            const pageCount = doc.internal.getNumberOfPages();
+            doc.setFontSize(8);
+            doc.setTextColor(156, 163, 175);
+            doc.text(orgName, 15, pageHeight - 8, { align: 'left' });
+            doc.text(
+                `Page ${hookData.pageNumber} of ${pageCount}`,
+                pageWidth - 15, pageHeight - 8, { align: 'right' }
+            );
+        }
+    });
+
+    const filename = `${sanitizeFilenamePart(orgName)}_${tab}_donations_${sanitizeFilenamePart(reportPeriod)}.pdf`;
+    doc.save(filename);
+    showToast(`${tab === 'cash' ? 'Cash' : 'In-Kind'} report downloaded!`, 'success');
+}
+// =====================================================
+// ⭐ EXCEL EXPORT (HTML-table based .xls) — NO EMAIL, NO TIME
+// =====================================================
+function generateDonationExcel(orgName, tab, data, reportPeriod) {
+    let headers, rows;
+    if (tab === 'cash') {
+        // ⭐ Email column removed
+        headers = ['Date', 'Donor', 'Amount (PHP)', 'Method', 'Reference No.', 'Status'];
+        rows = data.map(d => [
+            formatExportDate(d.created_at),
+            d.donor_name || 'N/A',
+            parseFloat(d.amount || 0).toFixed(2),
+            String(d.payment_method || d.gateway || 'gcash').toUpperCase(),
+            d.reference_number || '',
+            getStatusCategory(d.status)
+        ]);
+    } else {
+        headers = ['Date', 'Donor', 'Item Name', 'Quantity', 'Category', 'Status'];
+        rows = data.map(d => [
+            formatExportDate(d.created_at),
+            d.donor_name || 'Anonymous',
+            d.item_name || 'N/A',
+            String(d.quantity ?? ''),
+            d.category || '',
+            getStatusCategory(d.status)
+        ]);
+    }
+
+    const escapeHtml = (s) => String(s ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    const colCount = headers.length;
+    const title = tab === 'cash' ? 'Cash Donations Report' : 'In-Kind Donations Report';
+
+    // ⭐ DATE ONLY — walang oras
+    const generatedAt = new Date().toLocaleDateString('en-US', {
+        year: 'numeric', month: 'long', day: 'numeric'
+    });
+
+    const html = `<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="UTF-8">
+<!--[if gte mso 9]>
+<xml>
+<x:ExcelWorkbook>
+<x:ExcelWorksheets>
+<x:ExcelWorksheet>
+<x:Name>${tab === 'cash' ? 'Cash Donations' : 'In-Kind Donations'}</x:Name>
+<x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
+</x:ExcelWorksheet>
+</x:ExcelWorksheets>
+</x:ExcelWorkbook>
+</xml>
+<![endif]-->
+<style>
+  table { border-collapse: collapse; font-family: Arial, sans-serif; font-size: 11pt; }
+  .org-title    { font-size: 16pt; font-weight: bold; color: #1f2937; padding: 2px 6px; }
+  .report-title { font-size: 13pt; font-weight: bold; color: #4f46e5; padding: 2px 6px; }
+  .meta         { font-size: 9pt;  color: #6b7280; padding: 2px 6px; }
+  th { background: #4f46e5; color: #ffffff; text-align: left; padding: 6px 10px; border: 1px solid #3730a3; }
+  td { padding: 5px 10px; border: 1px solid #e5e7eb; }
+  tr:nth-child(even) td { background: #f9fafb; }
+</style>
+</head>
+<body>
+  <table>
+    <tr><td colspan="${colCount}" class="org-title">${escapeHtml(orgName)}</td></tr>
+    <tr><td colspan="${colCount}" class="report-title">${escapeHtml(title)}</td></tr>
+    <tr><td colspan="${colCount}" class="meta">Period: ${escapeHtml(reportPeriod)}</td></tr>
+    <tr><td colspan="${colCount}" class="meta">Generated on: ${escapeHtml(generatedAt)}</td></tr>
+    <tr><td colspan="${colCount}"></td></tr>
+    <tr>${headers.map(h => `<th>${escapeHtml(h)}</th>`).join('')}</tr>
+    ${rows.map(r => `<tr>${r.map(c => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}
+  </table>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `${sanitizeFilenamePart(orgName)}_${tab}_donations_${sanitizeFilenamePart(reportPeriod)}.xls`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast(`${tab === 'cash' ? 'Cash' : 'In-Kind'} report downloaded!`, 'success');
+}
+
+// =====================================================
+// ⭐ MAIN EXPORT ENTRY POINT
+// =====================================================
+async function exportFile(format) {
+    // Close dropdown immediately
+    const exportMenu = document.getElementById('exportMenu');
+    if (exportMenu) exportMenu.classList.add('hidden');
+
+    try {
+        const filterType = document.getElementById('filterType')?.value || '';
+        const dateValue  = document.getElementById('datePicker')?.value || '';
+        const currentTab = activeTab || 'cash';
+
+        // ⭐ Fetch the logged-in org name dynamically — no hardcoding
+        const orgName = await getLoggedInOrganizationName();
+
+        const reportPeriod = getReportPeriodLabel(filterType, dateValue);
+        const data = buildExportData(currentTab, filterType, dateValue);
+
+        if (!data.length) {
+            let msg = 'No records found for the selected period.';
+            if (filterType === 'month') msg = 'No records found for this month.';
+            else if (filterType === 'year') msg = 'No records found for this year.';
+            showToast(msg, 'warning');
+            return;
+        }
+
+        if (format === 'pdf') {
+            generateDonationPDF(orgName, currentTab, data, reportPeriod);
+        } else {
+            generateDonationExcel(orgName, currentTab, data, reportPeriod);
+        }
+    } catch (err) {
+        console.error('Export error:', err);
+        showToast('Failed to download file: ' + (err.message || 'Unknown error'), 'error');
     }
 }
 
