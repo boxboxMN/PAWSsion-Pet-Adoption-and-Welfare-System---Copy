@@ -175,6 +175,12 @@
                 <button id="scheduleBtn" onclick="handleScheduleInterview()" class="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm font-semibold transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent">
                     Schedule Interview
                 </button>
+
+                <button id="qualificationChecklistBtn" type="button" onclick="openQualificationChecklist()" style="background-color: #16a34a !important; color: #ffffff !important; border-color: #16a34a !important;" class="px-5 py-2.5 rounded-xl border text-sm font-semibold transition cursor-pointer hover:opacity-90">
+                    <i class="fa-solid fa-clipboard-check mr-1" style="color: #ffffff !important;"></i>
+                    <span style="color: #ffffff !important;">Qualification Checklist</span>
+                </button>
+                
                 <button id="reviewDecisionBtn" onclick="handleReviewDecision()" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition shadow-md shadow-blue-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600">
                     Review Decision
                 </button>
@@ -340,6 +346,93 @@
         </div>
     </div>
 
+    <!-- ADOPTER QUALIFICATION CHECKLIST MODAL -->
+    <div id="qualificationChecklistModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+
+        <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
+
+            <!-- Header -->
+            <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        <i class="fa-solid fa-clipboard-check text-teal-600"></i>
+                        Adopter Qualification Checklist
+                    </h3>
+                    <p class="text-sm text-gray-500 mt-1">
+                        Assess the applicant's readiness to adopt this pet.
+                    </p>
+                </div>
+
+                <button type="button"
+                    onclick="closeQualificationChecklist()"
+                    class="text-gray-400 hover:text-gray-600 transition"
+                    aria-label="Close checklist">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+
+            <!-- Applicant and pet information -->
+            <div class="px-6 pt-5">
+                <div class="bg-teal-50 border border-teal-100 rounded-xl p-4">
+                    <p class="text-sm text-gray-600">Applicant</p>
+                    <p id="checklistApplicantName" class="font-semibold text-gray-900">Loading...</p>
+
+                    <p class="text-sm text-gray-600 mt-3">Pet</p>
+                    <p id="checklistPetName" class="font-semibold text-gray-900">Loading...</p>
+                </div>
+
+                <p class="text-xs text-gray-500 mt-3">
+                    This checklist is a guide for the organization's assessment.
+                    It does not automatically approve or decline an application.
+                    Mark items as Not Assessed when information is unavailable.
+                </p>
+            </div>
+
+            <!-- Checklist items will be rendered here by JavaScript -->
+            <div id="qualificationChecklistItems" class="px-6 py-5 space-y-6">
+                <p class="text-sm text-gray-500">Checklist items will appear here.</p>
+            </div>
+
+            <!-- General notes -->
+            <div class="px-6 pb-5">
+                <label for="qualificationChecklistNotes"
+                    class="block text-sm font-semibold text-gray-700 mb-2">
+                    Additional Notes
+                </label>
+
+                <textarea id="qualificationChecklistNotes"
+                    rows="4"
+                    maxlength="3000"
+                    placeholder="Add relevant observations or follow-up questions..."
+                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"></textarea>
+
+                <p id="qualificationChecklistLastUpdated"
+                    class="text-xs text-gray-500 mt-2">
+                    No saved checklist information loaded yet.
+                </p>
+            </div>
+
+            <!-- Footer -->
+            <div class="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+                <button type="button"
+                    onclick="closeQualificationChecklist()"
+                    class="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-semibold transition">
+                    Close
+                </button>
+                
+                <button type="button"
+                    id="saveQualificationChecklistBtn"
+                    onclick="saveQualificationChecklist()"
+                    style="background-color: #0d9488 !important; color: #ffffff !important; border: 1px solid #0d9488;"
+                    class="px-5 py-2.5 rounded-xl text-sm font-semibold transition flex items-center justify-center gap-2 cursor-pointer">
+                    <i class="fa-solid fa-floppy-disk" style="color: #ffffff !important;"></i>
+                    <span style="color: #ffffff !important;">Save Checklist</span>
+                </button>
+            </div>
+
+        </div>
+    </div>
+    
     <!-- INTERVIEW SETUP MODAL -->
     <div id="scheduleModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl transform transition-all space-y-6">
