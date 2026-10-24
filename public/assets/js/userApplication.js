@@ -370,7 +370,7 @@ function updateStepper(status) {
         currentStep = 1;
     } 
     // 2. Interview Scheduled
-    else if (status === "Interview Scheduled") {
+    else if (status === "Interview Scheduled" ||   status === "Post-Interview Review") {
         currentStep = 2;
     } 
     // 3. Approved
