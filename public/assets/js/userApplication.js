@@ -259,7 +259,13 @@ function renderTable() {
     // ---------------------------------------------
     // FILTER BY STATUS
     // ---------------------------------------------
-    const filtered = applications.filter(app => app.status === currentTab);
+    const filtered = applications.filter(app => {
+        if (currentTab === "Approved") {
+            return ["Approved", "Received"].includes(app.status);
+        }
+    
+        return app.status === currentTab;
+    });
 
     // ---------------------------------------------
     // NO RESULTS
