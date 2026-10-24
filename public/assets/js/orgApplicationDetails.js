@@ -219,11 +219,21 @@ function populateDetailsUI(app) {
             reviewDecisionBtn.textContent = "Approved";
             reviewDecisionBtn.className = "px-5 py-2.5 rounded-xl bg-emerald-100 text-emerald-700 text-sm font-semibold cursor-not-allowed opacity-80";
             reviewDecisionBtn.onclick = null;
-        } else {
+        } else if (lowerStatus === "interview scheduled") {
             reviewDecisionBtn.disabled = shouldDisable;
-            reviewDecisionBtn.textContent = "Finish Interview";
+            reviewDecisionBtn.textContent = "Done Interview";
             reviewDecisionBtn.className = "px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition shadow-md shadow-blue-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600";
+            reviewDecisionBtn.onclick = handleDoneInterview;
+        } else if (lowerStatus === "post-interview review") {
+            reviewDecisionBtn.disabled = false;
+            reviewDecisionBtn.textContent = "Review Decision";
+            reviewDecisionBtn.className = "px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition shadow-md cursor-pointer";
             reviewDecisionBtn.onclick = handleReviewDecision;
+        } else {
+            reviewDecisionBtn.disabled = true;
+            reviewDecisionBtn.textContent = "Review Decision";
+            reviewDecisionBtn.className = "px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold cursor-not-allowed opacity-50";
+            reviewDecisionBtn.onclick = null;
         }
     }
 
