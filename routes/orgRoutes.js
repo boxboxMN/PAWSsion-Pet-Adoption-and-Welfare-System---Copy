@@ -354,6 +354,196 @@ router.get('/applications/:id', async (req, res) => {
     }
 });
 
+// GET: Load Adopter Qualification Checklist
+router.get('/applications/:id/qualification-checklist', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const accountId = req.session?.accountId;
+
+        if (!accountId) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        // Get the organization linked to the logged-in account
+        const [orgRows] = await pool.query(
+            `SELECT organization_id
+             FROM organizations
+             WHERE account_id = ?`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Organization not found."
+            });
+        }
+
+        const orgId = orgRows[0].organization_id;
+
+        // Verify that the application belongs to this organization
+        const [appRows] = await pool.query(
+            `SELECT app.application_id
+             FROM user_adoption_applications app
+             INNER JOIN animals a ON app.animal_id = a.animal_id
+             WHERE app.application_id = ?
+               AND a.organization_id = ?`,
+            [id, orgId]
+        );
+
+        if (!appRows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Application not found or unauthorized access."
+            });
+        }
+
+        // Load the saved checklist, if one exists
+        const [rows] = await pool.query(
+            `SELECT checklist_data, notes, updated_at
+             FROM adoption_qualification_checklists
+             WHERE application_id = ?`,
+            [id]
+        );
+
+        if (!rows.length) {
+            return res.json({
+                success: true,
+                checklist: null
+            });
+        }
+
+        let checklistData = {};
+
+        try {
+            checklistData = JSON.parse(rows[0].checklist_data);
+        } catch (parseError) {
+            console.error("Checklist JSON parse error:", parseError);
+
+            return res.status(500).json({
+                success: false,
+                message: "Unable to read the saved checklist."
+            });
+        }
+
+        return res.json({
+            success: true,
+            checklist: {
+                data: checklistData,
+                notes: rows[0].notes,
+                updated_at: rows[0].updated_at
+            }
+        });
+
+    } catch (err) {
+        console.error("Load Qualification Checklist Error:", err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to load qualification checklist."
+        });
+    }
+});
+
+// POST: Save or Update Adopter Qualification Checklist
+router.post('/applications/:id/qualification-checklist', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const accountId = req.session?.accountId;
+        const { checklist_data, notes } = req.body;
+
+        if (!accountId) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        if (
+            !checklist_data ||
+            typeof checklist_data !== "object" ||
+            Array.isArray(checklist_data)
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid checklist data."
+            });
+        }
+
+        if (notes !== undefined && notes !== null && typeof notes !== "string") {
+            return res.status(400).json({
+                success: false,
+                message: "Notes must be text."
+            });
+        }
+
+        // Verify the organization linked to the logged-in account
+        const [orgRows] = await pool.query(
+            `SELECT organization_id
+             FROM organizations
+             WHERE account_id = ?`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Organization not found."
+            });
+        }
+
+        const orgId = orgRows[0].organization_id;
+
+        // Verify application ownership and allow checklist use
+        // without changing its current status
+        const [appRows] = await pool.query(
+            `SELECT app.application_id
+             FROM user_adoption_applications app
+             INNER JOIN animals a ON app.animal_id = a.animal_id
+             WHERE app.application_id = ?
+               AND a.organization_id = ?`,
+            [id, orgId]
+        );
+
+        if (!appRows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Application not found or unauthorized access."
+            });
+        }
+
+        await pool.query(
+            `INSERT INTO adoption_qualification_checklists
+                (application_id, checklist_data, notes)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                checklist_data = VALUES(checklist_data),
+                notes = VALUES(notes)`,
+            [
+                id,
+                JSON.stringify(checklist_data),
+                notes?.trim() || null
+            ]
+        );
+
+        return res.json({
+            success: true,
+            message: "Qualification checklist saved successfully."
+        });
+
+    } catch (err) {
+        console.error("Save Qualification Checklist Error:", err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to save qualification checklist."
+        });
+    }
+});
+
 // PATCH Update Application Status (Decline, Approve, Schedule Interview)
 router.patch('/applications/:id/status', async (req, res) => {
     // Gumamit ng connection mula sa pool para sa Transaction
