@@ -89,6 +89,8 @@ function getStatusClass(status) {
             return "scheduled";
         case "Approved":
             return "success";
+        case "Received":
+            return "success";
         case "Declined":
             return "declined";
         case "Cancelled":
