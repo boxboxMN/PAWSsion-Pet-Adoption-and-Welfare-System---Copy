@@ -207,7 +207,7 @@ function populateDetailsUI(app) {
         }
     }
 
-    // SINGLE "FINISH INTERVIEW" BUTTON: dynamic label/behavior depende sa status
+    // DYNAMIC INTERVIEW BUTTON BASED ON APPLICATION STATUS
     if (reviewDecisionBtn) {
         if (isDeclined) {
             reviewDecisionBtn.disabled = false;
