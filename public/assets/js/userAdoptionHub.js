@@ -1148,45 +1148,34 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Helper function to return to Pet List
     function returnToPetList() {
         // Automatically open the application form if a pet ID is in the URL
-        if (petId) {
+        // Hide application form
+        document.getElementById("application-view")?.classList.add("hidden");
 
-            // Save the pet ID
-            const hiddenInput = document.getElementById("selectedPetId");
-            if (hiddenInput) {
-                hiddenInput.value = petId;
-            }
+        //Show the pet list again
+        document.getElementById("list-view")?.classList.remove("hidden");
 
-            sessionStorage.removeItem("selectedPetId");
+        // I-clear ang selected pet ID para hindi maibalik ang form
+        const hiddenInput = document.getElementById("selectedPetId");
+        if (hiddenInput) {
+            hiddenInput.value = "";
+        }
 
-            // Panatilihin ang malinis na URL
-            window.history.replaceState({}, "", "/adoption-hub");
+        sessionStorage.removeItem("selectedPetId");
+        sessionStorage.removeItem("autoOpenPetId");
+        sessionStorage.removeItem("isReapply");
+        sessionStorage.removeItem("reapplyData");
+        
+        window.history.replaceState({}, "", "/adoption-hub");
 
-            // Hide list
-            document.getElementById("list-view")?.classList.add("hidden");
-
-            // Show application form
-            document.getElementById("application-view")?.classList.remove("hidden");
-
-        //     // Update topbar
-        //     if (typeof loadTopbar === "function") {
-        //         loadTopbar({
-        //             title: "Adoption Form",
-        //             subtitle: "Please fill out the form below to start your adoption journey"
-        //         });
-        //     }
-        // }
-        return;
-    }
-        document.getElementById('application-view')?.classList.add('hidden');
-        document.getElementById('list-view')?.classList.remove('hidden');
-
-        if (typeof loadTopbar === 'function') {
+        //Adoption Hub header
+        if (typeof loadTopbar === "function") {
             loadTopbar({
                 title: "Adoption Hub",
                 subtitle: "Browse available pets, view their profiles, and begin your adoption journey."
             });
         }
     }
+        
     async function loadSelectedPet(targetPetId) {
         try {
             const res = await fetch(`/api/pets/${targetPetId}`);
