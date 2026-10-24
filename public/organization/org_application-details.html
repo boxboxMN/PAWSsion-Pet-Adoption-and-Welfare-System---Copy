@@ -349,10 +349,10 @@
     <!-- ADOPTER QUALIFICATION CHECKLIST MODAL -->
     <div id="qualificationChecklistModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
 
-        <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-xl">
+        <div class="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-xl">
 
             <!-- Header -->
-            <div class="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between z-10">
+            <div class="shrink-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
                 <div>
                     <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
                         <i class="fa-solid fa-clipboard-check text-teal-600"></i>
@@ -371,55 +371,51 @@
                 </button>
             </div>
 
-            <!-- Applicant and pet information -->
-            <div class="px-6 pt-5">
-                <div class="bg-teal-50 border border-teal-100 rounded-xl p-4">
-                    <p class="text-sm text-gray-600">Applicant</p>
-                    <p id="checklistApplicantName" class="font-semibold text-gray-900">Loading...</p>
-
-                    <p class="text-sm text-gray-600 mt-3">Pet</p>
-                    <p id="checklistPetName" class="font-semibold text-gray-900">Loading...</p>
+            <div class="flex-1 overflow-y-auto">
+                <!-- Applicant and pet information -->
+                <div class="px-6 pt-5">
+                    <div class="bg-teal-50 border border-teal-100 rounded-xl p-4">
+                        <p class="text-sm text-gray-600">Applicant</p>
+                        <p id="checklistApplicantName" class="font-semibold text-gray-900">Loading...</p>
+    
+                        <p class="text-sm text-gray-600 mt-3">Pet</p>
+                        <p id="checklistPetName" class="font-semibold text-gray-900">Loading...</p>
+                    </div>
+    
+                    <p class="text-xs text-gray-500 mt-3">
+                        This checklist is a guide for the organization's assessment.
+                        It does not automatically approve or decline an application.
+                        Mark items as Not Assessed when information is unavailable.
+                    </p>
                 </div>
-
-                <p class="text-xs text-gray-500 mt-3">
-                    This checklist is a guide for the organization's assessment.
-                    It does not automatically approve or decline an application.
-                    Mark items as Not Assessed when information is unavailable.
-                </p>
-            </div>
-
-            <!-- Checklist items will be rendered here by JavaScript -->
-            <div id="qualificationChecklistItems" class="px-6 py-5 space-y-6">
-                <p class="text-sm text-gray-500">Checklist items will appear here.</p>
-            </div>
-
-            <!-- General notes -->
-            <div class="px-6 pb-5">
-                <label for="qualificationChecklistNotes"
-                    class="block text-sm font-semibold text-gray-700 mb-2">
-                    Additional Notes
-                </label>
-
-                <textarea id="qualificationChecklistNotes"
-                    rows="4"
-                    maxlength="3000"
-                    placeholder="Add relevant observations or follow-up questions..."
-                    class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"></textarea>
-
-                <p id="qualificationChecklistLastUpdated"
-                    class="text-xs text-gray-500 mt-2">
-                    No saved checklist information loaded yet.
-                </p>
+    
+                <!-- Checklist items will be rendered here by JavaScript -->
+                <div id="qualificationChecklistItems" class="px-6 py-5 space-y-6">
+                    <p class="text-sm text-gray-500">Checklist items will appear here.</p>
+                </div>
+    
+                <!-- General notes -->
+                <div class="px-6 pb-5">
+                    <label for="qualificationChecklistNotes"
+                        class="block text-sm font-semibold text-gray-700 mb-2">
+                        Additional Notes
+                    </label>
+    
+                    <textarea id="qualificationChecklistNotes"
+                        rows="4"
+                        maxlength="3000"
+                        placeholder="Add relevant observations or follow-up questions..."
+                        class="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500"></textarea>
+    
+                    <p id="qualificationChecklistLastUpdated"
+                        class="text-xs text-gray-500 mt-2">
+                        No saved checklist information loaded yet.
+                    </p>
+                </div>
             </div>
 
             <!-- Footer -->
-            <div class="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
-                <button type="button"
-                    onclick="closeQualificationChecklist()"
-                    class="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-semibold transition">
-                    Close
-                </button>
-                
+            <div class="shrink-0 bg-white border-t border-gray-100 px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
                 <button type="button"
                     id="saveQualificationChecklistBtn"
                     onclick="saveQualificationChecklist()"
