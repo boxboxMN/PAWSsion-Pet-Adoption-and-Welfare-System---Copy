@@ -598,7 +598,7 @@ async function updateStatus(appId, status, reason = null, meetupLocation = null)
                 text: data.message || `Application status updated to ${status}.`,
                 confirmButtonColor: '#2563EB'
             });
-            fetchApplicationDetail(appId);
+            await fetchApplicationDetail(appId);
         } else {
             Swal.fire({
                 icon: 'error',
