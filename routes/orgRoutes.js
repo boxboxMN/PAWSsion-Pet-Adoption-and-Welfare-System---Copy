@@ -363,7 +363,7 @@ router.patch('/applications/:id/status', async (req, res) => {
         const { id } = req.params;
         const { status, decline_reason, meetup_location } = req.body;
 
-        const validStatuses = ['Under Review', 'Interview Scheduled', 'Approved', 'Declined'];
+       const validStatuses = ['Under Review', 'Interview Scheduled', 'Post-Interview Review', 'Approved', 'Declined'];
 
         if (!status || !validStatuses.includes(status)) {
             connection.release();
