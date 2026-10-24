@@ -752,6 +752,101 @@ router.patch('/applications/:id/status', async (req, res) => {
 }
 });
 
+// PATCH Confirm Pet Handover
+router.patch('/applications/:id/confirm-handover', async (req, res) => {
+    const connection = await pool.getConnection();
+
+    try {
+        const { id } = req.params;
+        const accountId = req.session?.accountId;
+
+        if (!accountId) {
+            connection.release();
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        const [orgRows] = await connection.query(
+            `SELECT organization_id
+            FROM organizations
+            WHERE account_id = ?`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            connection.release();
+            return res.status(404).json({
+                success: false,
+                message: "Organization not found."
+            });
+        }
+
+        const organizationId = orgRows[0].organization_id;
+        await connection.beginTransaction();
+
+        // Verify that this application belongs to the organization's pet.
+        const [appRows] = await connection.query(
+            `SELECT app.application_id, app.status
+             FROM user_adoption_applications app
+             JOIN animals a ON app.animal_id = a.animal_id
+             WHERE app.application_id = ?
+               AND a.organization_id = ?
+             FOR UPDATE`,
+            [id, organizationId]
+        );
+
+        if (appRows.length === 0) {
+            await connection.rollback();
+            connection.release();
+
+            return res.status(404).json({
+                success: false,
+                message: "Application not found or you do not have permission to update it."
+            });
+        }
+
+        if (appRows[0].status !== 'Approved') {
+            await connection.rollback();
+            connection.release();
+
+            return res.status(400).json({
+                success: false,
+                message: "Only approved applications can be marked as received."
+            });
+        }
+
+        // Update the application only. Do not change the animal's Adopted status.
+        await connection.query(
+            `UPDATE user_adoption_applications
+             SET status = 'Received', updated_at = NOW()
+             WHERE application_id = ?`,
+            [id]
+        );
+
+        await connection.commit();
+        connection.release();
+
+        res.json({
+            success: true,
+            message: "Pet handover confirmed successfully. Application status is now Received.",
+            status: "Received"
+        });
+
+    } catch (err) {
+        await connection.rollback();
+        connection.release();
+
+        console.error("Error confirming pet handover:", err);
+
+        res.status(500).json({
+            success: false,
+            message: "Failed to confirm pet handover."
+        });
+    }
+});
+
 // POST: Save/Schedule Interview
 router.post('/applications/:id/schedule', async (req, res) => {
     try {
