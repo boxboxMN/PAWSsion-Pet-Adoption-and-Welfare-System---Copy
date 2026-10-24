@@ -348,6 +348,74 @@ if (currentAppDetails.interview_time) {
 return now < schedDate;
 }
 
+// checks if the interview is scheduled and if the current time is before the scheduled interview time
+async function handleDoneInterview() {
+    if (!currentAppId || !currentAppDetails) {
+        return Swal.fire({
+            icon: "warning",
+            title: "Attention",
+            text: "No application selected.",
+            confirmButtonColor: "#2563EB"
+        });
+    }
+
+    const currentStatus = (
+        currentAppDetails.status || ""
+    ).toLowerCase();
+
+    // Only scheduled interviews can be marked as completed
+    if (currentStatus !== "interview scheduled") {
+        return Swal.fire({
+            icon: "warning",
+            title: "Invalid Status",
+            text: "Only applications with a scheduled interview can be marked as completed.",
+            confirmButtonColor: "#2563EB"
+        });
+    }
+
+    // Prevent marking the interview as done before its scheduled time
+    if (isInterviewIncomplete()) {
+        return Swal.fire({
+            icon: "warning",
+            title: "Interview Not Yet Finished",
+            text: "You can mark the interview as done after its scheduled date and time.",
+            confirmButtonColor: "#2563EB"
+        });
+    }
+
+    const result = await Swal.fire({
+        icon: "question",
+        title: "Finish Interview?",
+        text: "Mark this interview as completed and move the application to Post-Interview Review?",
+        showCancelButton: true,
+        confirmButtonText: "Yes, Done Interview",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#2563EB"
+    });
+
+    if (!result.isConfirmed) return;
+
+    const btn = document.getElementById("reviewDecisionBtn");
+
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = "Updating...";
+    }
+
+    try {
+        await updateStatus(
+            currentAppId,
+            "Post-Interview Review"
+        );
+    } finally {
+        // Restore the button if the request fails
+        // or the status has not changed yet.
+        if (btn) {
+            btn.disabled = false;
+        }
+    }
+}
+
 // ================= REVIEW DECISION (post-interview hub) =================
 function handleReviewDecision() {
         if (!currentAppId) {
