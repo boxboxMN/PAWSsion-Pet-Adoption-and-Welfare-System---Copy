@@ -532,7 +532,7 @@ function showDetails(app) {
     const interviewCard = document.getElementById("detail-interview-card");
     const interviewContent = document.getElementById("detail-interview-content");
     
-    if (app.status === "Interview Scheduled") {
+    if (app.status === "Interview Scheduled" ||  app.status === "Post-Interview Review") {
         interviewCard.classList.remove("hidden");
 
         // I-update ang Card Header para sa Reschedule Button / Pending Badge
