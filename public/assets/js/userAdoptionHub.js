@@ -1147,7 +1147,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Helper function to return to Pet List
     function returnToPetList() {
-        // Automatically open the application form if a pet ID is in the URL
         // Hide application form
         document.getElementById("application-view")?.classList.add("hidden");
 
