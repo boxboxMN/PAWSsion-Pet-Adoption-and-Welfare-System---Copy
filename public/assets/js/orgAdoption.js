@@ -274,7 +274,10 @@ function getStatusBadgeHTML(status) {
     // Gawing lowercase at palitan ang underscores para ligtas ang comparison
     const cleanStatus = status.toLowerCase().replace('_', ' ').trim();
 
-    if (cleanStatus.includes('approved')) {
+    if (cleanStatus === 'post-interview review') {
+        return `<span class="px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">Post-Interview Review</span>`;
+    }
+    else if (cleanStatus.includes('approved')) {
         return `<span class="px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-600">Approved</span>`;
     } 
     else if (cleanStatus.includes('declined') || cleanStatus.includes('rejected')) {
