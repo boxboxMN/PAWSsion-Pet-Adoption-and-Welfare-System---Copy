@@ -1715,6 +1715,23 @@ const qualificationChecklistSections = [
                 label: "Has a lifestyle and activity level compatible with this pet's needs."
             }
         ]
+    },
+    {
+        title: "9. Health-Related Considerations and Pet-Care Planning",
+        items: [
+            {
+                id: "care_continuity",
+                label: "Has a plan to maintain the pet's daily care if temporarily unable to provide it."
+            },
+            {
+                id: "support_arrangements",
+                label: "Has considered trusted support or alternative caregiving arrangements when needed."
+            },
+            {
+                id: "care_support_needs",
+                label: "Has considered any assistance or arrangements needed to provide consistent care for the pet."
+            }
+        ]
     }
 ];
 
@@ -1815,7 +1832,8 @@ async function openQualificationChecklist() {
     }
 
     modal.classList.remove("hidden");
-
+    document.body.style.overflow = "hidden"; 
+    
     // Show applicant and pet details using the currently loaded application.
     const applicantName = document.getElementById("checklistApplicantName");
     const petName = document.getElementById("checklistPetName");
@@ -1912,6 +1930,7 @@ function closeQualificationChecklist() {
 
     if (modal) {
         modal.classList.add("hidden");
+        document.body.style.overflow = ""; 
     }
 }
 
