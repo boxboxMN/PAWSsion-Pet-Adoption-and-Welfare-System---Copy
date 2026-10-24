@@ -519,32 +519,14 @@ async function handleApprove() {
         return Swal.fire({ icon: 'warning', title: 'Attention', text: 'No application selected.', confirmButtonColor: '#2563EB' });
     }
 
-    // CHECK: Huwag payagan kung hindi pa tapos ang interview
-    if (currentAppDetails) {
-        const lowerStatus = (currentAppDetails.status || "").toLowerCase();
-        const isUnderReview = lowerStatus.includes("under review") || lowerStatus.includes("pending") || !lowerStatus.includes("interview");
-        
-        let isPast = false;
-        if (currentAppDetails.interview_date) {
-            const now = new Date();
-            const interviewDateTime = new Date(currentAppDetails.interview_date);
-            if (currentAppDetails.interview_time) {
-                const [h, m] = currentAppDetails.interview_time.split(':');
-                interviewDateTime.setHours(parseInt(h, 10), parseInt(m, 10), 0, 0);
-            } else {
-                interviewDateTime.setHours(23, 59, 59, 999);
-            }
-            if (now > interviewDateTime) isPast = true;
-        }
-
-        if (isUnderReview || (currentAppDetails.interview_date && !isPast)) {
-            return Swal.fire({
-                icon: 'warning',
-                title: 'Action Restricted',
-                text: 'Hindi maaring i-approve ang application habang naka-Under Review pa o habang may ongoing/upcoming interview schedule.',
-                confirmButtonColor: '#2563EB'
-            });
-        }
+    // Only allow approval after the interview is marked complete
+    if (!currentAppDetails || (currentAppDetails.status || "").toLowerCase() !== "post-interview review") {
+        return Swal.fire({
+             icon: "warning",
+            title: "Action Restricted",
+            text: "You can only approve an application after marking the interview as done.",
+            confirmButtonColor: "#2563EB"
+        });
     }
 
     // Auto-fill ang Meet-up Location gamit ang naka-save na address ng organization,
