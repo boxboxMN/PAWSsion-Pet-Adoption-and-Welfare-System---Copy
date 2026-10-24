@@ -155,7 +155,7 @@ function populateDetailsUI(app) {
     const statusBadge = document.getElementById("appStatusBadge");
 
     if (statusBadge) {
-        if (hasInterviewSchedule && isPastInterview && !["approved", "declined", "rejected"].includes(lowerStatus)) {
+         if (lowerStatus === "post-interview review") {
             statusBadge.textContent = "Post-Interview Review";
             statusBadge.className = "inline-flex px-4 py-1.5 rounded-full text-sm font-medium bg-purple-100 text-purple-700 border border-purple-200";
         } else {
