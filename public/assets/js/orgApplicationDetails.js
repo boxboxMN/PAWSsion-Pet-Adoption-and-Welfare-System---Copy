@@ -324,7 +324,7 @@ function populateDetailsUI(app) {
 
 // ================= CHECK IF INTERVIEW IS INCOMPLETE =================
 function isInterviewIncomplete() {
-if (!currentAppDetails || !currentAppDetails.interview_date) return false;
+if (!currentAppDetails || !currentAppDetails.interview_date) return true;
 
 const now = new Date();
 let schedDate;
