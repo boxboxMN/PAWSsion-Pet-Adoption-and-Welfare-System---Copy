@@ -2122,7 +2122,7 @@ exports.getApprovedAdoptedPets = async (req, res) => {
             FROM user_adoption_applications app
             JOIN animals a ON app.animal_id = a.animal_id
             WHERE app.adopter_id = ? 
-              AND UPPER(app.status) = 'APPROVED'
+              AND UPPER(app.status) IN ('APPROVED', 'RECEIVED')
               AND NOT EXISTS (
                   SELECT 1 
                   FROM pet_returns pr
