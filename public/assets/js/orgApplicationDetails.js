@@ -1623,3 +1623,379 @@ document.addEventListener("click", function(event) {
 document.addEventListener("DOMContentLoaded", () => {
     generateTimeOptions();
 });
+
+const qualificationChecklistSections = [
+    {
+        title: "1. Financial Readiness",
+        items: [
+            { id: "food_expenses", label: "Can provide regular food and clean drinking water." },
+            { id: "vet_expenses", label: "Has considered routine veterinary care and emergency expenses." },
+            { id: "basic_supplies", label: "Can provide essential supplies for the pet." }
+        ]
+    },
+    {
+        title: "2. Living Environment and Safety",
+        items: [
+            { id: "living_permission", label: "Has permission to keep a pet where they live, when applicable." },
+            { id: "safe_space", label: "Can provide a safe and suitable living space." },
+            { id: "hazards", label: "Has considered potential household hazards and escape risks." }
+        ]
+    },
+    {
+        title: "3. Pet-Care Knowledge",
+        items: [
+            { id: "basic_care", label: "Understands the pet's basic feeding, hygiene, and care needs." },
+            { id: "healthcare", label: "Understands the importance of vaccinations and veterinary checkups." },
+            { id: "behavior", label: "Understands that pets may need training, patience, and adjustment time." }
+        ]
+    },
+    {
+        title: "4. Existing or Previous Pet Experience",
+        items: [
+            { id: "experience", label: "Has discussed any relevant previous or current pet-care experience." },
+            { id: "first_time_support", label: "If a first-time adopter, has considered available guidance and support." }
+        ]
+    },
+    {
+        title: "5. Time and Long-Term Commitment",
+        items: [
+            { id: "daily_time", label: "Can provide sufficient time, attention, and daily care." },
+            { id: "long_term", label: "Understands the long-term responsibility of pet ownership." },
+            { id: "backup_care", label: "Has considered who can care for the pet during absences or emergencies." }
+        ]
+    },
+    {
+        title: "6. Animal Welfare and Handling",
+        items: [
+            { id: "humane_handling", label: "Demonstrates understanding of humane and responsible handling." },
+            { id: "welfare", label: "Understands the importance of the pet's safety and welfare." },
+            { id: "adjustment", label: "Is prepared to allow the pet time to adjust to a new home." }
+        ]
+    },
+    {
+        title: "7. Pet-Specific Readiness",
+        items: [
+            { id: "specific_needs", label: "Has considered this pet's known needs, age, and behavior." },
+            { id: "household_fit", label: "Has considered compatibility with household members and other pets, if applicable." }
+        ]
+    },
+    {
+        title: "8. Adopter Behavior and Personality",
+        items: [
+            {
+                id: "patience_understanding",
+                label: "Shows willingness to be patient while the pet adjusts to its new home."
+            },
+            {
+                id: "animal_behavior_approach",
+                label: "Has considered humane ways to respond to unwanted behavior, fear, or adjustment difficulties."
+            },
+            {
+                id: "realistic_expectations",
+                label: "Has realistic expectations about pet ownership, training, and the pet's adjustment period."
+            },
+            {
+                id: "lifestyle_compatibility",
+                label: "Has a lifestyle and activity level compatible with this pet's needs."
+            }
+        ]
+    }
+];
+
+const qualificationChecklistStatuses = [
+    { value: "satisfactory", label: "Satisfactory" },
+    { value: "needs_follow_up", label: "Needs Follow-up" },
+    { value: "unsatisfactory", label: "Unsatisfactory" },
+    { value: "not_assessed", label: "Not Assessed" }
+];
+
+function renderQualificationChecklist(savedData = {}) {
+    const container = document.getElementById("qualificationChecklistItems");
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    qualificationChecklistSections.forEach((section) => {
+        const sectionElement = document.createElement("section");
+        sectionElement.className = "space-y-4";
+
+        const heading = document.createElement("h4");
+        heading.className = "text-base font-bold text-gray-800 border-b border-gray-200 pb-2";
+        heading.textContent = section.title;
+        sectionElement.appendChild(heading);
+
+        section.items.forEach((item) => {
+            const savedItem = savedData[item.id] || {};
+            const itemWrapper = document.createElement("div");
+            itemWrapper.className = "rounded-xl border border-gray-200 p-4 space-y-3";
+
+            const label = document.createElement("p");
+            label.className = "text-sm font-medium text-gray-800";
+            label.textContent = item.label;
+            itemWrapper.appendChild(label);
+
+            const statusGroup = document.createElement("div");
+            statusGroup.className = "flex flex-wrap gap-x-4 gap-y-2";
+
+            qualificationChecklistStatuses.forEach((status) => {
+                const optionLabel = document.createElement("label");
+                optionLabel.className = "inline-flex items-center gap-2 text-xs text-gray-600 cursor-pointer";
+
+                const radio = document.createElement("input");
+                radio.type = "radio";
+                radio.name = `qualification_${item.id}`;
+                radio.value = status.value;
+                radio.className = "text-teal-600 focus:ring-teal-500";
+                radio.checked = savedItem.status === status.value;
+
+                optionLabel.appendChild(radio);
+
+                const optionText = document.createElement("span");
+                optionText.textContent = status.label;
+                optionLabel.appendChild(optionText);
+
+                statusGroup.appendChild(optionLabel);
+            });
+
+            itemWrapper.appendChild(statusGroup);
+
+            const noteLabel = document.createElement("label");
+            noteLabel.className = "block text-xs font-semibold text-gray-600";
+            noteLabel.textContent = "Item Notes";
+
+            const noteInput = document.createElement("textarea");
+            noteInput.name = `qualification_note_${item.id}`;
+            noteInput.rows = 2;
+            noteInput.maxLength = 1000;
+            noteInput.placeholder = "Optional observations or follow-up questions...";
+            noteInput.className = "mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500";
+            noteInput.value = savedItem.notes || "";
+
+            noteLabel.appendChild(noteInput);
+            itemWrapper.appendChild(noteLabel);
+
+            sectionElement.appendChild(itemWrapper);
+        });
+
+        container.appendChild(sectionElement);
+    });
+}
+
+
+async function openQualificationChecklist() {
+    if (!currentAppId) {
+        Swal.fire({
+            icon: "warning",
+            title: "No Application Selected",
+            text: "Please select an adoption application first."
+        });
+        return;
+    }
+
+    const modal = document.getElementById("qualificationChecklistModal");
+    if (!modal) {
+        console.error("Qualification checklist modal was not found.");
+        return;
+    }
+
+    modal.classList.remove("hidden");
+
+    // Show applicant and pet details using the currently loaded application.
+    const applicantName = document.getElementById("checklistApplicantName");
+    const petName = document.getElementById("checklistPetName");
+
+    if (applicantName) {
+        applicantName.textContent =
+            currentAppDetails?.full_name ||
+            currentAppDetails?.applicant_name ||
+            "Applicant";
+    }
+
+    if (petName) {
+        petName.textContent =
+            currentAppDetails?.pet_name ||
+            currentAppDetails?.animal_name ||
+            "Pet";
+    }
+
+    renderQualificationChecklist();
+
+    const lastUpdated = document.getElementById("qualificationChecklistLastUpdated");
+    if (lastUpdated) {
+        lastUpdated.textContent = "Loading saved checklist...";
+    }
+
+    try {
+        const response = await fetch(
+            `/org/applications/${encodeURIComponent(currentAppId)}/qualification-checklist`,
+            {
+                method: "GET",
+                headers: {
+                    "Accept": "application/json"
+                },
+                credentials: "same-origin"
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || "Failed to load the checklist.");
+        }
+
+        const checklist = result.checklist;
+
+        if (checklist) {
+            renderQualificationChecklist(checklist.data || {});
+
+            const notesField = document.getElementById("qualificationChecklistNotes");
+            if (notesField) {
+                notesField.value = checklist.notes || "";
+            }
+
+            if (lastUpdated) {
+                const updatedDate = checklist.updated_at
+                    ? new Date(checklist.updated_at)
+                    : null;
+
+                lastUpdated.textContent =
+                    updatedDate && !Number.isNaN(updatedDate.getTime())
+                        ? `Last updated: ${updatedDate.toLocaleString()}`
+                        : "Saved checklist loaded.";
+            }
+        } else {
+            // No saved checklist yet: start with a blank checklist.
+            renderQualificationChecklist();
+
+            const notesField = document.getElementById("qualificationChecklistNotes");
+            if (notesField) {
+                notesField.value = "";
+            }
+
+            if (lastUpdated) {
+                lastUpdated.textContent = "No checklist has been saved yet.";
+            }
+        }
+    } catch (error) {
+        console.error("Load qualification checklist error:", error);
+
+        if (lastUpdated) {
+            lastUpdated.textContent = "Unable to load the saved checklist.";
+        }
+
+        Swal.fire({
+            icon: "error",
+            title: "Unable to Load Checklist",
+            text: error.message || "Please try again."
+        });
+    }
+}
+
+function closeQualificationChecklist() {
+    const modal = document.getElementById("qualificationChecklistModal");
+
+    if (modal) {
+        modal.classList.add("hidden");
+    }
+}
+
+
+async function saveQualificationChecklist() {
+    if (!currentAppId) {
+        Swal.fire({
+            icon: "warning",
+            title: "No Application Selected",
+            text: "Please select an adoption application first."
+        });
+        return;
+    }
+
+    const saveButton = document.getElementById("saveQualificationChecklistBtn");
+    const notesField = document.getElementById("qualificationChecklistNotes");
+
+    const checklistData = {};
+
+    // Collect each item's status and notes.
+    qualificationChecklistSections.forEach((section) => {
+        section.items.forEach((item) => {
+            const selectedStatus = document.querySelector(
+                `input[name="qualification_${item.id}"]:checked`
+            );
+
+            const itemNotes = document.querySelector(
+                `textarea[name="qualification_note_${item.id}"]`
+            );
+
+            checklistData[item.id] = {
+                status: selectedStatus ? selectedStatus.value : null,
+                notes: itemNotes?.value.trim() || ""
+            };
+        });
+    });
+
+    const originalButtonHTML = saveButton?.innerHTML;
+
+    try {
+        if (saveButton) {
+            saveButton.disabled = true;
+            saveButton.innerHTML =
+                '<i class="fa-solid fa-spinner fa-spin"></i> Saving...';
+        }
+
+        const response = await fetch(
+            `/org/applications/${encodeURIComponent(currentAppId)}/qualification-checklist`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                },
+                credentials: "same-origin",
+                body: JSON.stringify({
+                    checklist_data: checklistData,
+                    notes: notesField?.value.trim() || ""
+                })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.message || "Failed to save the checklist.");
+        }
+
+        const lastUpdated = document.getElementById(
+            "qualificationChecklistLastUpdated"
+        );
+
+        if (lastUpdated) {
+            lastUpdated.textContent =
+                `Last saved: ${new Date().toLocaleString()}`;
+        }
+
+        await Swal.fire({
+            icon: "success",
+            title: "Checklist Saved",
+            text: result.message || "Qualification checklist saved successfully.",
+            confirmButtonColor: "#0d9488"
+        });
+
+        closeQualificationChecklist();
+        
+    } catch (error) {
+        console.error("Save qualification checklist error:", error);
+
+        Swal.fire({
+            icon: "error",
+            title: "Save Failed",
+            text: error.message || "Unable to save the checklist. Please try again."
+        });
+
+    } finally {
+        if (saveButton) {
+            saveButton.disabled = false;
+            saveButton.innerHTML = originalButtonHTML ||
+                '<i class="fa-solid fa-floppy-disk"></i> Save Checklist';
+        }
+    }
+}
