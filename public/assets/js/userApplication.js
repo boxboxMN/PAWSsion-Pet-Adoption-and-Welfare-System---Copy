@@ -85,6 +85,8 @@ function getStatusClass(status) {
             return "active";
         case "Interview Scheduled":
             return "scheduled";
+        case "Post-Interview Review":
+            return "scheduled";
         case "Approved":
             return "success";
         case "Declined":
