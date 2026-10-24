@@ -162,6 +162,9 @@ function populateDetailsUI(app) {
             statusBadge.textContent = status;
             if (lowerStatus === "approved") {
                 statusBadge.className = "inline-flex px-4 py-1.5 rounded-full text-sm font-medium bg-emerald-100 text-emerald-600";
+            } else if (lowerStatus === "received") {
+                statusBadge.textContent = "Received";
+                statusBadge.className = "inline-flex px-4 py-1.5 rounded-full text-sm font-medium bg-teal-100 text-teal-700 border border-teal-200";
             } else if (lowerStatus === "declined" || lowerStatus === "rejected") {
                 statusBadge.className = "inline-flex px-4 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-600";
             } else if (isInterviewScheduled) {
@@ -181,10 +184,19 @@ function populateDetailsUI(app) {
     const scheduleBtn = document.getElementById("scheduleBtn");
     const reviewDecisionBtn = document.getElementById("reviewDecisionBtn");
 
+    const confirmPetHandoverBtn = document.getElementById("confirmPetHandoverBtn");
+
+    if (confirmPetHandoverBtn) {
+        const canConfirmHandover = lowerStatus === "approved";
+
+        confirmPetHandoverBtn.classList.toggle("hidden", !canConfirmHandover);
+    }
+
     const isDeclined = ["declined", "rejected"].includes(lowerStatus);
     const isApproved = lowerStatus === "approved";
+    const isReceived = lowerStatus === "received";
     const isCancelled = lowerStatus.includes("cancelled"); // Check kung kinansela ng adopter
-    const isFinalized = isApproved || isDeclined || isCancelled;
+    const isFinalized = isApproved || isReceived || isDeclined || isCancelled;
 
     // Disable checklist only for declined or cancelled applications
     const qualificationChecklistBtn = document.getElementById("qualificationChecklistBtn");
@@ -230,6 +242,11 @@ function populateDetailsUI(app) {
             reviewDecisionBtn.textContent = "View Decline Reason";
             reviewDecisionBtn.className = "px-5 py-2.5 rounded-xl border border-amber-500 bg-amber-50 text-amber-700 hover:bg-amber-100 text-sm font-semibold transition cursor-pointer";
             reviewDecisionBtn.onclick = handleViewDeclineReason;
+        } else if (isReceived) {
+            reviewDecisionBtn.disabled = true;
+            reviewDecisionBtn.textContent = "Received";
+            reviewDecisionBtn.className = "px-5 py-2.5 rounded-xl bg-teal-100 text-teal-700 text-sm font-semibold cursor-not-allowed opacity-80";
+            reviewDecisionBtn.onclick = null;
         } else if (isApproved) {
             reviewDecisionBtn.disabled = true;
             reviewDecisionBtn.textContent = "Approved";
@@ -2031,6 +2048,111 @@ async function saveQualificationChecklist() {
             saveButton.disabled = false;
             saveButton.innerHTML = originalButtonHTML ||
                 '<i class="fa-solid fa-floppy-disk"></i> Save Checklist';
+        }
+    }
+}
+
+function confirmPetHandover() {
+    if (!currentAppId || !currentAppDetails) {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Attention',
+            text: 'No application selected.',
+            confirmButtonColor: '#2563EB'
+        });
+    }
+
+    if ((currentAppDetails.status || '').toLowerCase() !== 'approved') {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Action Restricted',
+            text: 'Only approved applications can have their handover confirmed.',
+            confirmButtonColor: '#2563EB'
+        });
+    }
+
+    document.getElementById('handoverApplicantName').textContent =
+        currentAppDetails.full_name || 'N/A';
+
+    document.getElementById('handoverPetName').textContent =
+        currentAppDetails.pet_name || 'N/A';
+
+    document.getElementById('confirmPetHandoverModal')
+        ?.classList.remove('hidden');
+}
+
+function closePetHandoverModal() {
+    document.getElementById('confirmPetHandoverModal')
+        ?.classList.add('hidden');
+}
+
+async function submitPetHandover() {
+    if (!currentAppId) {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Attention',
+            text: 'No application selected.',
+            confirmButtonColor: '#2563EB'
+        });
+    }
+
+    const confirmBtn = document.getElementById('confirmPetHandoverSubmitBtn');
+
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML =
+            '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Confirming...';
+    }
+
+    try {
+        const response = await fetch(
+            `/org/applications/${currentAppId}/confirm-handover`,
+            {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include'
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            await Swal.fire({
+                icon: 'error',
+                title: 'Handover Failed',
+                text: data.message || 'Unable to confirm pet handover.',
+                confirmButtonColor: '#EF4444'
+            });
+            return;
+        }
+
+        closePetHandoverModal();
+
+        await Swal.fire({
+            icon: 'success',
+            title: 'Handover Confirmed!',
+            text: 'The application status is now Received. The pet remains Adopted.',
+            confirmButtonColor: '#2563EB'
+        });
+
+        await fetchApplicationDetail(currentAppId);
+
+    } catch (err) {
+        console.error('Error confirming pet handover:', err);
+
+        await Swal.fire({
+            icon: 'error',
+            title: 'Server Error',
+            text: 'Unable to connect to the server. Please try again later.',
+            confirmButtonColor: '#EF4444'
+        });
+
+    } finally {
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = 'Confirm Handover';
         }
     }
 }
