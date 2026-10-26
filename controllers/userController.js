@@ -2412,6 +2412,66 @@ exports.getKamustahanHistory = async (req, res) => {
         return res.status(500).json({ success: false, error: "Failed to load kamustahan history." });
     }
 };
+
+// ==========================================
+// GET KAMUSTAHAN DUE UPDATES
+// ==========================================
+exports.getKamustahanDue = async (req, res) => {
+    const accountId = req.session?.accountId;
+    if (!accountId) {
+        return res.status(401).json({
+            success: false,
+            error: "Unauthorized access."
+        });
+    }
+
+    try {
+        const [adopterRows] = await pool.query(
+            `SELECT adopter_id FROM adopters WHERE account_id = ? LIMIT 1`,
+            [accountId]
+        );
+
+        if (!adopterRows.length) {
+            return res.status(404).json({
+                success: false,
+                error: "Adopter profile not found."
+            });
+        }
+
+        const adopterId = adopterRows[0].adopter_id;
+
+        const [dueUpdates] = await pool.query(
+            `
+            SELECT
+                k.update_id,
+                k.animal_id,
+                k.scheduled_date,
+                k.status,
+                a.name AS pet_name
+            FROM kamustahan_updates k
+            JOIN animals a ON k.animal_id = a.animal_id
+            WHERE k.adopter_id = ?
+              AND k.status = 'For Update'
+              AND k.is_archived = 0
+            ORDER BY k.scheduled_date ASC
+            `,
+            [adopterId]
+        );
+
+        return res.json({
+            success: true,
+            dueUpdates
+        });
+
+    } catch (error) {
+        console.error("Get Kamustahan Due Error:", error);
+        return res.status(500).json({
+            success: false,
+            error: "Server error while fetching due updates."
+        });
+    }
+};
+
 async function checkKamustahanRemindersDue(accountId) {
     const [dueUpdates] = await pool.query(`
         SELECT ku.update_id, ku.animal_id, ku.scheduled_date, a.name AS pet_name
