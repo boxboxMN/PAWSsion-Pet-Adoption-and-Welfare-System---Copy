@@ -1,75 +1,76 @@
 let petsData = [];
-let selectedFile = null;
+let selectedFiles = []; 
 let selectedEditFile = null;
-let fetchedUpdates = []; 
-window.myReturnRequests = []; 
+let fetchedUpdates = []; // Cache para sa Edit Modal
+let dueUpdatesList = []; // Cache para sa Kamustahan Due
 
 // ===================================================
 // FILTER VARIABLES
 // ===================================================
 let historySearchQuery = '';
 let historyStatusFilter = 'all';
+
 // ===================================================
-// CHECKLIST DATA DEFINITIONS (EXPANDED)
+// CHECKLIST DATA DEFINITIONS
 // ===================================================
 const HEALTH_CHECKLIST = {
     appetite: {
         label: 'Appetite', icon: 'fa-utensils',
         options: [
-            { value: 'normal',    label: 'Normal',  risk: 'low' },
-            { value: 'reduced',   label: 'Reduced', risk: 'medium' },
-            { value: 'refusing',  label: 'Refusing to eat (24h+)', risk: 'high' }
+            { value: 'normal',    label: 'Normal' },
+            { value: 'reduced',   label: 'Reduced' },
+            { value: 'refusing',  label: 'Refusing to eat (24h+)' }
         ]
     },
     water: {
         label: 'Water Intake', icon: 'fa-droplet',
         options: [
-            { value: 'normal',    label: 'Normal',  risk: 'low' },
-            { value: 'reduced',   label: 'Drinking less', risk: 'medium' },
-            { value: 'excessive', label: 'Excessive thirst', risk: 'high' }
+            { value: 'normal',    label: 'Normal' },
+            { value: 'reduced',   label: 'Drinking less' },
+            { value: 'excessive', label: 'Excessive thirst' }
         ]
     },
     litter: {
         label: 'Litter Box / Stool', icon: 'fa-broom',
         options: [
-            { value: 'normal',      label: 'Normal', risk: 'low' },
-            { value: 'diarrhea',    label: 'Diarrhea', risk: 'high' },
-            { value: 'constipated', label: 'Constipated', risk: 'high' },
-            { value: 'blood',       label: 'Blood in stool', risk: 'high' },
-            { value: 'not_using',   label: 'Not using litter box', risk: 'medium' }
+            { value: 'normal',      label: 'Normal' },
+            { value: 'diarrhea',    label: 'Diarrhea' },
+            { value: 'constipated', label: 'Constipated' },
+            { value: 'blood',       label: 'Blood in stool' },
+            { value: 'not_using',   label: 'Not using litter box' }
         ]
     },
     vomiting: {
         label: 'Vomiting', icon: 'fa-face-frown',
         options: [
-            { value: 'none',       label: 'None', risk: 'low' },
-            { value: 'hairball',   label: 'Occasional hairballs', risk: 'low' },
-            { value: 'frequent',   label: 'Frequent vomiting', risk: 'medium' },
-            { value: 'with_blood', label: 'Vomiting with blood', risk: 'high' }
+            { value: 'none',       label: 'None' },
+            { value: 'hairball',   label: 'Occasional hairballs' },
+            { value: 'frequent',   label: 'Frequent vomiting' },
+            { value: 'with_blood', label: 'Vomiting with blood' }
         ]
     },
     activity: {
         label: 'Activity Level', icon: 'fa-person-running',
         options: [
-            { value: 'playful',   label: 'Playful & Active', risk: 'low' },
-            { value: 'lethargic', label: 'Lethargic / Weak', risk: 'high' },
-            { value: 'hyper',     label: 'Restless / Hyperactive', risk: 'medium' }
+            { value: 'playful',   label: 'Playful & Active' },
+            { value: 'lethargic', label: 'Lethargic / Weak' },
+            { value: 'hyper',     label: 'Restless / Hyperactive' }
         ]
     },
     respiratory: {
         label: 'Breathing / Eyes / Nose', icon: 'fa-lungs',
         options: [
-            { value: 'normal',   label: 'Normal', risk: 'low' },
-            { value: 'sneezing', label: 'Sneezing / Discharge', risk: 'medium' },
-            { value: 'labored',  label: 'Labored breathing', risk: 'high' }
+            { value: 'normal',   label: 'Normal' },
+            { value: 'sneezing', label: 'Sneezing / Discharge' },
+            { value: 'labored',  label: 'Labored breathing' }
         ]
     },
     grooming: {
         label: 'Grooming / Coat', icon: 'fa-brush',
         options: [
-            { value: 'good',      label: 'Clean & well-groomed', risk: 'low' },
-            { value: 'matted',    label: 'Matted / Dull coat', risk: 'medium' },
-            { value: 'excessive', label: 'Over-grooming / Hair loss', risk: 'medium' }
+            { value: 'good',      label: 'Clean & well-groomed' },
+            { value: 'matted',    label: 'Matted / Dull coat' },
+            { value: 'excessive', label: 'Over-grooming / Hair loss' }
         ]
     }
 };
@@ -78,179 +79,115 @@ const BEHAVIOR_CHECKLIST = {
     socialization: {
         label: 'Socialization', icon: 'fa-users',
         options: [
-            { value: 'friendly',   label: 'Friendly & Affectionate', risk: 'low' },
-            { value: 'shy',        label: 'Shy but approaching', risk: 'low' },
-            { value: 'withdrawn',  label: 'Withdrawn / Avoiding', risk: 'medium' },
-            { value: 'aggressive', label: 'Aggressive / Biting', risk: 'high' }
+            { value: 'friendly',   label: 'Friendly & Affectionate' },
+            { value: 'shy',        label: 'Shy but approaching' },
+            { value: 'withdrawn',  label: 'Withdrawn / Avoiding' },
+            { value: 'aggressive', label: 'Aggressive / Biting' }
         ]
     },
     hiding: {
         label: 'Hiding Behavior', icon: 'fa-eye-slash',
         options: [
-            { value: 'rarely',    label: 'Rarely hides', risk: 'low' },
-            { value: 'sometimes', label: 'Sometimes hides', risk: 'medium' },
-            { value: 'frequent',  label: 'Hides all the time', risk: 'high' }
+            { value: 'rarely',    label: 'Rarely hides' },
+            { value: 'sometimes', label: 'Sometimes hides' },
+            { value: 'frequent',  label: 'Hides all the time' }
         ]
     },
     anxiety: {
         label: 'Anxiety / Stress', icon: 'fa-heart-pulse',
         options: [
-            { value: 'none',   label: 'None', risk: 'low' },
-            { value: 'mild',   label: 'Mild (pacing, meowing)', risk: 'medium' },
-            { value: 'severe', label: 'Severe (panic, destructive)', risk: 'high' }
+            { value: 'none',   label: 'None' },
+            { value: 'mild',   label: 'Mild (pacing, meowing)' },
+            { value: 'severe', label: 'Severe (panic, destructive)' }
         ]
     },
     destructive: {
         label: 'Destructive Behavior', icon: 'fa-hammer',
         options: [
-            { value: 'none',   label: 'None', risk: 'low' },
-            { value: 'mild',   label: 'Mild (scratching furniture)', risk: 'low' },
-            { value: 'severe', label: 'Severe (damaging things)', risk: 'high' }
+            { value: 'none',   label: 'None' },
+            { value: 'mild',   label: 'Mild (scratching furniture)' },
+            { value: 'severe', label: 'Severe (damaging things)' }
         ]
     },
     vocalization: {
         label: 'Vocalization', icon: 'fa-volume-high',
         options: [
-            { value: 'normal',    label: 'Normal', risk: 'low' },
-            { value: 'excessive', label: 'Excessive meowing/barking', risk: 'medium' },
-            { value: 'hissing',   label: 'Hissing / Growling', risk: 'medium' }
+            { value: 'normal',    label: 'Normal' },
+            { value: 'excessive', label: 'Excessive meowing/barking' },
+            { value: 'hissing',   label: 'Hissing / Growling' }
         ]
     },
     sleep: {
         label: 'Sleep Pattern', icon: 'fa-bed',
         options: [
-            { value: 'normal',    label: 'Normal', risk: 'low' },
-            { value: 'restless',  label: 'Restless / Awake at night', risk: 'medium' },
-            { value: 'excessive', label: 'Sleeping too much', risk: 'medium' }
+            { value: 'normal',    label: 'Normal' },
+            { value: 'restless',  label: 'Restless / Awake at night' },
+            { value: 'excessive', label: 'Sleeping too much' }
         ]
     }
 };
 
+// ⭐ Emergency symptoms na mag-shoshow ng non-blocking vet nudge
+const EMERGENCY_OPTIONS = new Set([
+    'refusing', 'excessive', 'diarrhea', 'constipated', 'blood', 'with_blood', 'lethargic', 'labored'
+]);
 
 const healthAnswers = {};
 const behaviorAnswers = {};
 
-    document.addEventListener("DOMContentLoaded", async () => {
-        await loadSidebar();
-        requestAnimationFrame(() => {
-            loadTopbar({ title: "Kamustahan", subtitle: "Share updates about your adopted pet." });
-            document.body.style.visibility = "visible";
-        });
-        renderChecklist('healthChecklistGrid', HEALTH_CHECKLIST, healthAnswers, '#059669', '#ecfdf5');
-        renderChecklist('behaviorChecklistGrid', BEHAVIOR_CHECKLIST, behaviorAnswers, '#4f46e5', '#eef2ff');
+// ===================================================
+// INITIALIZATION
+// ===================================================
+document.addEventListener("DOMContentLoaded", async () => {
+    await loadSidebar();
+    requestAnimationFrame(() => {
+        loadTopbar({ title: "Kamustahan", subtitle: "Share updates about your adopted pet." });
+        document.body.style.visibility = "visible";
+    });
 
-        document.getElementById('vetVisitToggle')?.addEventListener('change', (e) => {
-            document.getElementById('vetVisitFields')?.classList.toggle('hidden', !e.target.checked);
-        });
+    renderChecklist('healthChecklistGrid', HEALTH_CHECKLIST, healthAnswers, '#059669', '#ecfdf5');
+    renderChecklist('behaviorChecklistGrid', BEHAVIOR_CHECKLIST, behaviorAnswers, '#4f46e5', '#eef2ff');
 
-        const phTimeOptions = { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' };
-        const formatter = new Intl.DateTimeFormat('en-CA', phTimeOptions);
-        document.getElementById('updateDate').value = formatter.format(new Date());
-        try {
-                const returnRes = await fetch('/api/adopter/return-requests');
-                const returnData = await returnRes.json();
-                if (returnData.success) {
-                    window.myReturnRequests = returnData.requests;
-                }
-            } catch (err) { console.error("Error loading return requests:", err); }
+    document.getElementById('vetVisitToggle')?.addEventListener('change', (e) => {
+        document.getElementById('vetVisitFields')?.classList.toggle('hidden', !e.target.checked);
+    });
 
-        try {
-            const res = await fetch('/api/user/approved-pets');
-            const data = await res.json();
-            const petSelect = document.getElementById('petSelect');
+    const phTimeOptions = { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' };
+    const formatter = new Intl.DateTimeFormat('en-CA', phTimeOptions);
+    document.getElementById('updateDate').value = formatter.format(new Date());
 
-            if (data.success && data.pets.length > 0) {
-                petsData = data.pets;
-                petSelect.innerHTML = '<option value="">-- Choose your adopted pet --</option>';
-                
-                petsData.forEach(pet => {
-                    const opt = document.createElement('option');
-                    opt.value = pet.animal_id;
-                    opt.textContent = pet.name;
-                    petSelect.appendChild(opt);
-                });
+       // 1. Fetch Kamustahan Due Updates FIRST (Para magamit sa Dropdown)
+    try {
+        const dueRes = await fetch('/api/user/kamustahan-due');
+        const dueData = await dueRes.json();
 
-                petSelect.addEventListener('change', (e) => {
-                    const selectedPet = petsData.find(p => p.animal_id == e.target.value);
-                    document.getElementById('orgIdInput').value = selectedPet ? selectedPet.organization_id : '';
-               const returnAction = document.getElementById('petReturnAction');
+        if (dueData.success) {
+            dueUpdatesList = dueData.dueUpdates || [];
+            window.myDueUpdates = dueUpdatesList;
 
-    if (selectedPet) {
-        const existingReturn = window.myReturnRequests.find(r => r.animal_id == selectedPet.animal_id);
+            // ⭐ Timezone-safe na "Today" sa PH Time (YYYY-MM-DD)
+            const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+            
+            // ⭐ I-filter lang ang mga TOTOONG DUE NA (today or past) para sa banner
+            const actuallyDue = dueUpdatesList.filter(u => {
+                if (!u.scheduled_date) return false;
+                const schedStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(u.scheduled_date));
+                return schedStr <= todayStr;
+            });
 
-        if (existingReturn) {
-            returnAction.classList.remove('hidden');
-            returnAction.onclick = null;
-
-            if (existingReturn.status === 'Pending') {
-                returnAction.style.cursor = 'default';
-                returnAction.innerHTML = `
-                    <span class="text-xs font-bold text-amber-600 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200 inline-block">
-                        <i class="fa-solid fa-clock mr-1"></i> Return Request Pending
-                    </span>`;
-            } else if (existingReturn.status === 'Approved') {
-                returnAction.style.cursor = 'default';
-                returnAction.innerHTML = `
-                    <div class="w-full p-3 rounded-xl border bg-blue-50 border-blue-200 text-left mt-2">
-                        <p class="text-xs font-bold text-blue-800 mb-1">
-                            <i class="fa-solid fa-truck-fast mr-1"></i> Return Approved — Waiting for Handover
-                        </p>
-                        <p class="text-xs text-gray-700 italic mb-1">"${existingReturn.org_response || 'No message provided.'}"</p>
-                        <p class="text-[11px] text-blue-700"><i class="fa-solid fa-info-circle mr-1"></i> Please bring your pet to the shelter. Once they confirm receipt, this return will be complete.</p>
-                    </div>`;
-            } else if (existingReturn.status === 'Rejected' || existingReturn.status === 'Declined') {
-                // ⭐ REJECTED → show rejected message + Request Again button
-                returnAction.style.cursor = 'pointer';
-                returnAction.innerHTML = `
-                    <div class="w-full p-3 rounded-xl border bg-rose-50 border-rose-200 text-left mt-2">
-                        <p class="text-xs font-bold text-rose-800 mb-1">
-                            <i class="fa-solid fa-times-circle mr-1"></i> Return Request Rejected
-                        </p>
-                        <p class="text-xs text-gray-700 italic mb-2">"${existingReturn.org_response || 'No message provided.'}"</p>
-                        <button type="button" onclick="openReturnModalFromForm()" class="text-xs font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-rose-300 shadow-sm">
-                            <i class="fa-solid fa-rotate-left"></i> Request Again
-                        </button>
-                    </div>`;
-                returnAction.dataset.petId = selectedPet.animal_id;
-                returnAction.dataset.petName = selectedPet.name;
-            }
-        } else {
-            returnAction.classList.remove('hidden');
-            returnAction.style.cursor = 'pointer';
-            returnAction.innerHTML = `
-                <button type="button" onclick="openReturnModalFromForm()" class="text-xs font-bold text-rose-600 hover:text-rose-800 hover:bg-rose-50 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 border border-rose-200 shadow-sm">
-                    <i class="fa-solid fa-rotate-left"></i> Request to Return <span id="selectedPetNameForReturn">${selectedPet.name}</span>
-                </button>`;
-            returnAction.dataset.petId = selectedPet.animal_id;
-            returnAction.dataset.petName = selectedPet.name;
-        }
-    } else {
-        returnAction.classList.add('hidden');
-    }
-                });
-            } else {
-                petSelect.innerHTML = '<option value="">No approved adopted pets available.</option>';
-            }
-        } catch (err) {
-            console.error("Error loading approved pets:", err);
-        }
-        try {
-            const dueRes = await fetch('/api/user/kamustahan-due');
-            const dueData = await dueRes.json();
-
-            if (dueData.success && dueData.dueUpdates.length > 0) {
+            if (actuallyDue.length > 0) {
                 const banner = document.getElementById('kamustahanDueBanner');
                 const bannerText = document.getElementById('kamustahanDueText');
 
-                const names = dueData.dueUpdates.map(u => u.pet_name).join(", ");
-                bannerText.textContent = dueData.dueUpdates.length === 1
-                    ? `An update for ${names} was due on ${new Date(dueData.dueUpdates[0].scheduled_date).toLocaleDateString("en-US", { month: "long", day: "numeric" })}. Please share how they're doing!`
+                const names = actuallyDue.map(u => u.pet_name).join(", ");
+                bannerText.textContent = actuallyDue.length === 1
+                    ? `An update for ${names} is due. Please share how they're doing!`
                     : `Updates are due for: ${names}. Please share how they're doing!`;
 
                 banner.classList.remove('hidden');
 
                 banner.addEventListener('click', () => {
-                    const firstDue = dueData.dueUpdates[0];
+                    const firstDue = actuallyDue[0];
                     const petSelect = document.getElementById('petSelect');
                     if (petSelect) {
                         petSelect.value = firstDue.animal_id;
@@ -260,78 +197,193 @@ const behaviorAnswers = {};
                 });
                 banner.classList.add('cursor-pointer', 'hover:bg-amber-100', 'transition');
             }
-        } catch (err) {
-            console.error("Error loading due Kamustahan updates:", err);
         }
+    } catch (err) {
+        console.error("Error loading due Kamustahan updates:", err);
+    }
 
-        const photoInput = document.getElementById('photoInput');
-        photoInput.addEventListener('change', (e) => {
+    // 2. Fetch Approved Pets Data (At lagyan ng Due Indicator)
+    try {
+        const res = await fetch('/api/user/approved-pets');
+        const data = await res.json();
+        const petSelect = document.getElementById('petSelect');
+
+        if (data.success && data.pets.length > 0) {
+            petsData = data.pets;
+            petSelect.innerHTML = '<option value="">-- Choose your adopted pet --</option>';
+
+            // ⭐ Gumawa ng dynamic notice para sa deadline
+            const dateContainer = document.getElementById('updateDate').parentElement;
+            let deadlineNotice = document.getElementById('dueDeadlineNotice');
+            if (!deadlineNotice) {
+                deadlineNotice = document.createElement('div');
+                deadlineNotice.id = 'dueDeadlineNotice';
+                deadlineNotice.className = 'hidden mt-2 text-xs font-bold text-amber-700 bg-amber-50 p-2.5 rounded-xl border border-amber-200 flex items-center gap-1.5 shadow-sm';
+                deadlineNotice.innerHTML = '<i class="fas fa-calendar-check"></i> Deadline to submit: <span id="dueDeadlineDate"></span>';
+                dateContainer.appendChild(deadlineNotice);
+            }
+
+                petsData.forEach(pet => {
+                const opt = document.createElement('option');
+                opt.value = pet.animal_id;
+                
+                const isDue = dueUpdatesList.some(u => u.animal_id == pet.animal_id);
+                
+                const petName = pet.name || pet.pet_name || 'Unknown Pet';
+                
+                opt.textContent = petName + (isDue ? ' 🟡 (Update Needed)' : '');
+                
+                petSelect.appendChild(opt);
+            });
+
+            petSelect.addEventListener('change', (e) => {
+                const selectedPet = petsData.find(p => p.animal_id == e.target.value);
+                document.getElementById('orgIdInput').value = selectedPet ? selectedPet.organization_id : '';
+
+                // ⭐ Ipakita ang Deadline kapag pinili ang pet
+                const notice = document.getElementById('dueDeadlineNotice');
+                const noticeDate = document.getElementById('dueDeadlineDate');
+                
+                if (selectedPet) {
+                    const dueUpdate = dueUpdatesList.find(u => u.animal_id == selectedPet.animal_id);
+                    
+                    if (dueUpdate && dueUpdate.scheduled_date) {
+                        const formatted = new Date(dueUpdate.scheduled_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+                        if (noticeDate) noticeDate.textContent = formatted;
+                        if (notice) notice.classList.remove('hidden');
+                    } else {
+                        if (notice) notice.classList.add('hidden');
+                    }
+                } else {
+                    if (notice) notice.classList.add('hidden');
+                }
+            });
+        } else {
+            petSelect.innerHTML = '<option value="">No approved adopted pets available.</option>';
+        }
+    } catch (err) {
+        console.error("Error loading approved pets:", err);
+    }
+
+    // 3. Photo input (Multiple Uploads)
+    const photoInput = document.getElementById('photoInput');
+    photoInput.addEventListener('change', (e) => {
+        const files = Array.from(e.target.files);
+        
+        // Limitahan sa 5 photos
+        if (selectedFiles.length + files.length > 5) {
+            showUiAlert("Maximum of 5 photos only.", "error");
+            return;
+        }
+        
+        selectedFiles.push(...files);
+        renderPreview(); 
+        e.target.value = '';
+    });
+
+    // Edit Photo input
+    const editPhotoInput = document.getElementById('editPhotoInput');
+    if (editPhotoInput) {
+        editPhotoInput.addEventListener('change', (e) => {
             const files = e.target.files;
             if (files && files.length > 0) {
-                selectedFile = files[0];
-                renderPreview();
+                selectedEditFile = files[0];
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    document.getElementById('editCurrentPhotoPreview').src = event.target.result;
+                }
+                reader.readAsDataURL(selectedEditFile);
             }
         });
-         const editPhotoInput = document.getElementById('editPhotoInput');
-            if (editPhotoInput) {
-                editPhotoInput.addEventListener('change', (e) => {
-                    const files = e.target.files;
-                    if (files && files.length > 0) {
-                        selectedEditFile = files[0];
-                        const reader = new FileReader();
-                        reader.onload = function(event) {
-                            document.getElementById('editCurrentPhotoPreview').src = event.target.result;
-                        }
-                        reader.readAsDataURL(selectedEditFile);
-                    }
-                });
-            }
+    }
 
-        document.getElementById('kamustahanForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            hideUiAlert();
+    // 4. FORM SUBMISSION (WITH STRICT VALIDATION & SANITATION)
+    document.getElementById('kamustahanForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideUiAlert();
 
-            if (!selectedFile) {
-                showUiAlert("Please upload a photo of your pet.", "error");
-                return;
-            }
+        // ⭐ 1. Check kung may napiling Pet
+        const petSelect = document.getElementById('petSelect');
+        if (!petSelect.value) {
+            showUiAlert("Please select an adopted pet.", "error");
+            petSelect.focus();
+            return;
+        }
 
-            const submitBtn = document.getElementById('submitBtn');
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Submitting Report...';
+        // ⭐ 2. Check kung may Photo
+        if (selectedFiles.length === 0) {
+            showUiAlert("Please upload at least one photo of your pet.", "error");
+            return;
+        }
 
-            const formData = new FormData(e.target);
-            formData.set('photos', selectedFile);
-                
-                const concernsText = document.getElementById('petConcerns')?.value || '';
-                formData.set('update_text', concernsText.trim() !== '' ? concernsText : 'Updated via Health & Behavior Checklist.');
+        // ⭐ 3. Validate Health Checklist (Kumpleto ba?)
+        const missingHealth = Object.keys(HEALTH_CHECKLIST).filter(key => !healthAnswers[key]);
+        if (missingHealth.length > 0) {
+            showUiAlert(`Please answer all Health Check items. (Missing: ${missingHealth.length})`, "error");
+            return;
+        }
 
-                formData.set('health_checklist',   JSON.stringify(healthAnswers));
-                formData.set('behavior_checklist', JSON.stringify(behaviorAnswers));
-                formData.set('risk_level',         computeRiskLevel(healthAnswers, behaviorAnswers));
-                formData.set('vet_visit',          document.getElementById('vetVisitToggle').checked ? '1' : '0');
-                formData.set('vet_visit_date',     document.getElementById('vetVisitDate')?.value || '');
-                formData.set('vet_diagnosis',      document.getElementById('vetDiagnosis')?.value || '');
-                formData.set('concerns',           concernsText);
-            try {
-                const response = await fetch('/api/user/kamustahan', {
-                    method: 'POST',
-                    body: formData
-                });
+        // ⭐ 4. Validate Behavior Checklist (Kumpleto ba?)
+        const missingBehavior = Object.keys(BEHAVIOR_CHECKLIST).filter(key => !behaviorAnswers[key]);
+        if (missingBehavior.length > 0) {
+            showUiAlert(`Please answer all Behavior Check items. (Missing: ${missingBehavior.length})`, "error");
+            return;
+        }
 
-                const result = await response.json();
-                if (result.success) {
-                    const petSelectEl = document.getElementById('petSelect');
-                    const selectedPetName = petSelectEl.options[petSelectEl.selectedIndex].text;
+        // ⭐ 5. Validate Vet Visit (Kung naka-check, kailangan may Date)
+        const isVetVisit = document.getElementById('vetVisitToggle').checked;
+        const vetDate = document.getElementById('vetVisitDate').value;
+        if (isVetVisit && !vetDate) {
+            showUiAlert("Please provide the date of the vet visit.", "error");
+            return;
+        }
 
-                    document.getElementById('modalPetName').textContent = selectedPetName;
-                    
-                    const phTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'full', timeStyle: 'medium' });
-                    document.getElementById('modalTimestamp').textContent = phTimestamp;
+        const submitBtn = document.getElementById('submitBtn');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Submitting Report...';
 
-                    const modalImagesGrid = document.getElementById('modalImagesGrid');
-                    modalImagesGrid.innerHTML = '';
-                    
+        const formData = new FormData(e.target);
+        
+        // Append all photos
+        selectedFiles.forEach(file => {
+            formData.append('photos', file);
+        });
+
+        // ⭐ 6. Sanitize Text Inputs (Trim at Limitahan)
+        const rawConcerns = document.getElementById('petConcerns')?.value || '';
+        const rawDiagnosis = document.getElementById('vetDiagnosis')?.value || '';
+
+        const cleanConcerns = rawConcerns.trim().slice(0, 1000);
+        const cleanDiagnosis = rawDiagnosis.trim().slice(0, 500);
+        
+        formData.set('update_text', cleanConcerns !== '' ? cleanConcerns : 'Updated via Health & Behavior Checklist.');
+
+        formData.set('health_checklist',   JSON.stringify(healthAnswers));
+        formData.set('behavior_checklist', JSON.stringify(behaviorAnswers));
+        formData.set('vet_visit',          isVetVisit ? '1' : '0');
+        formData.set('vet_visit_date',     vetDate);
+        formData.set('vet_diagnosis',      cleanDiagnosis);
+        formData.set('concerns',           cleanConcerns);
+
+        try {
+            const response = await fetch('/api/user/kamustahan', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                const petSelectEl = document.getElementById('petSelect');
+                const selectedPetName = petSelectEl.options[petSelectEl.selectedIndex].text;
+
+                document.getElementById('modalPetName').textContent = selectedPetName;
+                const phTimestamp = new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'full', timeStyle: 'medium' });
+                document.getElementById('modalTimestamp').textContent = phTimestamp;
+
+                const modalImagesGrid = document.getElementById('modalImagesGrid');
+                modalImagesGrid.innerHTML = '';
+
+                if (selectedFiles.length > 0) {
                     const reader = new FileReader();
                     reader.onload = function(ev) {
                         const img = document.createElement('img');
@@ -339,24 +391,34 @@ const behaviorAnswers = {};
                         img.className = 'w-20 h-20 object-cover rounded-xl border border-slate-200 shadow-sm flex-shrink-0 cursor-pointer hover:opacity-90 transition';
                         img.onclick = () => openLightbox(ev.target.result);
                         modalImagesGrid.appendChild(img);
+                        
+                        if (selectedFiles.length > 1) {
+                            const badge = document.createElement('div');
+                            badge.className = 'w-20 h-20 bg-slate-100 rounded-xl border border-slate-200 flex items-center justify-center text-slate-500 font-bold text-sm';
+                            badge.textContent = `+${selectedFiles.length - 1}`;
+                            modalImagesGrid.appendChild(badge);
+                        }
                     }
-                    reader.readAsDataURL(selectedFile);
-
-                    document.getElementById('successModal').classList.remove('hidden');
-                    document.getElementById('successModal').classList.add('flex');
-                } else {
-                    showUiAlert(result.error || 'Failed to submit update.', 'error');
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Pet Update';
+                    reader.readAsDataURL(selectedFiles[0]);
                 }
-            } catch (error) {
-                console.error('Submission error:', error);
-                showUiAlert('An error occurred during submission.', 'error');
+
+                document.getElementById('successModal').classList.remove('hidden');
+                document.getElementById('successModal').classList.add('flex');
+            } else {
+                showUiAlert(result.error || 'Failed to submit update.', 'error');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Pet Update';
             }
-        });
-     const editForm = document.getElementById('editKamustahanForm');
+        } catch (error) {
+            console.error('Submission error:', error);
+            showUiAlert('An error occurred during submission.', 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Pet Update';
+        }
+    });
+
+    // 5. Edit form (Simple update text)
+    const editForm = document.getElementById('editKamustahanForm');
     if (editForm) {
         editForm.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -368,21 +430,21 @@ const behaviorAnswers = {};
 
             const formData = new FormData();
             formData.append('update_text', document.getElementById('editUpdateText').value);
-            
+
             if (selectedEditFile) {
-                formData.append('photos', selectedEditFile); 
+                formData.append('photos', selectedEditFile);
             }
 
             try {
                 const response = await fetch(`/api/user/kamustahan/${updateId}`, {
                     method: 'PUT',
-                    body: formData 
+                    body: formData
                 });
 
                 const result = await response.json();
                 if (result.success) {
                     closeEditModal();
-                    openHistoryModal(); 
+                    openHistoryModal();
                     showUiAlert('Update successfully modified!', 'success');
                 } else {
                     alert(result.error || 'Failed to update record.');
@@ -433,7 +495,23 @@ function renderChecklist(containerId, checklist, storageObj, colorHex, colorBg) 
         wrapper.querySelectorAll('input[type="radio"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 storageObj[key] = e.target.value;
-                updateRiskPreview();
+
+                // ⭐ Emergency symptom nudge (hindi risk level — tip lang)
+                let tip = wrapper.querySelector('.vet-tip');
+
+                if (EMERGENCY_OPTIONS.has(e.target.value)) {
+                    if (!tip) {
+                        tip = document.createElement('div');
+                        tip.className = 'vet-tip mt-2 text-[11px] text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2 flex items-start gap-1.5';
+                        tip.innerHTML = `
+                            <i class="fas fa-stethoscope mt-0.5 shrink-0"></i>
+                            <span>This symptom may need a vet. Consider consulting one before submitting.</span>
+                        `;
+                        wrapper.appendChild(tip);
+                    }
+                } else if (tip) {
+                    tip.remove();
+                }
             });
         });
 
@@ -442,111 +520,37 @@ function renderChecklist(containerId, checklist, storageObj, colorHex, colorBg) 
 }
 
 // ===================================================
-// RISK COMPUTATION & FORMATTING
-// ===================================================
-function computeRiskLevel(health, behavior) {
-    let score = 0;
-    const all = { ...health, ...behavior };
-    const sources = { ...HEALTH_CHECKLIST, ...BEHAVIOR_CHECKLIST };
-
-    for (const key in all) {
-        const chosen = all[key];
-        if (!chosen) continue;
-        const field = sources[key];
-        if (!field) continue;
-        const opt = field.options.find(o => o.value === chosen);
-        if (!opt) continue;
-        if (opt.risk === 'high')   score += 3;
-        if (opt.risk === 'medium') score += 1;
-    }
-
-    if (score >= 5) return 'high';
-    if (score >= 2) return 'medium';
-    return 'low';
-}
-
-function updateRiskPreview() {
-    const box = document.getElementById('riskPreview');
-    if (!box) return;
-
-    const hasAnswer = Object.keys(healthAnswers).length > 0 || Object.keys(behaviorAnswers).length > 0;
-    if (!hasAnswer) { box.classList.add('hidden'); return; }
-
-    const level = computeRiskLevel(healthAnswers, behaviorAnswers);
-    const themes = {
-        low: {
-            cls:  'bg-emerald-50 border-emerald-200 text-emerald-800',
-            icon: 'fa-circle-check',
-            msg:  'Low concern — your pet seems fine. Thank you for the update!'
-        },
-        medium: {
-            cls:  'bg-amber-50 border-amber-200 text-amber-800',
-            icon: 'fa-triangle-exclamation',
-            msg:  'Medium concern — there are some signs to monitor.'
-        },
-        high: {
-            cls:  'bg-rose-50 border-rose-200 text-rose-800',
-            icon: 'fa-circle-exclamation',
-            msg:  'High concern — vet consultation is recommended.'
-        }
-    };
-    const t = themes[level];
-
-    box.className = `p-3.5 rounded-xl border text-xs font-semibold flex items-start gap-2.5 ${t.cls}`;
-    box.innerHTML = `
-        <i class="fas ${t.icon} mt-0.5 text-sm shrink-0"></i>
-        <div>
-            <span class="block uppercase tracking-wide text-[10px] opacity-80 mb-0.5">Auto-detected Concern Level</span>
-            ${t.msg}
-        </div>
-    `;
-    box.classList.remove('hidden');
-}
-// ===================================================
 // RENDER DETAILS PARA SA EDIT MODAL (Checklist & Vet)
 // ===================================================
 function renderUpdateDetails(item) {
     let html = '';
 
-    // 1. Risk Level Badge
-    if (item.risk_level) {
-        const riskColors = {
-            low: 'bg-emerald-100 text-emerald-700',
-            medium: 'bg-amber-100 text-amber-700',
-            high: 'bg-rose-100 text-rose-700'
-        };
-        html += `<div class="mb-3"><span class="text-[10px] font-bold px-2 py-0.5 rounded-full uppercase ${riskColors[item.risk_level] || riskColors.low}">${item.risk_level} Risk</span></div>`;
-    }
-
-    // 2. Health Checklist
     if (item.health_checklist && item.health_checklist !== 'null') {
         try {
             const h = typeof item.health_checklist === 'string' ? JSON.parse(item.health_checklist) : item.health_checklist;
             if (Object.keys(h).length > 0) {
                 html += `<div class="mb-2"><strong class="text-[10px] text-emerald-700 uppercase block mb-1">Health Check:</strong> <div class="flex flex-wrap gap-1">`;
                 for (const [key, val] of Object.entries(h)) {
-                    html += `<span class="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-md">${key}: ${val}</span>`;
+                    html += `<span class="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded-md capitalize">${key.replace(/_/g, ' ')}: ${val}</span>`;
                 }
                 html += `</div></div>`;
             }
         } catch(e) { console.error(e); }
     }
 
-    // 3. Behavior Checklist
     if (item.behavior_checklist && item.behavior_checklist !== 'null') {
         try {
             const b = typeof item.behavior_checklist === 'string' ? JSON.parse(item.behavior_checklist) : item.behavior_checklist;
             if (Object.keys(b).length > 0) {
                 html += `<div class="mb-2"><strong class="text-[10px] text-indigo-700 uppercase block mb-1">Behavior Check:</strong> <div class="flex flex-wrap gap-1">`;
                 for (const [key, val] of Object.entries(b)) {
-                    html += `<span class="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-md">${key}: ${val}</span>`;
+                    html += `<span class="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2 py-0.5 rounded-md capitalize">${key.replace(/_/g, ' ')}: ${val}</span>`;
                 }
                 html += `</div></div>`;
             }
         } catch(e) { console.error(e); }
     }
 
-    // 4. Vet Visit Data
     if (item.vet_visit == 1) {
         let formattedVetDate = 'Date N/A';
         if (item.vet_visit_date) {
@@ -569,74 +573,89 @@ function renderUpdateDetails(item) {
     return html;
 }
 
+// ===================================================
+// UI & MODALS FUNCTIONS
+// ===================================================
+function showUiAlert(message, type = 'error') {
+    const alertBox = document.getElementById('uiAlertBox');
+    const alertMsg = document.getElementById('uiAlertMessage');
+    const alertTitle = document.getElementById('uiAlertTitle');
+    const alertIcon = document.getElementById('uiAlertIcon');
 
-    function showUiAlert(message, type = 'error') {
-        const alertBox = document.getElementById('uiAlertBox');
-        const alertMsg = document.getElementById('uiAlertMessage');
-        const alertTitle = document.getElementById('uiAlertTitle');
-        const alertIcon = document.getElementById('uiAlertIcon');
+    alertMsg.textContent = message;
 
-        alertMsg.textContent = message;
+    if (type === 'error') {
+        alertBox.className = 'mb-6 p-4 rounded-2xl border text-sm flex items-start gap-3 transition-all bg-rose-50 border-rose-200 text-rose-900';
+        alertIcon.className = 'fas fa-exclamation-circle mt-0.5 text-lg shrink-0 text-rose-600';
+        alertTitle.textContent = 'Action Required';
+    } else {
+        alertBox.className = 'mb-6 p-4 rounded-2xl border text-sm flex items-start gap-3 transition-all bg-emerald-50 border-emerald-200 text-emerald-900';
+        alertIcon.className = 'fas fa-check-circle mt-0.5 text-lg shrink-0 text-emerald-600';
+        alertTitle.textContent = 'Success';
+    }
 
-        if (type === 'error') {
-            alertBox.className = 'mb-6 p-4 rounded-2xl border text-sm flex items-start gap-3 transition-all bg-rose-50 border-rose-200 text-rose-900';
-            alertIcon.className = 'fas fa-exclamation-circle mt-0.5 text-lg shrink-0 text-rose-600';
-            alertTitle.textContent = 'Action Required';
+    alertBox.classList.remove('hidden');
+    alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    setTimeout(() => {
+        hideUiAlert();
+    }, 4000);
+}
+
+function hideUiAlert() {
+    document.getElementById('uiAlertBox')?.classList.add('hidden');
+}
+
+function renderPreview() {
+    const container = document.getElementById('previewContainer');
+    const existingThumbs = container.querySelectorAll('.preview-thumb');
+    existingThumbs.forEach(el => el.remove());
+
+    const addPhotoButton = container.querySelector('label');
+    const badge = document.getElementById('fileCountBadge');
+
+    if (selectedFiles.length > 0) {
+        badge.textContent = `${selectedFiles.length} / 5 photos selected`;
+        badge.className = 'bg-blue-50 text-blue-700 text-xs font-bold px-3 py-1 rounded-full border border-blue-100';
+        
+        // Itago ang add button kung umabot na ng 5
+        if (selectedFiles.length >= 5) {
+            addPhotoButton.style.display = 'none';
         } else {
-            alertBox.className = 'mb-6 p-4 rounded-2xl border text-sm flex items-start gap-3 transition-all bg-emerald-50 border-emerald-200 text-emerald-900';
-            alertIcon.className = 'fas fa-check-circle mt-0.5 text-lg shrink-0 text-emerald-600';
-            alertTitle.textContent = 'Success';
+            addPhotoButton.style.display = 'flex';
         }
 
-        alertBox.classList.remove('hidden');
-        alertBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-        setTimeout(() => {
-            hideUiAlert();
-        }, 4000);
-    }
-    function hideUiAlert() {
-    document.getElementById('uiAlertBox')?.classList.add('hidden');
-    }
-
-    function renderPreview() {
-        const container = document.getElementById('previewContainer');
-        const existingThumbs = container.querySelectorAll('.preview-thumb');
-        existingThumbs.forEach(el => el.remove());
-
-        const addPhotoButton = container.querySelector('label');
-
-        if (selectedFile) {
+        selectedFiles.forEach((file, index) => {
             const reader = new FileReader();
             reader.onload = function(event) {
                 const div = document.createElement('div');
                 div.className = 'relative w-32 h-32 border border-slate-200 rounded-2xl overflow-hidden preview-thumb shadow-sm bg-white group';
                 div.innerHTML = `
-                    <img src="${event.target.result}" class="w-full h-full object-cover cursor-pointer" onclick="openLightbox('${event.target.result}')" title="Tap to preview">
-                    <button type="button" onclick="removePhoto()" class="absolute top-1.5 right-1.5 bg-rose-600 hover:bg-rose-700 text-white w-7 h-7 rounded-full flex items-center justify-center text-xs transition shadow-md" title="Remove photo">
+                    <img src="${event.target.result}" class="w-full h-full object-cover cursor-pointer" onclick="openLightbox('${event.target.result}')">
+                    <button type="button" onclick="removePhoto(${index})" class="absolute top-1.5 right-1.5 bg-rose-600 hover:bg-rose-700 text-white w-7 h-7 rounded-full flex items-center justify-center text-xs transition shadow-md">
                         <i class="fas fa-times"></i>
                     </button>
                 `;
                 addPhotoButton.before(div);
             }
-            reader.readAsDataURL(selectedFile);
-            document.getElementById('fileCountBadge').textContent = '1 photo selected';
-        } else {
-            document.getElementById('fileCountBadge').textContent = '0 selected';
-        }
+            reader.readAsDataURL(file);
+        });
+    } else {
+        addPhotoButton.style.display = 'flex';
+        badge.textContent = '0 selected';
+        badge.className = 'bg-slate-100 text-slate-500 text-xs font-bold px-3 py-1 rounded-full border border-slate-200';
     }
+}
 
-    function removePhoto() {
-        selectedFile = null;
-        document.getElementById('photoInput').value = '';
-        renderPreview();
-    }
+function removePhoto(index) {
+    selectedFiles.splice(index, 1);
+    renderPreview();
+}
 
-    function closeSuccessModal() {
-        document.getElementById('successModal').classList.add('hidden');
-        window.location.reload();
-    }
-
+function closeSuccessModal() {
+    document.getElementById('successModal').classList.add('hidden');
+    window.location.reload();
+}
 
 // ===================================================
 // HISTORY MODAL WITH FILTERS
@@ -646,12 +665,11 @@ async function openHistoryModal() {
     modal.classList.remove('hidden');
     modal.classList.add('flex');
 
-    // I-reset ang filters tuwing bubuksan
     historySearchQuery = '';
     historyStatusFilter = 'all';
     const searchEl = document.getElementById('historySearch');
     const filterEl = document.getElementById('historyStatusFilter');
-    
+
     if (searchEl) searchEl.value = '';
     if (filterEl) filterEl.value = 'all';
 
@@ -664,16 +682,12 @@ async function openHistoryModal() {
     `;
 
     try {
-        const res = await fetch('/api/user/kamustahan-history'); 
+        const res = await fetch('/api/user/kamustahan-history');
         const data = await res.json();
 
         if (data.success && data.updates.length > 0) {
-            fetchedUpdates = data.updates; 
-            
-            // Setup filter listeners (one-time setup)
+            fetchedUpdates = data.updates;
             setupHistoryFilters();
-            
-            // I-render ang unang listahan
             filterAndRenderHistory();
         } else {
             container.innerHTML = `<p class="text-center text-slate-500 py-12 text-sm italic">No update history logs found.</p>`;
@@ -684,17 +698,15 @@ async function openHistoryModal() {
     }
 }
 
-// Function para i-attach ang events sa search at dropdown (para hindi magdoble)
 function setupHistoryFilters() {
     const searchInput = document.getElementById('historySearch');
     const statusSelect = document.getElementById('historyStatusFilter');
 
     if (!searchInput || !statusSelect) return;
 
-    // Remove existing listeners by cloning
     const newSearch = searchInput.cloneNode(true);
     searchInput.parentNode.replaceChild(newSearch, searchInput);
-    
+
     const newSelect = statusSelect.cloneNode(true);
     statusSelect.parentNode.replaceChild(newSelect, statusSelect);
 
@@ -709,97 +721,224 @@ function setupHistoryFilters() {
     });
 }
 
-// Function para i-filter at i-render ang data
 function filterAndRenderHistory() {
     const container = document.getElementById('historyFeedContainer');
 
-    // 1. Filter the data
     const filteredData = fetchedUpdates.filter(item => {
-        // Check search query (Pet Name)
         const matchesSearch = (item.pet_name || '').toLowerCase().includes(historySearchQuery);
-        
-        // Check status filter
         let matchesStatus = true;
         if (historyStatusFilter === 'reviewed') {
-            matchesStatus = !!item.org_response; // May reply/note
+            matchesStatus = !!item.org_response || !!item.org_verdict;
         } else if (historyStatusFilter === 'pending') {
-            matchesStatus = !item.org_response && item.status === 'For Update'; 
+            matchesStatus = !item.org_response && !item.org_verdict;
         }
-
         return matchesSearch && matchesStatus && (item.update_text || item.health_checklist);
     });
 
-    // 2. Render
     if (filteredData.length === 0) {
-        container.innerHTML = `<p class="text-center text-slate-500 py-12 text-sm italic">No history logs match your filter.</p>`;
+        container.innerHTML = `
+            <div class="flex flex-col items-center justify-center py-16 text-slate-400">
+                <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-3">
+                    <i class="fas fa-dog text-2xl opacity-30"></i>
+                </div>
+                <p class="text-sm font-medium">No history logs found.</p>
+            </div>`;
         return;
     }
 
     container.innerHTML = '';
     filteredData.forEach(item => {
-        let imageUrl = '';
+        // ⭐ 1. PHOTO & DATE FORMATTING (MULTIPLE PHOTOS)
+        let photosArray = [];
         if (item.photos) {
             try {
                 const parsed = JSON.parse(item.photos);
-                imageUrl = Array.isArray(parsed) ? parsed[0] : parsed;
-            } catch(e) { imageUrl = item.photos; }
+                photosArray = Array.isArray(parsed) ? parsed : [parsed];
+            } catch(e) { photosArray = [item.photos]; }
         }
 
-        if (imageUrl && !imageUrl.startsWith('http')) {
-            imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+        // I-format ang paths
+        photosArray = photosArray.map(p => (!p.startsWith('http') && !p.startsWith('/')) ? `/${p}` : p);
+        const firstImage = photosArray.length > 0 ? photosArray[0] : '';
+
+        // Gawing Philippine Time (PHT)
+        let formattedDate = 'N/A';
+        if (item.update_date) {
+            const dateStr = item.update_date.length === 10 ? `${item.update_date}T00:00:00` : item.update_date;
+            const d = new Date(dateStr);
+            formattedDate = d.toLocaleDateString('en-US', { 
+                timeZone: 'Asia/Manila', 
+                month: 'long', 
+                day: 'numeric', 
+                year: 'numeric' 
+            });
         }
 
-        let photosHtml = imageUrl 
-            ? `<img src="${imageUrl}" class="w-20 h-20 object-cover rounded-xl border border-slate-200 shadow-sm flex-shrink-0 cursor-pointer hover:scale-105 transition duration-150" onclick="openLightbox('${imageUrl}')" title="Tap to view full image">`
-            : '<span class="text-xs text-slate-400 italic">No photo attached</span>';
+        // ⭐ 2. VERDICT BADGES
+        const verdictThemes = {
+            approved:  { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'fa-check-circle',        label: 'Approved' },
+            follow_up: { cls: 'bg-amber-50 text-amber-700 border-amber-200',       icon: 'fa-clock',                label: 'Follow-up Needed' },
+            urgent:    { cls: 'bg-rose-50 text-rose-700 border-rose-200',          icon: 'fa-exclamation-circle',   label: 'Urgent Concern' }
+        };
+        const verdictKey = (item.org_verdict || '').toString().toLowerCase().trim();
+        const v = verdictThemes[verdictKey];
+        
+        const headerVerdictBadge = v 
+            ? `<span class="text-[11px] font-bold px-2.5 py-1 rounded-md border ${v.cls} flex items-center gap-1.5 shadow-sm">
+                   <i class="fas ${v.icon}"></i> ${v.label}
+               </span>` 
+            : '';
 
-        const detailsHtml = renderUpdateDetails(item);
+        // ⭐ 3. PARSE CHECKLISTS
+        let healthData = {};
+        let behaviorData = {};
+        try { if (item.health_checklist) healthData = JSON.parse(item.health_checklist); } catch(e){}
+        try { if (item.behavior_checklist) behaviorData = JSON.parse(item.behavior_checklist); } catch(e){}
 
-        // Org Note Logic
+        const renderTag = (key, val, colorBase) => `
+            <span class="text-[10px] font-semibold px-2 py-1 rounded-md bg-${colorBase}-50 text-${colorBase}-700 border border-${colorBase}-100 capitalize shadow-sm">
+                ${key.replace(/_/g, ' ')}: <span class="font-bold">${val}</span>
+            </span>`;
+
+        const healthTags = Object.entries(healthData).map(([k, val]) => renderTag(k, val, 'emerald')).join('');
+        const behaviorTags = Object.entries(behaviorData).map(([k, val]) => renderTag(k, val, 'indigo')).join('');
+
+        // ⭐ 4. ORG REVIEW BLOCK
         let orgReplyHtml = '';
-        if (item.org_response) {
-            let replyDate = '';
-            if (item.org_responded_at) {
-                const d = new Date(item.org_responded_at);
-                replyDate = d.toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' });
+        if (item.org_response || item.org_verdict) {
+            let replyDate = item.org_responded_at ? new Date(item.org_responded_at).toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' }) : '';
+            
+            let evalMini = '';
+            if (item.org_evaluation_checklist) {
+                try {
+                    const data = typeof item.org_evaluation_checklist === 'string' ? JSON.parse(item.org_evaluation_checklist) : item.org_evaluation_checklist;
+                    const labels = { photo_quality: '📸 Photo', health_info: '🩺 Health', behavior_info: '🧠 Behavior', overall_wellbeing: '❤️ Well-being' };
+                    const iconMap = { satisfied: 'fa-check text-emerald-600', follow_up: 'fa-exclamation text-amber-600', unsatisfied: 'fa-times text-rose-600' };
+                    
+                    evalMini = '<div class="flex flex-wrap gap-1.5 mt-3">' + Object.entries(data).map(([k, val]) => `
+                        <span class="text-[10px] font-semibold px-2 py-1 rounded-md bg-white border border-slate-200 text-slate-600 shadow-sm">
+                            ${labels[k] || k} <i class="fas ${iconMap[val] || 'fa-circle'} ml-1"></i>
+                        </span>
+                    `).join('') + '</div>';
+                } catch (e) {}
             }
 
             orgReplyHtml = `
-                <div class="mt-3 bg-blue-50 border border-blue-100 rounded-xl p-3.5 relative">
-                    <div class="flex items-center gap-1.5 mb-1.5">
-                        <i class="fas fa-building text-blue-600 text-sm"></i>
-                        <span class="text-[11px] font-bold text-blue-800 uppercase tracking-wide">Organization Note</span>
-                        ${replyDate ? `<span class="text-[9px] text-blue-400 font-medium ml-auto">${replyDate}</span>` : ''}
+                <div class="mt-4 bg-blue-50/70 border border-blue-100 rounded-2xl p-4 relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1.5 h-full bg-blue-500"></div>
+                    <div class="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                        <div class="flex items-center gap-2">
+                            <div class="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 shadow-sm border border-blue-200">
+                                <i class="fas fa-building text-[11px]"></i>
+                            </div>
+                            <span class="text-[11px] font-bold text-blue-900 uppercase tracking-wider">Organization Review</span>
+                        </div>
+                        ${replyDate ? `<span class="text-[9px] font-semibold text-blue-500 bg-blue-100/50 px-2 py-1 rounded-md">${replyDate}</span>` : ''}
                     </div>
-                    <p class="text-sm text-slate-700 leading-relaxed">${item.org_response}</p>
+                    
+                    ${evalMini}
+                    
+                    ${item.org_response ? `
+                        <div class="mt-3 bg-white p-3.5 rounded-xl border border-blue-50 shadow-sm relative">
+                            <i class="fas fa-quote-left absolute top-2 left-2 text-blue-100 text-xl"></i>
+                            <p class="text-sm text-slate-700 leading-relaxed pl-5">${item.org_response}</p>
+                        </div>
+                    ` : ''}
+                    
+                    ${item.follow_up_date ? `
+                        <div class="mt-3 flex items-center gap-2 text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 w-fit shadow-sm">
+                            <i class="fas fa-calendar-check"></i> Follow-up due: ${new Date(item.follow_up_date).toLocaleDateString('en-US', {month:'short',day:'numeric',year:'numeric'})}
+                        </div>
+                    ` : ''}
                 </div>
             `;
         }
 
-        // Edit button logic
-        const isEditable = item.status === 'For Update' && !item.org_response;
-        const editBtnHtml = isEditable 
-            ? `<button onclick="openEditModal(${item.update_id})" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-xl font-semibold transition flex items-center gap-1">
-                 <i class="fas fa-edit"></i> Edit
-               </button>`
-            : `<span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-100 flex items-center gap-1"><i class="fas fa-check-circle"></i> Reviewed by Org</span>`;
+        const isEditable = !item.org_response && !item.org_verdict && item.status !== 'Archived';
+        const editBtnHtml = isEditable
+            ? `<button onclick="openEditModal(${item.update_id})" class="text-xs bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 px-3.5 py-2 rounded-xl font-bold transition-all shadow-sm flex items-center gap-1.5"><i class="fas fa-pen text-[10px]"></i> Edit</button>`
+            : `<span class="text-[10px] font-bold text-emerald-600 bg-emerald-50/50 px-3 py-2 rounded-xl border border-emerald-100 flex items-center gap-1.5 shadow-sm"><i class="fas fa-lock text-[10px]"></i> Locked</span>`;
 
+        // ⭐ 5. PET-CENTRIC CARD HTML
         const card = document.createElement('div');
-        card.className = 'bg-slate-50/80 border border-slate-200/80 rounded-2xl p-5 space-y-3';
-        
+        card.className = 'bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden';
+
         card.innerHTML = `
-            <div class="flex items-center justify-between">
-                <span class="font-bold text-slate-800 text-sm flex items-center gap-1.5"><i class="fas fa-paw text-blue-600"></i> ${item.pet_name}</span>
-                ${editBtnHtml}
+            <!-- CARD HEADER -->
+            <div class="p-5 flex items-start justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <!-- Pet Avatar (First Image) -->
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-white shadow-sm flex items-center justify-center text-blue-500 shrink-0 overflow-hidden">
+                        ${firstImage 
+                            ? `<img src="${firstImage}" class="w-full h-full object-cover">` 
+                            : `<i class="fas fa-dog text-2xl"></i>`
+                        }
+                    </div>
+                    <!-- Pet Details -->
+                    <div>
+                        <div class="flex items-center gap-2 flex-wrap mb-1.5">
+                            <h4 class="font-extrabold text-slate-800 text-lg tracking-tight">${item.pet_name}</h4>
+                            ${headerVerdictBadge}
+                        </div>
+                        <div class="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                            <i class="fas fa-calendar-day text-slate-400"></i> ${formattedDate}
+                        </div>
+                    </div>
+                </div>
+                <div class="shrink-0 pt-1">
+                    ${editBtnHtml}
+                </div>
             </div>
-            
-            ${detailsHtml}
 
-            <p class="text-sm text-slate-700 bg-white p-3.5 rounded-xl border border-slate-100 leading-relaxed"><strong class="text-xs text-slate-400 block mb-1">Your Concerns/Notes:</strong> ${item.update_text}</p>
-            
-            ${orgReplyHtml}
+            <!-- CARD BODY -->
+            <div class="px-5 pb-5 space-y-4">
+                
+                <!-- Checkboxes (Health & Behavior) -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    ${Object.keys(healthData).length > 0 ? `
+                        <div class="bg-slate-50 rounded-2xl p-3.5 border border-slate-100">
+                            <strong class="text-[10px] uppercase tracking-wider text-emerald-600 block mb-2 flex items-center gap-1.5">
+                                <i class="fas fa-stethoscope"></i> Health Check
+                            </strong>
+                            <div class="flex flex-wrap gap-1.5">${healthTags}</div>
+                        </div>
+                    ` : ''}
+                    
+                    ${Object.keys(behaviorData).length > 0 ? `
+                        <div class="bg-slate-50 rounded-2xl p-3.5 border border-slate-100">
+                            <strong class="text-[10px] uppercase tracking-wider text-indigo-600 block mb-2 flex items-center gap-1.5">
+                                <i class="fas fa-brain"></i> Behavior Check
+                            </strong>
+                            <div class="flex flex-wrap gap-1.5">${behaviorTags}</div>
+                        </div>
+                    ` : ''}
+                </div>
 
-            <div class="flex gap-2.5 overflow-x-auto pt-1">${photosHtml}</div>
+                <!-- User Notes -->
+                ${item.update_text ? `
+                    <div class="bg-amber-50/60 rounded-2xl p-3.5 border border-amber-100/50 relative overflow-hidden">
+                        <div class="absolute top-0 right-0 w-16 h-16 bg-amber-100/30 rounded-bl-full pointer-events-none"></div>
+                        <strong class="text-[10px] text-amber-700 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
+                            <i class="fas fa-comment-dots"></i> Your Note
+                        </strong>
+                        <p class="text-sm text-slate-700 leading-relaxed font-medium">${item.update_text}</p>
+                    </div>
+                ` : ''}
+
+                <!-- ⭐ MULTIPLE PHOTOS DISPLAY (Horizontal Scroll) -->
+                ${photosArray.length > 0 ? `
+                    <div class="pt-2">
+                        <div class="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-slate-200">
+                            ${photosArray.map(p => `
+                                <img src="${p}" class="w-20 h-20 sm:w-24 sm:h-24 object-cover rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:opacity-80 hover:scale-105 transition-all flex-shrink-0" onclick="openLightbox('${p}')" title="View photo">
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Org Review -->
+                ${orgReplyHtml}
+            </div>
         `;
         container.appendChild(card);
     });
@@ -829,10 +968,10 @@ function openEditModal(updateId) {
 
     document.getElementById('editUpdateId').value = item.update_id;
     document.getElementById('editUpdateText').value = item.update_text;
-    
+
     const displayBox = document.getElementById('editDetailsDisplay');
     const detailsHtml = renderUpdateDetails(item);
-    
+
     if (detailsHtml.trim() !== '') {
         displayBox.innerHTML = detailsHtml;
         displayBox.classList.remove('hidden');
@@ -840,23 +979,23 @@ function openEditModal(updateId) {
         displayBox.innerHTML = '<span class="text-xs text-slate-400 italic">No checklist or vet data available.</span>';
         displayBox.classList.remove('hidden');
     }
-    
+
     selectedEditFile = null;
     document.getElementById('editPhotoInput').value = '';
-    
+
     let imageUrl = '';
     if (item.photos) {
         try {
             const parsed = JSON.parse(item.photos);
             imageUrl = Array.isArray(parsed) ? parsed[0] : parsed;
         } catch(e) {
-            imageUrl = item.photos; 
+            imageUrl = item.photos;
         }
     }
     if (imageUrl && !imageUrl.startsWith('http')) {
         imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
     }
-    
+
     document.getElementById('editCurrentPhotoPreview').src = imageUrl || '';
 
     const modal = document.getElementById('editModal');
@@ -866,194 +1005,6 @@ function openEditModal(updateId) {
 
 function closeEditModal() {
     const modal = document.getElementById('editModal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-}function openReturnModalFromForm() {
-    const returnAction = document.getElementById('petReturnAction');
-    const petId = returnAction.dataset.petId;
-    const petName = returnAction.dataset.petName;
-    
-    if (petId && petName) {
-        openReturnModal(petId, petName);
-    } else {
-        showUiAlert("Please select a pet first.", "error");
-    }
-}
-
-function openReturnModal(petId, petName) {
-    document.getElementById('returnPetId').value = petId;
-    document.getElementById('returnPetName').textContent = petName;
-    
-    // Reset form
-    document.getElementById('returnPetForm').reset();
-    
-    // Show Modal
-    const modal = document.getElementById('returnPetModal');
-    modal.classList.remove('opacity-0', 'pointer-events-none');
-    modal.querySelector('div').classList.remove('scale-95');
-}
-
-function closeReturnModal() {
-    const modal = document.getElementById('returnPetModal');
-    modal.classList.add('opacity-0', 'pointer-events-none');
-    modal.querySelector('div').classList.add('scale-95');
-}
-async function submitReturnRequest(e) {
-    e.preventDefault();
-    const btn = e.target.querySelector('button[type="submit"]');
-    const originalText = btn.innerHTML;
-
-    // ⭐ Remove any previous inline error
-    const oldErr = document.getElementById('returnModalError');
-    if (oldErr) oldErr.remove();
-
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Submitting...';
-
-    const petId   = document.getElementById('returnPetId').value;
-    const reason  = document.getElementById('returnReason').value;
-    const details = document.getElementById('returnDetails').value;
-
-    try {
-        const res = await fetch('/api/adopter/request-return', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ pet_id: petId, reason, details })
-        });
-
-        const result = await res.json();
-
-        if (result.success) {
-            closeReturnModal();
-
-            // ⭐ Show nice success modal instead of alert()
-            const successModal = document.getElementById('returnSuccessModal');
-            if (successModal) {
-                successModal.classList.remove('hidden');
-                successModal.classList.add('flex');
-            } else {
-                // Fallback kung wala pang modal sa HTML
-                showUiAlert('Return request submitted! The shelter will contact you soon.', 'success');
-                setTimeout(() => window.location.reload(), 1500);
-            }
-        } else {
-            // ⭐ Show inline error inside the modal (hindi alert)
-            showReturnModalError(result.message || 'Something went wrong.');
-            btn.disabled = false;
-            btn.innerHTML = originalText;
-        }
-    } catch (err) {
-        console.error(err);
-        showReturnModalError('An error occurred. Please try again.');
-        btn.disabled = false;
-        btn.innerHTML = originalText;
-    }
-}
-
-// ⭐ Helper: inline error inside returnPetModal
-function showReturnModalError(message) {
-    let errEl = document.getElementById('returnModalError');
-    if (!errEl) {
-        errEl = document.createElement('div');
-        errEl.id = 'returnModalError';
-        errEl.className = 'mt-3 text-xs font-semibold text-rose-700 bg-rose-50 border border-rose-200 rounded-lg p-2.5 flex items-start gap-2';
-        const form = document.getElementById('returnPetForm');
-        // I-insert bago ang button row (last child)
-        const buttonRow = form.querySelector('div.flex.gap-2:last-child');
-        if (buttonRow) form.insertBefore(errEl, buttonRow);
-        else form.appendChild(errEl);
-    }
-    errEl.innerHTML = `<i class="fas fa-exclamation-circle mt-0.5"></i><span>${message}</span>`;
-}
-
-// ⭐ Close success modal + reload
-function closeReturnSuccessModal() {
-    const modal = document.getElementById('returnSuccessModal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-    window.location.reload();
-}
-async function openReturnHistoryModal() {
-    const modal = document.getElementById('returnHistoryModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-
-    const container = document.getElementById('returnHistoryFeedContainer');
-    container.innerHTML = `<div class="text-center py-12 text-slate-400">
-        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
-        <p class="text-sm">Loading return requests...</p>
-    </div>`;
-
-    try {
-        const res = await fetch('/api/adopter/return-history');
-        const data = await res.json();
-
-        if (data.success && data.requests.length > 0) {
-            container.innerHTML = '';
-            data.requests.forEach(req => container.appendChild(renderReturnCard(req)));
-        } else {
-            container.innerHTML = `<div class="text-center py-12 text-slate-400">
-                <i class="fa-solid fa-rotate-left text-4xl mb-3 opacity-30"></i>
-                <p class="text-sm">You have no return requests.</p>
-            </div>`;
-        }
-    } catch (err) {
-        container.innerHTML = `<p class="text-center text-rose-500 py-12 text-sm">Failed to load return requests.</p>`;
-    }
-}
-
-function renderReturnCard(req) {
-    const statusMap = {
-        'Pending':   { label: 'Pending Review', cls: 'bg-amber-100 text-amber-700 border-amber-200', icon: 'fa-clock' },
-        'Approved':  { label: 'Approved — Waiting for Handover', cls: 'bg-blue-100 text-blue-700 border-blue-200', icon: 'fa-truck-fast' },
-        'Rejected':  { label: 'Rejected', cls: 'bg-rose-100 text-rose-700 border-rose-200', icon: 'fa-times-circle' },
-        'Completed': { label: 'Completed — Pet Returned', cls: 'bg-emerald-100 text-emerald-700 border-emerald-200', icon: 'fa-check-circle' }
-    };
-    const s = statusMap[req.status] || statusMap['Pending'];
-
-    const photo = req.pet_image
-        ? (req.pet_image.startsWith('/') ? req.pet_image : `/uploads/pets/${req.pet_image}`)
-        : '/assets/images/default-pet.png';
-
-    const card = document.createElement('div');
-    card.className = 'bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-3';
-    card.innerHTML = `
-        <div class="flex items-start gap-4">
-            <img src="${photo}" class="w-16 h-16 rounded-xl object-cover border border-slate-200" />
-            <div class="flex-1">
-                <div class="flex items-center justify-between gap-2 flex-wrap">
-                    <h4 class="font-bold text-slate-800">${req.pet_name}</h4>
-                    <span class="text-[10px] font-bold px-2.5 py-1 rounded-full border ${s.cls}">
-                        <i class="fas ${s.icon} mr-1"></i>${s.label}
-                    </span>
-                </div>
-                <p class="text-xs text-slate-500 mt-1">Reason: <strong class="text-slate-700">${req.reason}</strong></p>
-                ${req.organization_name ? `<p class="text-[11px] text-slate-400 mt-0.5"><i class="fas fa-building mr-1"></i>${req.organization_name}</p>` : ''}
-            </div>
-        </div>
-        <div class="bg-white border border-slate-100 rounded-xl p-3">
-            <strong class="text-[10px] text-slate-400 uppercase block mb-1">Your Explanation:</strong>
-            <p class="text-sm text-slate-700 italic">"${req.details}"</p>
-        </div>
-        ${req.org_response ? `
-            <div class="bg-blue-50 border border-blue-100 rounded-xl p-3">
-                <strong class="text-[10px] text-blue-600 uppercase block mb-1"><i class="fas fa-building mr-1"></i> Shelter Response:</strong>
-                <p class="text-sm text-slate-700">${req.org_response}</p>
-            </div>` : ''}
-        ${req.status === 'Approved' ? `
-            <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-800">
-                <i class="fas fa-info-circle mr-1"></i> Please bring <strong>${req.pet_name}</strong> to the shelter. Once they confirm receipt, the return will be complete.
-            </div>` : ''}
-        ${req.status === 'Completed' ? `
-            <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-xs text-emerald-800">
-                <i class="fas fa-check-circle mr-1"></i> The shelter has confirmed receiving <strong>${req.pet_name}</strong>. This pet is no longer in your adopted pets list.
-            </div>` : ''}
-    `;
-    return card;
-}
-
-function closeReturnHistoryModal() {
-    const modal = document.getElementById('returnHistoryModal');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
 }

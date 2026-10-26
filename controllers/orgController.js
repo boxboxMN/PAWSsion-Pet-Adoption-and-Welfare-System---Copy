@@ -3188,6 +3188,7 @@ exports.getKamustahanUpdates = async (req, res) => {
             `
             SELECT 
                 k.update_id,
+                k.animal_id,  
                 k.status AS update_status,
                 k.scheduled_date,
                 DATE_FORMAT(k.scheduled_date, '%b %d, %Y') AS formatted_scheduled_date,
@@ -3200,12 +3201,13 @@ exports.getKamustahanUpdates = async (req, res) => {
                 k.vet_visit,
                 k.vet_visit_date,
                 k.vet_diagnosis,
-                k.weight_kg,
                 k.concerns,
-                k.risk_level,
                 k.consultation_status,
                 k.org_response,
                 k.org_responded_at,
+                k.org_verdict,
+                k.org_evaluation_checklist,
+                k.follow_up_date,
                 p.name AS pet_name,
                 p.species,
                 p.image_path AS pet_image,
