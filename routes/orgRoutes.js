@@ -653,20 +653,24 @@ router.patch('/applications/:id/status', async (req, res) => {
             );
 
             await connection.query(`
-                INSERT INTO kamustahan_updates (
-                    organization_id, animal_id, adopter_id, update_date,
-                    update_text, photos, status, created_at
-                )
-                SELECT
-                    p.organization_id, app.animal_id, app.adopter_id, CURDATE(),
-                    '', '', 'For Update', NOW()
-                FROM user_adoption_applications app
-                JOIN animals p ON app.animal_id = p.animal_id
-                WHERE app.application_id = ?
-                ON DUPLICATE KEY UPDATE
-                    status = 'For Update',
-                    update_date = CURDATE()
-            `, [id]);
+            INSERT INTO kamustahan_updates (
+                organization_id, animal_id, adopter_id,
+                update_date, update_text, photos,
+                status, created_at
+            )
+            SELECT
+                p.organization_id,
+                app.animal_id,
+                app.adopter_id,
+                CURDATE(),
+                'Kamustahan schedule created upon adoption approval.',
+                '[]',
+                'For Update',
+                NOW()
+            FROM user_adoption_applications app
+            JOIN animals p ON app.animal_id = p.animal_id
+            WHERE app.application_id = ?
+        `, [id]);
 
             // =========================================================================
             // BAGONG DAGDAG: Automatic na i-decline ang ibang aplikante para sa parehong pet
@@ -1586,11 +1590,13 @@ router.post('/kamustahan/:updateId/acknowledge', async (req, res) => {
             } else {
                 // Gumawa ng bagong record para sa susunod na update cycle
                 await pool.query(
-                    `INSERT INTO kamustahan_updates
-                     (organization_id, animal_id, adopter_id, scheduled_date, status, created_at)
-                     VALUES (?, ?, ?, ?, 'For Update', NOW())`,
-                    [orgId, existing.animal_id, existing.adopter_id, follow_up_date]
-                );
+                `INSERT INTO kamustahan_updates
+                    (organization_id, animal_id, adopter_id,
+                    update_date, update_text, photos,
+                    scheduled_date, status, created_at)
+                VALUES (?, ?, ?, CURDATE(), 'Follow-up kamustahan scheduled.', '[]', ?, 'For Update', NOW())`,
+                [orgId, existing.animal_id, existing.adopter_id, follow_up_date]
+            );
             }
         }
 
