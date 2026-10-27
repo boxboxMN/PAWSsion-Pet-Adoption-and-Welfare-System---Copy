@@ -1253,7 +1253,6 @@ function getPaginationRange(current, total) {
 
     return rangeWithDots;
 }
-
 /**
  * Opens the receipt image
  * in a lightbox modal[cite: 5].
@@ -1274,7 +1273,8 @@ function viewReceiptDirect(receiptPathRaw) {
 
     if (modalImg) {
         modalImg.src = fullPath;
-        modalImg.classList.add("max-h-[85vh]", "w-auto", "object-contain", "mx-auto");
+        // Palitan ang classList.add para maging responsive at hindi mag-overflow
+        modalImg.className = "max-w-full h-auto object-contain rounded-lg shadow-md mx-auto my-auto";
     }
 
     if (titleEl) {
@@ -1290,7 +1290,6 @@ function viewReceiptDirect(receiptPathRaw) {
         modal.querySelector("div")?.classList.remove("scale-95");
     }
 }
-
 
 /**
  * Opens the in-kind proof image in the same lightbox modal.
