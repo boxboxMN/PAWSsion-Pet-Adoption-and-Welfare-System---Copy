@@ -450,7 +450,7 @@ async function checkPetApplicationStatus(petId) {
                 window.location.href = "/application";
             };
             // KAPAG CANCELLED: Gawing ACTIVE at PWEDENG MAG-APPLY ULI (Normal Apply Button)
-            } else if (statusUpper === 'CANCELLED') {
+             } else if (statusUpper === 'CANCELLED BY ADOPTER' || statusUpper === 'CANCELLED BY ORGANIZATION') {
                 applyBtn.disabled = false;
                 applyBtn.onclick = null; // Gagamitin ang default form-opening listener
                 applyBtn.className = "w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 transition-all duration-200 text-white py-3 rounded-xl font-bold text-xs shadow-md shadow-indigo-100 hover:shadow-indigo-200 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer";
@@ -1264,7 +1264,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const res = await fetch(`/check-applied/${petId}`, { credentials: 'include' });
             const data = await res.json();
 
-            const inactiveStatuses = ['DECLINED', 'REJECTED', 'CANCELLED'];
+            const inactiveStatuses = ['DECLINED', 'REJECTED', 'CANCELLED BY ADOPTER', 'CANCELLED BY ORGANIZATION'];
             const isInactive = inactiveStatuses.includes((data.status || '').toUpperCase());
 
             // Kapag galing sa Re-apply button (Declined status) O bago pa lang ang application
