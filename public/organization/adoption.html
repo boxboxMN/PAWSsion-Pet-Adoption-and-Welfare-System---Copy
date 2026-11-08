@@ -131,10 +131,17 @@
                     <option value="ALL">All Status</option>
                     <option value="UNDER_REVIEW">Under Review</option>
                     <option value="INTERVIEW_SCHEDULED">Interview Scheduled</option>
+                    <option value="POST_INTERVIEW_REVIEW">Post-Interview Review</option>
                     <option value="APPROVED">Approved</option>
+                    <option value="RETURNED">Returned</option>
                     <option value="DECLINED">Declined</option>
-                    <option value="CANCELLED_BY_ADOPTER">Cancelled by Adopter</option>
-                    <option value="CANCELLED_BY_ORGANIZATION">Cancelled by Organization</option>
+                    <option value="CANCELLED">Cancelled</option>
+                </select>
+
+                <select id="cancelledByFilter" class="hidden bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 focus:outline-none cursor-pointer">
+                    <option value="ALL">All Cancelled</option>
+                    <option value="CANCELLED_BY_ADOPTER">By Adopter</option>
+                    <option value="CANCELLED_BY_ORGANIZATION">By Organization</option>
                 </select>
 
                 <!-- View Calendar Button -->
