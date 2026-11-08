@@ -209,8 +209,9 @@ function populateDetailsUI(app) {
     const isDeclined = ["declined", "rejected"].includes(lowerStatus);
     const isApproved = lowerStatus === "approved";
     const isReceived = lowerStatus === "received";
+    const isReturned = lowerStatus === "returned";
     const isCancelled = lowerStatus.includes("cancelled"); // Check kung kinansela ng adopter
-    const isFinalized = isApproved || isReceived || isDeclined || isCancelled;
+    const isFinalized = isApproved || isReceived || isDeclined || isReturned || isCancelled;
 
     // Disable checklist only for declined or cancelled applications
     const qualificationChecklistBtn = document.getElementById("qualificationChecklistBtn");
@@ -1042,7 +1043,7 @@ function renderApplicationStatusDetails(app, isPastInterview = false) {
     }
 
     const isInterviewScheduledForCardCheck = lowerStatusForCardCheck.includes("interview") || lowerStatusForCardCheck.includes("scheduled");
-    const isFinalizedForCardCheck = ["approved", "declined", "rejected"].includes(lowerStatusForCardCheck) || lowerStatusForCardCheck.includes("cancelled");
+    const isFinalizedForCardCheck = ["approved", "declined", "rejected", "returned"].includes(lowerStatusForCardCheck) || lowerStatusForCardCheck.includes("cancelled");
     const isPostInterviewReviewForCardCheck = isPastInterview && !isFinalizedForCardCheck;
     const isApprovedForCardCheck = lowerStatusForCardCheck === "approved";
 
