@@ -588,8 +588,14 @@ router.patch('/applications/:id/status', async (req, res) => {
 
         // Get the animal_id of the pet from the application 
         const [appRows] = await connection.query(
-            `SELECT animal_id, status FROM user_adoption_applications WHERE application_id = ?`,
-            [id]
+            `SELECT app.animal_id, app.status 
+                FROM user_adoption_applications app  
+                INNER JOIN animals a ON app.animal_id = a.animal_id
+                INNER JOIN organizations o ON a.organization_id = o.organization_id
+                WHERE application_id = ?
+                AND o.account_id = ?
+                FOR UPDATE`,
+            [id, req.session?.accountId]
         );
 
         if (appRows.length === 0) {
@@ -601,6 +607,17 @@ router.patch('/applications/:id/status', async (req, res) => {
             });
         }
 
+        // Prevent returned applications from re-entering the adoption workflow
+        if (appRows[0].status === 'Returned') {
+            await connection.rollback();
+            connection.release();
+
+            return res.status(409).json({
+                success: false,
+                message: "This application has already been returned and can no longer be updated."
+            });
+        }
+    
          // Only allow completing an interview that is currently scheduled
         if (status === 'Post-Interview Review' && appRows[0].status !== 'Interview Scheduled') 
         {
@@ -1102,6 +1119,32 @@ router.post('/applications/:id/schedule', async (req, res) => {
         const { id } = req.params;
         let { interview_date, interview_time, interview_method, interview_location_link, override_reason } = req.body;
 
+         // Only allow scheduling for applications owned by this organization
+        // and currently Under Review or Interview Scheduled.
+        const [appRows] = await pool.query(
+            `SELECT app.status
+             FROM user_adoption_applications app
+             INNER JOIN animals a ON app.animal_id = a.animal_id
+             INNER JOIN organizations o ON a.organization_id = o.organization_id
+             WHERE app.application_id = ?
+               AND o.account_id = ?`,
+            [id, req.session?.accountId]
+        );
+
+        if (appRows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Application not found."
+            });
+        }
+
+        if (!['Under Review', 'Interview Scheduled'].includes(appRows[0].status)) {
+            return res.status(409).json({
+                success: false,
+                message: "This application can no longer be scheduled or rescheduled."
+            });
+        }
+        
         if (!interview_date || !interview_time) {
             return res.status(400).json({ success: false, error: "Interview date and time are required." });
         }
@@ -1238,6 +1281,31 @@ router.patch('/applications/:id/approve-reschedule', async (req, res) => {
     try {
         const { id } = req.params;
 
+        // Prevent reschedule actions for returned applications
+        const [[appRow]] = await pool.query(
+            `SELECT app.status
+            FROM user_adoption_applications app
+            INNER JOIN animals a ON app.animal_id = a.animal_id
+            INNER JOIN organizations o ON a.organization_id = o.organization_id
+            WHERE app.application_id = ?
+            AND o.account_id = ?`,
+            [id, req.session?.accountId]
+        );
+
+        if (!appRow) {
+            return res.status(404).json({
+                success: false,
+                message: "Application not found."
+            });
+        }
+
+        if (appRow.status === 'Returned') {
+            return res.status(409).json({
+                success: false,
+                message: "This application has already been returned. Rescheduling is no longer allowed."
+            });
+        }
+
         // 1. Kunin ang requested date at time
         const [rows] = await pool.query(
             `SELECT requested_interview_date, requested_interview_time FROM application_interviews WHERE application_id = ?`,
@@ -1295,6 +1363,31 @@ router.patch('/applications/:id/approve-reschedule', async (req, res) => {
 router.patch('/applications/:id/reject-reschedule', async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Prevent reschedule actions for returned applications
+        const [[appRow]] = await pool.query(
+            `SELECT app.status
+            FROM user_adoption_applications app
+            INNER JOIN animals a ON app.animal_id = a.animal_id
+            INNER JOIN organizations o ON a.organization_id = o.organization_id
+            WHERE app.application_id = ?
+            AND o.account_id = ?`,
+            [id, req.session?.accountId]
+        );
+
+        if (!appRow) {
+            return res.status(404).json({
+                success: false,
+                message: "Application not found."
+            });
+        }
+
+        if (appRow.status === 'Returned') {
+            return res.status(409).json({
+                success: false,
+                message: "This application has already been returned. Rescheduling is no longer allowed."
+            });
+        }
 
         await pool.query(
             `UPDATE application_interviews 
