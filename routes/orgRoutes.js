@@ -34,7 +34,8 @@ const {
     schedulePetUpdate,
     archiveKamustahanUpdate,
     getPetReturnRequests,
-    updatePetReturnRequestStatus
+    updatePetReturnRequestStatus,
+    markReturnedPetAsAvailable
 } = require("../controllers/orgController");
 
 const router = express.Router();
@@ -768,6 +769,9 @@ router.get("/return-requests", getPetReturnRequests);
 
 // PATCH: Approve or reject a return request
 router.patch("/return-requests/:id/status", updatePetReturnRequestStatus);
+
+// PATCH: Mark an approved returned pet as available
+router.patch("/return-requests/:id/mark-available", markReturnedPetAsAvailable);
 
 // PATCH Confirm Pet Handover
 router.patch('/applications/:id/confirm-handover', async (req, res) => {
