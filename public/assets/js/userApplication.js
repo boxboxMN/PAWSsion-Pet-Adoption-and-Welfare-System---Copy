@@ -201,6 +201,7 @@ async function loadApplications() {
             organization: app.organization_name || "Unknown Organization",
             organizationId: app.organization_id || app.org_id || null, 
             status: app.status === "Pending" ? "Under Review" : (app.status || "Under Review"),
+            returnRequestStatus: app.return_request_status || null,
             date: formatDate(app.created_at),
             rawDate: app.created_at,
 
@@ -479,15 +480,39 @@ function showDetails(app) {
                 `;
             }
          } else if (app.status === "Received") {
-            detailsActions.innerHTML = `
-                <button
-                    type="button"
-                    onclick="openReturnPetModal(${app.id})"
-                    class="px-4 py-2 text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
-                >
-                    <i class="fas fa-rotate-left"></i> Return Pet
-                </button>
-            `;
+             const returnStatus = (app.returnRequestStatus || "").toLowerCase();
+
+            if (returnStatus === "pending") {
+                detailsActions.innerHTML = `
+                    <button
+                        type="button"
+                        disabled
+                        class="px-4 py-2 text-xs font-semibold bg-amber-100 text-amber-700 rounded-lg inline-flex items-center gap-1.5 cursor-not-allowed"
+                    >
+                        <i class="fas fa-clock"></i> Pending Return
+                    </button>
+                `;
+            } else if (returnStatus === "approved") {
+                detailsActions.innerHTML = `
+                    <button
+                        type="button"
+                        disabled
+                        class="px-4 py-2 text-xs font-semibold bg-green-100 text-green-700 rounded-lg inline-flex items-center gap-1.5 cursor-not-allowed"
+                    >
+                        <i class="fas fa-check-circle"></i> Returned
+                    </button>
+                `;
+            } else {
+                detailsActions.innerHTML = `
+                    <button
+                        type="button"
+                        onclick="openReturnPetModal(${app.id})"
+                        class="px-4 py-2 text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
+                    >
+                        <i class="fas fa-rotate-left"></i> Return Pet
+                    </button>
+                `;
+            }
         } else {
             detailsActions.innerHTML = "";
         }
