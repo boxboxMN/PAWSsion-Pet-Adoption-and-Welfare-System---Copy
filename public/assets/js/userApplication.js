@@ -29,6 +29,17 @@ const listView = document.getElementById("list-view");
 const detailsView = document.getElementById("details-view");
 const tableBody = document.getElementById("table-body");
 const tabBtns = document.querySelectorAll(".tab-btn");
+const cancelledFilter = document.getElementById("cancelledFilter");
+
+let cancelledFilterValue = "All";
+
+if (cancelledFilter) {
+    cancelledFilter.addEventListener("change", function () {
+        cancelledFilterValue = this.value;
+        renderTable();
+    });
+}
+
 const backBtn = document.getElementById("back-btn");
 const detailsActions = document.getElementById("details-actions");
 const detailStatusBadge = document.getElementById("detail-status-badge");
@@ -92,7 +103,7 @@ function getStatusClass(status) {
         case "Received":
             return "success";
         case "Returned":
-            return "returned";
+            return "cancelled";
         case "Declined":
             return "declined";
         case "Cancelled by Adopter":
@@ -268,7 +279,18 @@ function renderTable() {
         if (currentTab === "Approved") {
             return ["Approved", "Received"].includes(app.status);
         }
-    
+
+        if (currentTab === "Cancelled") {
+            if (cancelledFilterValue === "All") {
+                return [
+                    "Cancelled by Adopter",
+                    "Cancelled by Organization"
+                ].includes(app.status);
+            }
+        
+            return app.status === cancelledFilterValue;
+        }
+        
         return app.status === currentTab;
     });
 
@@ -1029,6 +1051,11 @@ function setActiveTab(tab) {
         }
     });
 
+    // Show Cancelled filter only when Cancelled tab is active
+    if (cancelledFilterContainer) {
+        cancelledFilterContainer.classList.toggle("hidden", tab !== "Cancelled");
+    }
+    
     renderTable();
 }
 
