@@ -236,6 +236,7 @@ async function loadApplications() {
                 relation: app.emergency_relation
             },
             documentPath: app.document_path,
+            handoverPhotoPath: app.handover_photo_path,
             declineReason: app.decline_reason,
             cancellationReason: app.cancellation_reason,
             meetupLocation: app.meetup_location,
@@ -700,7 +701,28 @@ function showDetails(app) {
         meetupCard.classList.add("hidden");
     }
 
+    // 6c. HANDOVER PROOF CARD (Lalabas lang kapag Received)
+    const handoverCard = document.getElementById("detail-handover-card");
+    const handoverPhoto = document.getElementById("detail-handover-photo");
 
+    if (handoverCard && handoverPhoto) {
+        if (app.status === "Received" && app.handoverPhotoPath) {
+            handoverCard.classList.remove("hidden");
+
+            // Load photo through the protected adopter endpoint
+            handoverPhoto.src = `/api/user/applications/${app.id}/handover-proof`;
+
+            handoverPhoto.onerror = () => {
+                handoverPhoto.onerror = null;
+                handoverPhoto.alt = "Handover proof image is unavailable.";
+            };
+        } else {
+            handoverCard.classList.add("hidden");
+            handoverPhoto.removeAttribute("src");
+            handoverPhoto.onerror = null;
+        }
+    }
+    
     // 7. UPLOADED DOCUMENT (Ipakita ang totoong PDF/Image link na in-upload)
     const docContainer = document.querySelector('#details-view .border-dashed');
     if (docContainer) {
@@ -754,6 +776,8 @@ function closeReturnPetModal() {
 document.getElementById("returnPetForm")?.addEventListener("submit", async function (event) {
     event.preventDefault();
 
+    const photoInput = document.getElementById("adopterReturnPhoto");
+    const photoFile = photoInput?.files[0];
     const applicationId = document.getElementById("returnApplicationId")?.value;
     const reasonInput = document.getElementById("returnReason");
     const submitBtn = document.getElementById("submitReturnPetBtn");
@@ -777,6 +801,18 @@ document.getElementById("returnPetForm")?.addEventListener("submit", async funct
         return;
     }
 
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    if (!allowedTypes.includes(photoFile.type)) {
+        Swal.fire("Invalid File", "Only JPG, PNG, and WEBP images are allowed.", "warning");
+        return;
+    }
+    
+    if (!photoFile.type.startsWith("image/")) {
+        Swal.fire("Invalid File", "Please upload a valid image.", "warning");
+        return;
+    }
+
     const originalButtonHTML = submitBtn?.innerHTML;
 
     if (submitBtn) {
@@ -793,18 +829,24 @@ document.getElementById("returnPetForm")?.addEventListener("submit", async funct
                 "Unable to get security token. Please refresh and try again."
             );
         }
+
+        const formData = new FormData();
+
+        formData.append("return_reason", reason);
+        formData.append("adopterReturnPhoto", photoFile);
     
         const response = await fetch(
             `/api/user/applications/${encodeURIComponent(applicationId)}/return-request`,
             {
                 method: "POST",
                 headers: {
-                    "Content-Type": "application/json",
+                    // "Content-Type": "application/json",
                     "x-csrf-token": csrfData.token
                 },
-                body: JSON.stringify({
-                    return_reason: reason
-                })
+                // body: JSON.stringify({
+                //     return_reason: reason
+                // })
+                body: formData
             }
         );
 
