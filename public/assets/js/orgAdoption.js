@@ -277,9 +277,35 @@ async function fetchReturnPetRequests() {
                                         </button>
                                     </div>
                                 `
-                                : ` <button type="button" onclick="viewReturnRequestDetails(${Number(request.return_request_id)})" class="text-blue-600 hover:text-blue-700 text-xs font-semibold border border-blue-200 rounded-lg px-3 py-2 hover:bg-blue-50 transition cursor-pointer">
-                                        <i class="fa-solid fa-eye mr-1"></i> View Details
-                                    </button> `
+                                : ` <div class="flex items-center justify-center gap-2 flex-wrap">
+                                        <button type="button" onclick="viewReturnRequestDetails(${Number(request.return_request_id)})" class="text-blue-600 hover:text-blue-700 text-xs font-semibold border border-blue-200 rounded-lg px-3 py-2 hover:bg-blue-50 transition cursor-pointer">
+                                            <i class="fa-solid fa-eye mr-1"></i> View Details
+                                        </button>
+
+                                         ${
+                                            request.status === "Approved" &&
+                                            request.adoption_status === "Adopted"
+                                                ? `
+                                                    <button
+                                                        type="button"
+                                                        onclick="markReturnedPetAsAvailable(${Number(request.return_request_id)})"
+                                                        class="text-emerald-600 hover:text-emerald-700 text-xs font-semibold border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 transition cursor-pointer"
+                                                    >
+                                                        <i class="fa-solid fa-check-circle mr-1"></i>
+                                                        Mark as Available
+                                                    </button>
+                                                `
+                                                : request.status === "Approved" &&
+                                                request.adoption_status === "Available"
+                                                    ? `
+                                                        <span class="text-xs text-emerald-600 font-semibold">
+                                                            <i class="fa-solid fa-check-circle mr-1"></i>
+                                                            Available
+                                                        </span>
+                                                    `
+                                                    : ""
+                                        }
+                                    </div>`
                         }
                     </td>
                 </tr>
@@ -355,6 +381,61 @@ async function fetchReturnPetRequests() {
     }
 }
 
+async function markReturnedPetAsAvailable(requestId) {
+    const confirmed = await Swal.fire({
+        title: "Mark Pet as Available?",
+        text: "Have you confirmed that this returned pet is ready for adoption?",
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Yes, Mark as Available",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#16a34a"
+    });
+
+    if (!confirmed.isConfirmed) return;
+
+    try {
+        const response = await fetch(
+            `/org/return-requests/${encodeURIComponent(requestId)}/mark-available`,
+            {
+                method: "PATCH",
+                credentials: "same-origin",
+                headers: {
+                    "Accept": "application/json"
+                }
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || data.success === false) {
+            throw new Error(
+                data.message || "Failed to mark the pet as available."
+            );
+        }
+
+        await Swal.fire({
+            icon: "success",
+            title: "Pet Now Available!",
+            text: data.message || "The returned pet is now available for adoption.",
+            confirmButtonColor: "#2563eb"
+        });
+
+        await fetchReturnPetRequests();
+        await fetchAdoptionApplications();
+
+    } catch (error) {
+        console.error("Mark Returned Pet Available Error:", error);
+
+        Swal.fire({
+            icon: "error",
+            title: "Update Failed",
+            text: error.message || "Something went wrong.",
+            confirmButtonColor: "#dc2626"
+        });
+    }
+}
+
 async function changeReturnPage(newPage) {
     const totalPages = Math.ceil(
         returnPetRequests.length / returnItemsPerPage
@@ -423,7 +504,7 @@ async function updateReturnRequestStatus(requestId, status) {
             title: status === "Approved" ? "Return Approved" : "Return Rejected",
             text: data.message || (
                 status === "Approved"
-                    ? "The pet is now available for adoption."
+                    ? "The return request has been approved. The pet will remain unavailable until you confirm that it is ready for adoption and mark it as available."
                     : "The pet remains adopted."
             ),
             confirmButtonColor: "#2563eb"
