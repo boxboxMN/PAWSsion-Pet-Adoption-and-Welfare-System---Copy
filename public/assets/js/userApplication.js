@@ -1106,3 +1106,47 @@ async function init() {
 }
 
 init();
+
+// ==========================================
+// ADOPTION GUIDE MODAL
+// ==========================================
+
+const adoptionGuideTab = document.getElementById("adoptionGuideTab");
+const adoptionGuideModal = document.getElementById("adoptionGuideModal");
+const closeAdoptionGuide = document.getElementById("closeAdoptionGuide");
+const adoptionGuideBody = document.getElementById("adoptionGuideBody");
+
+if (adoptionGuideTab && adoptionGuideModal && closeAdoptionGuide) {
+
+    // Open modal
+    adoptionGuideTab.addEventListener("click", () => {
+        if (adoptionGuideBody) {
+            adoptionGuideBody.scrollTop = 0;
+        }
+
+        adoptionGuideModal.classList.remove("hidden");
+        adoptionGuideModal.classList.add("flex");
+    });
+
+    // Close modal
+    closeAdoptionGuide.addEventListener("click", () => {
+        adoptionGuideModal.classList.add("hidden");
+        adoptionGuideModal.classList.remove("flex");
+    });
+
+    // Close when clicking outside the modal
+    adoptionGuideModal.addEventListener("click", (event) => {
+        if (event.target === adoptionGuideModal) {
+            adoptionGuideModal.classList.add("hidden");
+            adoptionGuideModal.classList.remove("flex");
+        }
+    });
+
+    // Close using Escape key
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            adoptionGuideModal.classList.add("hidden");
+            adoptionGuideModal.classList.remove("flex");
+        }
+    });
+}
