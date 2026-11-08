@@ -1963,6 +1963,7 @@ exports.getUserApplications = async (req, res) => {
                 app.status,
                 app.decline_reason,
                 app.cancellation_reason,
+                pr.status AS return_request_status,
                 COALESCE(app.updated_at, app.created_at) AS created_at,
                 app.updated_at,
                 i.interview_date,
@@ -1990,6 +1991,7 @@ exports.getUserApplications = async (req, res) => {
             INNER JOIN animals animal ON app.animal_id = animal.animal_id
             LEFT JOIN organizations org ON animal.organization_id = org.organization_id
             LEFT JOIN application_interviews i ON app.application_id = i.application_id
+            LEFT JOIN pet_return_requests pr ON app.application_id = pr.application_id
             WHERE app.adopter_id = ?
             ORDER BY COALESCE(app.updated_at, app.created_at) DESC
             `,
