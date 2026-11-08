@@ -31,11 +31,6 @@
     <!-- ===== MAIN CONTENT ===== -->
     <main class="ml-64 pt-24 h-screen overflow-hidden bg-gray-50">
 
-        <!-- ===== ADOPTION GUIDE SIDE TAB ===== -->
-        <button id="adoptionGuideTab" type="button" title="Adoption Guide" aria-label="Open Adoption Guide" style="position: fixed; right: 20px; bottom: 35px; top: auto;" class="z-[60] w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-xl flex items-center justify-center transition-all duration-200 hover:scale-110">
-            <i class="fa-solid fa-paw text-lg"></i>
-        </button>
-
         <!-- ===== HEADER ===== -->
         <div id="header" class="fixed top-0 left-64 right-0 h-24 bg-white border-b border-gray-200 z-40"></div>
 
@@ -45,6 +40,30 @@
 
                 <!-- ===== LIST VIEW ===== -->
                 <div id="list-view">
+                    <!-- ===== ADOPTION GUIDE CARD ===== -->
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-6">
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                                    <i class="fa-regular fa-compass text-lg"></i>
+                                </div>
+
+                                <div>
+                                    <h3 class="text-lg font-bold text-gray-800">
+                                        New to adoption?
+                                    </h3>
+                                    <p class="text-sm text-gray-500">
+                                        Learn how the adoption process works.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <button id="adoptionGuideTab" type="button" aria-label="View Adoption Guide" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shrink-0">
+                                View Guide
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
                     <!-- SEARCH & FILTER -->
                     <div class="bg-white rounded-2xl shadow-sm p-3 mb-6 -mt-4 flex flex-wrap gap-4">
                         <input type="text" id="search-input" placeholder="Search pet name or breed..." class="flex-1 min-w-0 basis-full sm:basis-auto sm:min-w-[200px] border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400" />
