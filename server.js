@@ -211,6 +211,12 @@ app.get("/", redirectAuthenticated, (req, res) => {
 // STATIC FILES — serve FIRST (hindi kailangan ng session check)
 // ==========================================
 app.use(express.static(path.join(__dirname, "public")));
+// ==========================================
+// PROTECT PET PROOF IMAGES
+// ==========================================
+app.use("/uploads/pet-proof", (req, res) => {
+    return res.status(404).end();
+});
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ==========================================
