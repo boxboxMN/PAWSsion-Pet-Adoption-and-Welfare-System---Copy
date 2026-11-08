@@ -166,6 +166,24 @@
                     </div>
                 </div>
 
+                <!-- PET HANDOVER PROOF CARD -->
+                <div id="org-handover-proof-card" class="hidden bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+
+                    <h3 class="text-emerald-600 font-semibold text-base mb-3">
+                        <i class="fa-solid fa-camera mr-1"></i>
+                        Pet Handover Proof
+                    </h3>
+
+                    <p class="text-sm text-gray-500 mb-4">
+                        Photo submitted by the organization as confirmation
+                        that the pet was handed over to the adopter.
+                    </p>
+
+                    <div class="border border-emerald-200 rounded-xl p-3 bg-emerald-50/40">
+                        <img id="org-handover-proof-photo" src="" alt="Pet handover proof" class="w-full max-h-80 object-contain rounded-lg"/>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -329,55 +347,82 @@
     <!-- CONFIRM PET HANDOVER MODAL -->
     <div id="confirmPetHandoverModal" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
 
-        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-xl space-y-4">
+        <div class="bg-white rounded-2xl max-w-md w-full shadow-xl overflow-hidden">
 
-            <div class="flex items-center justify-between border-b border-gray-100 pb-3">
-                <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
-                    <i class="fa-solid fa-paw text-emerald-600"></i>
-                    Confirm Pet Handover
-                </h3>
+            <div class="p-6 space-y-4 max-h-[90vh] overflow-y-auto overscroll-contain mr-2">
 
-                <button type="button"
-                    onclick="closePetHandoverModal()"
-                    class="text-gray-400 hover:text-gray-600 transition"
-                    aria-label="Close modal">
-                    <i class="fa-solid fa-xmark text-lg"></i>
-                </button>
+                <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <h3 class="text-lg font-bold text-gray-900 flex items-center gap-2">
+                        <i class="fa-solid fa-paw text-emerald-600"></i>
+                        Confirm Pet Handover
+                    </h3>
+    
+                    <button type="button"
+                        onclick="closePetHandoverModal()"
+                        class="text-gray-400 hover:text-gray-600 transition"
+                        aria-label="Close modal">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+    
+                <p class="text-sm text-gray-600">
+                    Confirm only if the adopter has already taken custody of the pet.
+                    This will update the adoption application status to
+                    <strong>Received</strong>.
+                </p>
+    
+                <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                    <p class="text-sm text-gray-600">Adopter</p>
+                    <p id="handoverApplicantName" class="font-semibold text-gray-900">Loading...</p>
+    
+                    <p class="text-sm text-gray-600 mt-3">Pet</p>
+                    <p id="handoverPetName" class="font-semibold text-gray-900">Loading...</p>
+                </div>
+
+                <!-- HANDOVER PHOTO PROOF -->
+                <div class="space-y-2">
+                    <label for="handoverProofInput"
+                        class="block text-sm font-semibold text-gray-700">
+                        Handover Photo Proof <span class="text-red-500">*</span>
+                    </label>
+
+                    <p class="text-xs text-gray-500">
+                        Upload a photo showing the actual handover of the pet to the adopter.
+                        Maximum file size: 5 MB.
+                    </p>
+
+                    <input type="file" id="handoverProofInput" accept="image/jpeg,image/png,image/webp" required class="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-50 file:text-emerald-700 file:font-semibold hover:file:bg-emerald-100"/>
+
+                    <div id="handoverProofPreviewContainer" class="hidden">
+                        <img
+                            id="handoverProofPreview"
+                            src=""
+                            alt="Handover proof preview"
+                            class="w-full max-h-48 object-contain rounded-xl border border-gray-200"
+                        />
+                    </div>
+                </div>
+    
+                <p class="text-xs text-gray-500">
+                    The pet's organization-side status will remain Adopted.
+                </p>
+    
+                <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
+                    <button type="button"
+                        onclick="closePetHandoverModal()"
+                        class="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-semibold transition">
+                        Cancel
+                    </button>
+    
+                    <button type="button"
+                        id="confirmPetHandoverSubmitBtn"
+                        onclick="submitPetHandover()"
+                        class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition">
+                        Confirm Handover
+                    </button>
+                </div>
+
             </div>
-
-            <p class="text-sm text-gray-600">
-                Confirm only if the adopter has already taken custody of the pet.
-                This will update the adoption application status to
-                <strong>Received</strong>.
-            </p>
-
-            <div class="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
-                <p class="text-sm text-gray-600">Adopter</p>
-                <p id="handoverApplicantName" class="font-semibold text-gray-900">Loading...</p>
-
-                <p class="text-sm text-gray-600 mt-3">Pet</p>
-                <p id="handoverPetName" class="font-semibold text-gray-900">Loading...</p>
-            </div>
-
-            <p class="text-xs text-gray-500">
-                The pet's organization-side status will remain Adopted.
-            </p>
-
-            <div class="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-2">
-                <button type="button"
-                    onclick="closePetHandoverModal()"
-                    class="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-semibold transition">
-                    Cancel
-                </button>
-
-                <button type="button"
-                    id="confirmPetHandoverSubmitBtn"
-                    onclick="submitPetHandover()"
-                    class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold transition">
-                    Confirm Handover
-                </button>
-            </div>
-
         </div>
     </div>
 
