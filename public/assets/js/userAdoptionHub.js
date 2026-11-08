@@ -432,7 +432,20 @@ async function checkPetApplicationStatus(petId) {
 
         if (data.hasApplied) {
             const statusUpper = (data.status || '').toUpperCase();
+            const petStatusUpper = (data.petAdoptionStatus || '').toUpperCase();
 
+            // If the pet is available again, allow the user to apply
+            if (statusUpper === 'RETURNED' && petStatusUpper === 'AVAILABLE') {
+                applyBtn.disabled = false;
+                applyBtn.onclick = null;
+                applyBtn.className = "w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 transition-all duration-200 text-white py-3 rounded-xl font-bold text-xs shadow-md shadow-indigo-100 hover:shadow-indigo-200 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer";
+                applyBtn.innerHTML = `
+                    <i class="fa-regular fa-heart text-sm"></i>
+                    <span>Apply for Adoption</span>
+                `;
+                return;
+            }
+            
             // KAPAG DECLINED: Clickable Button na nagpapakita ng reason
             if (statusUpper === 'DECLINED' || statusUpper === 'REJECTED') {
                 applyBtn.disabled = false;
