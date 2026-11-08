@@ -40,6 +40,8 @@ if (cancelledFilter) {
     });
 }
 
+const cancelledFilterContainer = document.getElementById("cancelledFilterContainer");
+
 const backBtn = document.getElementById("back-btn");
 const detailsActions = document.getElementById("details-actions");
 const detailStatusBadge = document.getElementById("detail-status-badge");
