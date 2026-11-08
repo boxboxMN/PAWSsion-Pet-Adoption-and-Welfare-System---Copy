@@ -1906,3 +1906,48 @@ function closeModal() {
         if (modalCallback) modalCallback();
     }, 150);
 }
+
+// ==========================================
+// ADOPTION GUIDE MODAL
+// ==========================================
+
+const adoptionGuideTab = document.getElementById("adoptionGuideTab");
+const adoptionGuideModal = document.getElementById("adoptionGuideModal");
+const closeAdoptionGuide = document.getElementById("closeAdoptionGuide");
+
+if (adoptionGuideTab && adoptionGuideModal && closeAdoptionGuide) {
+
+    // Open modal
+    const adoptionGuideBody = document.getElementById("adoptionGuideBody");
+
+    adoptionGuideTab.addEventListener("click", () => {
+        if (adoptionGuideBody) {
+            adoptionGuideBody.scrollTop = 0;
+        }
+
+        adoptionGuideModal.classList.remove("hidden");
+        adoptionGuideModal.classList.add("flex");
+    });
+
+    // Close modal
+    closeAdoptionGuide.addEventListener("click", () => {
+        adoptionGuideModal.classList.add("hidden");
+        adoptionGuideModal.classList.remove("flex");
+    });
+
+    // Close when clicking outside the modal
+    adoptionGuideModal.addEventListener("click", (event) => {
+        if (event.target === adoptionGuideModal) {
+            adoptionGuideModal.classList.add("hidden");
+            adoptionGuideModal.classList.remove("flex");
+        }
+    });
+
+    // Close using Escape key
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !adoptionGuideModal.classList.contains("hidden")) {
+            adoptionGuideModal.classList.add("hidden");
+            adoptionGuideModal.classList.remove("flex");
+        }
+    });
+}
