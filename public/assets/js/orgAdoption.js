@@ -20,7 +20,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 3. Search & Filter Event Listeners
     document.getElementById("searchInput")?.addEventListener("input", filterAndRenderTable);
-    document.getElementById("statusFilter")?.addEventListener("change", filterAndRenderTable);
+    document.getElementById("statusFilter")?.addEventListener("change", function () {
+        const cancelledBy = document.getElementById("cancelledByFilter");
+        if (cancelledBy) {
+            cancelledBy.classList.toggle("hidden", this.value !== "CANCELLED");
+            if (this.value !== "CANCELLED") cancelledBy.value = "ALL"; // reset when leaving
+        }
+        filterAndRenderTable();
+    });
+    document.getElementById("cancelledByFilter")?.addEventListener("change", filterAndRenderTable);
 
     const params = new URLSearchParams(window.location.search);
         const applicationId = params.get("application_id");
@@ -288,22 +296,35 @@ async function fetchReturnPetRequests() {
                                                 ? `
                                                     <button
                                                         type="button"
-                                                        onclick="markReturnedPetAsAvailable(${Number(request.return_request_id)})"
-                                                        class="text-emerald-600 hover:text-emerald-700 text-xs font-semibold border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 transition cursor-pointer"
+                                                        onclick="confirmPetReturnReceived(${Number(request.return_request_id)})"
+                                                        class="text-blue-600 hover:text-blue-700 text-xs font-semibold border border-blue-200 rounded-lg px-3 py-2 hover:bg-blue-50 transition cursor-pointer"
                                                     >
-                                                        <i class="fa-solid fa-check-circle mr-1"></i>
-                                                        Mark as Available
+                                                        <i class="fa-solid fa-camera mr-1"></i>
+                                                        Confirm Pet Received
                                                     </button>
                                                 `
-                                                : request.status === "Approved" &&
-                                                request.adoption_status === "Available"
+                                                : request.status === "Returned" &&
+                                                request.adoption_status === "Adopted"
                                                     ? `
-                                                        <span class="text-xs text-emerald-600 font-semibold">
+                                                        <button
+                                                            type="button"
+                                                            onclick="markReturnedPetAsAvailable(${Number(request.return_request_id)})"
+                                                            class="text-emerald-600 hover:text-emerald-700 text-xs font-semibold border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 transition cursor-pointer"
+                                                        >
                                                             <i class="fa-solid fa-check-circle mr-1"></i>
-                                                            Available
-                                                        </span>
+                                                            Mark as Available
+                                                        </button>
                                                     `
-                                                    : ""
+                                                    : request.status === "Approved" &&
+                                                         : request.status === "Returned" &&
+                                                         request.adoption_status === "Available"
+                                                            ? `
+                                                                <span class="text-xs text-emerald-600 font-semibold">
+                                                                    <i class="fa-solid fa-check-circle mr-1"></i>
+                                                                    Available
+                                                                </span>
+                                                            `
+                                                            : ""
                                         }
                                     </div>`
                         }
@@ -378,6 +399,155 @@ async function fetchReturnPetRequests() {
                 </td>
             </tr>
         `;
+    }
+}
+
+async function confirmPetReturnReceived(requestId) {
+    const result = await Swal.fire({
+        title: "Confirm Pet Received",
+        html: `
+            <div class="text-left space-y-3">
+                <p class="text-sm text-gray-600">
+                    Confirm that your organization has physically received the returned pet.
+                </p>
+
+                <label for="organizationReceivedPhoto"
+                    class="block text-sm font-semibold text-gray-700">
+                    Upload Receipt Proof Photo
+                    <span class="text-red-500">*</span>
+                </label>
+
+                <input
+                    type="file"
+                    id="organizationReceivedPhoto"
+                    accept="image/jpeg,image/png,image/webp"
+                    class="block w-full text-sm text-gray-600
+                    file:mr-3 file:py-2 file:px-4
+                    file:rounded-lg file:border-0
+                    file:bg-blue-50 file:text-blue-700
+                    hover:file:bg-blue-100"
+                />
+
+                <p class="text-xs text-gray-400">
+                    Accepted formats: JPG, PNG, and WEBP.
+                </p>
+            </div>
+        `,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonText: "Confirm Receipt",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#2563eb",
+
+        preConfirm: () => {
+            const fileInput = document.getElementById(
+                "organizationReceivedPhoto"
+            );
+
+            const file = fileInput?.files?.[0];
+
+            if (!file) {
+                Swal.showValidationMessage(
+                    "Please upload a photo confirming receipt of the pet."
+                );
+                return false;
+            }
+
+            const allowedTypes = [
+                "image/jpeg",
+                "image/png",
+                "image/webp"
+            ];
+
+            if (!allowedTypes.includes(file.type)) {
+                Swal.showValidationMessage(
+                    "Only JPG, PNG, and WEBP images are allowed."
+                );
+                return false;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+                Swal.showValidationMessage(
+                    "The image must not exceed 5 MB."
+                );
+                return false;
+            }
+
+            return file;
+        }
+    });
+
+    if (!result.isConfirmed || !result.value) return;
+
+    try {
+        // Get CSRF token
+        const csrfResponse = await fetch("/auth/csrf-token", {
+            method: "GET",
+            credentials: "same-origin",
+            headers: {
+                "Accept": "application/json"
+            }
+        });
+
+        const csrfData = await csrfResponse.json();
+
+        if (!csrfResponse.ok || !csrfData.token) {
+            throw new Error(
+                "Unable to get security token. Please refresh and try again."
+            );
+        }
+
+        // Prepare photo upload
+        const formData = new FormData();
+
+        formData.append(
+            "organizationReceivedPhoto",
+            result.value
+        );
+
+        // Submit confirmation
+        const response = await fetch(
+            `/org/return-requests/${encodeURIComponent(requestId)}/confirm-received`,
+            {
+                method: "PATCH",
+                credentials: "same-origin",
+                headers: {
+                    "Accept": "application/json",
+                    "x-csrf-token": csrfData.token
+                },
+                body: formData
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || data.success === false) {
+            throw new Error(
+                data.message || "Failed to confirm pet receipt."
+            );
+        }
+
+        await Swal.fire({
+            icon: "success",
+            title: "Pet Receipt Confirmed!",
+            text: data.message ||
+                "The pet has been successfully marked as returned.",
+            confirmButtonColor: "#2563eb"
+        });
+
+        // Refresh both tables
+        await fetchReturnPetRequests();
+        await fetchAdoptionApplications();
+
+    } catch (error) {
+        console.error("Confirm Pet Return Received Error:", error);
+
+        Swal.fire({
+            icon: "error",
+            title: "Confirmation Failed",
+            text: error.message || "Something went wrong.",
+            confirmButtonColor: "#dc2626"
+        });
     }
 }
 
@@ -456,6 +626,10 @@ function getReturnRequestStatusBadgeHTML(status) {
 
     if (cleanStatus === "rejected") {
         return `<span class="px-3 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-500">Rejected</span>`;
+    }
+
+    if (cleanStatus === "returned") {
+        return `<span class="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-600">Returned</span>`;
     }
 
     return `<span class="px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-600">Pending</span>`;
@@ -565,6 +739,40 @@ function viewReturnRequestDetails(requestId) {
         }
 
         const reason = request.return_reason?.trim();
+
+        const adopterProofUrl = `/org/return-requests/${request.return_request_id}/proof/adopter`;
+
+        const organizationProofUrl = `/org/return-requests/${request.return_request_id}/proof/organization`;
+
+        const adopterProofHTML = request.adopter_return_photo
+            ? `
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                        Adopter's Return Proof
+                    </p>
+                    <img
+                        src="${adopterProofUrl}"
+                        alt="Adopter return proof"
+                        class="w-full max-h-64 object-contain rounded-xl border border-gray-200 bg-gray-50"
+                    />
+                </div>
+            `
+            : `<p class="text-xs text-gray-400 italic">Adopter proof photo not available.</p>`;
+
+        const organizationProofHTML = request.organization_received_photo
+            ? `
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                        Organization's Receipt Proof
+                    </p>
+                    <img
+                        src="${organizationProofUrl}"
+                        alt="Organization receipt proof"
+                        class="w-full max-h-64 object-contain rounded-xl border border-gray-200 bg-gray-50"
+                    />
+                </div>
+            `
+            : `<p class="text-xs text-gray-400 italic">Organization receipt photo has not been uploaded yet.</p>`;
     
         // NOTE: no whitespace inside <p> tags that use whitespace-pre-wrap
         const reasonHTML = reason
@@ -623,6 +831,10 @@ function viewReturnRequestDetails(requestId) {
                             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Return Reason</p>
                             <div class="rounded-xl bg-gray-50 border border-gray-100 p-3.5">${reasonHTML}</div>
                         </div>
+
+                        ${adopterProofHTML}
+
+                        ${organizationProofHTML}
     
                         <div class="flex items-center gap-2 text-xs text-gray-500">
                             <i class="fa-regular fa-calendar"></i>
@@ -668,7 +880,8 @@ function updateStatCards(data) {
 function filterAndRenderTable() {
     const searchVal = (document.getElementById("searchInput")?.value || "").toLowerCase().trim();
     const statusVal = (document.getElementById("statusFilter")?.value || "ALL").toLowerCase();
-
+    const cancelledByVal = (document.getElementById("cancelledByFilter")?.value || "ALL").toLowerCase();
+    
     filteredApplications = allApplications.filter(app => {
         // 1. Search Filter (Applicant Name, Email, o Pet Name)
         const matchesSearch = 
@@ -678,9 +891,9 @@ function filterAndRenderTable() {
 
         
         let rawStatus = (app.status || '').toLowerCase().replace(/_/g, ' ').trim();
+        const isPostInterview = rawStatus.includes('post-interview') || rawStatus.includes('post interview');
         
-        // Pag-set ng fallback kung walang status o PENDING
-        if (!rawStatus || rawStatus.includes('pending') || rawStatus.includes('review')) {
+        if (!isPostInterview && (!rawStatus || rawStatus.includes('pending') || rawStatus.includes('review'))) {
             rawStatus = 'under review';
         }
 
@@ -692,15 +905,23 @@ function filterAndRenderTable() {
         } else if (statusVal === "under_review" && rawStatus.includes("review")) {
             matchesStatus = true;
         } else if (statusVal === "interview_scheduled" && (rawStatus.includes("interview") || rawStatus.includes("scheduled"))) {
+             matchesStatus = true;
+        } else if (statusVal === "post_interview_review" && isPostInterview) {
             matchesStatus = true;
         } else if (statusVal === "approved" && rawStatus.includes("approved")) {
+             matchesStatus = true;
+        } else if (statusVal === "returned" && rawStatus.includes("returned")) {
             matchesStatus = true;
         } else if (statusVal === "declined" && (rawStatus.includes("declined") || rawStatus.includes("rejected"))) {
             matchesStatus = true;
-        } else if (statusVal === "cancelled_by_adopter" && rawStatus.includes("cancelled by adopter")) {
-            matchesStatus = true;
-        } else if (statusVal === "cancelled_by_organization" && rawStatus.includes("cancelled by organization")) {
-            matchesStatus = true;
+        } else if (statusVal === "cancelled" && rawStatus.includes("cancelled")) {
+            if (cancelledByVal === "all") {
+                matchesStatus = true;
+            } else if (cancelledByVal === "cancelled_by_adopter") {
+                matchesStatus = rawStatus.includes("cancelled by adopter");
+            } else if (cancelledByVal === "cancelled_by_organization") {
+                matchesStatus = rawStatus.includes("cancelled by organization");
+            }
         }
 
         return matchesSearch && matchesStatus;
@@ -862,6 +1083,9 @@ function getStatusBadgeHTML(status) {
     else if (cleanStatus.includes('review') || cleanStatus.includes('pending') || cleanStatus === '') {
         return `<span class="px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-600">Under Review</span>`;
     } 
+    else if (cleanStatus.includes('returned')) {
+        return `<span class="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-600">Returned</span>`;
+    }
     else if (cleanStatus.includes('cancelled by organization')) {
         return `<span class="px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">Cancelled by Organization</span>`;
     }
