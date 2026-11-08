@@ -1,7 +1,9 @@
 const express = require("express");
 const path = require("path");
+const fs = require("fs");
 const pool = require("../config/database");
-const { uploadPet, uploadQR, uploadDropoff,uploadInkindProof  } = require('../config/upload');
+const { csrfSynchronisedProtection } = require("../middleware/csrf");
+const { uploadPet, uploadQR, uploadHandoverProof, uploadReturnProof, uploadDropoff,uploadInkindProof  } = require('../config/upload');
 // const { logActivity } = require("../controllers/adminController");
 const { logActivity, createNotification } = require("../controllers/adminController");
 
@@ -35,6 +37,7 @@ const {
     archiveKamustahanUpdate,
     getPetReturnRequests,
     updatePetReturnRequestStatus,
+    confirmPetReturnReceived,
     markReturnedPetAsAvailable
 } = require("../controllers/orgController");
 
@@ -292,6 +295,7 @@ router.get('/applications/:id', async (req, res) => {
             app.emergency_name,
             app.emergency_phone,
             app.emergency_relation,
+            app.handover_photo_path,
             app.document_path,
             app.status,
             app.decline_reason,
@@ -787,11 +791,19 @@ router.get("/return-requests", getPetReturnRequests);
 // PATCH: Approve or reject a return request
 router.patch("/return-requests/:id/status", updatePetReturnRequestStatus);
 
+// PATCH: Organization confirms receipt of returned pet with proof photo
+router.patch(
+    "/return-requests/:id/confirm-received",
+    csrfSynchronisedProtection,
+    uploadReturnProof.single("organizationReceivedPhoto"),
+    confirmPetReturnReceived
+);
+
 // PATCH: Mark an approved returned pet as available
 router.patch("/return-requests/:id/mark-available", markReturnedPetAsAvailable);
 
 // PATCH Confirm Pet Handover
-router.patch('/applications/:id/confirm-handover', async (req, res) => {
+router.patch('/applications/:id/confirm-handover', uploadHandoverProof.single('handoverProof'), async (req, res) => {
     const connection = await pool.getConnection();
 
     try {
@@ -803,6 +815,14 @@ router.patch('/applications/:id/confirm-handover', async (req, res) => {
             return res.status(401).json({
                 success: false,
                 message: "Unauthorized."
+            });
+        }
+
+        if (!req.file) {
+            connection.release();
+            return res.status(400).json({
+                success: false,
+                message: "Please upload a handover proof photo."
             });
         }
 
@@ -855,12 +875,14 @@ router.patch('/applications/:id/confirm-handover', async (req, res) => {
             });
         }
 
+        const handoverPhotoPath = `uploads/pet-proof/${req.file.filename}`;
+        
         // Update the application only. Do not change the animal's Adopted status.
         await connection.query(
             `UPDATE user_adoption_applications
-             SET status = 'Received', updated_at = NOW()
+             SET status = 'Received',  handover_photo_path = ?, updated_at = NOW()
              WHERE application_id = ?`,
-            [id]
+            [handoverPhotoPath, id]
         );
 
         await connection.commit();
@@ -881,6 +903,151 @@ router.patch('/applications/:id/confirm-handover', async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Failed to confirm pet handover."
+        });
+    }
+});
+
+// GET: View handover proof (Organization only)
+router.get('/applications/:id/handover-proof', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const accountId = req.session?.accountId;
+
+        if (!accountId) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        // Verify that the application belongs to this organization.
+        const [rows] = await pool.query(
+            `SELECT app.handover_photo_path
+             FROM user_adoption_applications app
+             JOIN animals a ON app.animal_id = a.animal_id
+             JOIN organizations o ON a.organization_id = o.organization_id
+             WHERE app.application_id = ?
+               AND o.account_id = ?
+               AND app.handover_photo_path IS NOT NULL`,
+            [id, accountId]
+        );
+
+        if (!rows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Handover proof not found."
+            });
+        }
+
+        const filename = path.basename(rows[0].handover_photo_path);
+        const newPath = path.join(
+            __dirname,
+            '..',
+            'uploads',
+            'pet-proof',
+            filename
+        );
+        
+        const oldPath = path.join(
+            __dirname,
+            '..',
+            'private-uploads',
+            'handover-proof',
+            filename
+        );
+
+        // Support both newly uploaded and previously saved handover photos.
+        const photoPath = fs.existsSync(newPath) ? newPath : oldPath;
+
+        return res.sendFile(photoPath, (err) => {
+            if (err && !res.headersSent) {
+                console.error("Handover proof file error:", err);
+                res.status(404).json({
+                    success: false,
+                    message: "Handover proof image is unavailable."
+                });
+            }
+        });
+
+    } catch (err) {
+        console.error("Organization handover proof error:", err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to retrieve handover proof."
+        });
+    }
+});
+
+// GET: View pet return proof photos (Organization only)
+router.get("/return-requests/:id/proof/:type", async (req, res) => {
+    try {
+        const { id, type } = req.params;
+        const accountId = req.session?.accountId;
+
+        if (!accountId) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        if (!["adopter", "organization"].includes(type)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid proof type."
+            });
+        }
+
+        const photoColumn = type === "adopter"
+            ? "r.adopter_return_photo"
+            : "r.organization_received_photo";
+
+        const [rows] = await pool.query(
+            `SELECT ${photoColumn} AS photo_path
+             FROM pet_return_requests r
+             JOIN animals a ON r.animal_id = a.animal_id
+             JOIN organizations o ON r.organization_id = o.organization_id
+             WHERE r.return_request_id = ?
+               AND o.account_id = ?
+               AND ${photoColumn} IS NOT NULL`,
+            [id, accountId]
+        );
+
+        if (!rows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Return proof photo not found."
+            });
+        }
+
+        const filename = path.basename(rows[0].photo_path);
+
+        const photoPath = path.join(
+            __dirname,
+            "..",
+            "uploads",
+            "pet-proof",
+            filename
+        );
+
+        return res.sendFile(photoPath, (err) => {
+            if (err && !res.headersSent) {
+                console.error("Return proof file error:", err);
+
+                res.status(404).json({
+                    success: false,
+                    message: "Return proof image is unavailable."
+                });
+            }
+        });
+
+    } catch (err) {
+        console.error("Organization return proof error:", err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to retrieve return proof."
         });
     }
 });
