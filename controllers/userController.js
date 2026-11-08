@@ -1969,6 +1969,7 @@ exports.getUserApplications = async (req, res) => {
                 app.emergency_phone,
                 app.emergency_relation,
                 app.document_path,
+                app.handover_photo_path,
                 app.status,
                 app.decline_reason,
                 app.cancellation_reason,
@@ -2542,6 +2543,15 @@ exports.submitPetReturnRequest = async (req, res) => {
         });
     }
 
+    if (!req.file) {
+        return res.status(400).json({
+            success: false,
+            message: "Please upload a photo of the pet being returned."
+        });
+    }
+    
+    const adopterReturnPhoto = `uploads/pet-proof/${req.file.filename}`;
+    
     const connection = await pool.getConnection();
 
     try {
@@ -2622,14 +2632,15 @@ exports.submitPetReturnRequest = async (req, res) => {
 
         await connection.query(
             `INSERT INTO pet_return_requests
-                (application_id, adopter_id, animal_id, organization_id, return_reason, status)
-             VALUES (?, ?, ?, ?, ?, 'Pending')`,
+                (application_id, adopter_id, animal_id, organization_id, return_reason, adopter_return_photo, status)
+             VALUES (?, ?, ?, ?, ?, ?, 'Pending')`,
             [
                 application.application_id,
                 application.adopter_id,
                 application.animal_id,
                 application.organization_id,
-                reason
+                reason,
+                adopterReturnPhoto
             ]
         );
 
