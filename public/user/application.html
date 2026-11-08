@@ -76,13 +76,10 @@
                             </div>
                         </div>
 
-                        <div id="cancelledFilterContainer" class="hidden mt-3">
-                            <label for="cancelledFilter" class="block text-sm font-medium text-gray-700 mb-1">
-                                Filter Cancelled Applications
-                            </label>
+                        <div id="cancelledFilterContainer" class="hidden mt-3 text-right">
                         
                             <select id="cancelledFilter"
-                                class="w-full sm:w-64 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                class="w-auto min-w-[180px] rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
                                 <option value="All">All</option>
                                 <option value="Cancelled by Adopter">Cancelled by Adopter</option>
                                 <option value="Cancelled by Organization">Cancelled by Organization</option>
@@ -194,6 +191,26 @@
                         <div class="p-4 bg-emerald-50/60 border border-emerald-200 rounded-xl text-sm text-emerald-900" id="detail-meetup-content"></div>
                     </div>
 
+                    <!-- Handover Proof Card (Lalabas lang kapag Received) -->
+                    <div id="detail-handover-card" class="card hidden">
+                        <h2 class="section-title">
+                            <i class="fas fa-camera text-emerald-600"></i> Pet Handover Proof
+                        </h2>
+
+                        <p class="text-sm text-gray-500 mb-3">
+                            Photo submitted by the organization as confirmation that the pet was handed over to you.
+                        </p>
+
+                        <div class="border border-emerald-200 rounded-xl p-4 bg-emerald-50/40">
+                            <img
+                                id="detail-handover-photo"
+                                src=""
+                                alt="Pet handover proof"
+                                class="w-full max-w-lg mx-auto rounded-lg object-contain max-h-96"
+                            />
+                        </div>
+                    </div>
+                    
                     <!-- Requirement -->
                     <div class="card">
                         <h2 class="section-title"><i class="fas fa-upload"></i> Uploaded Requirement</h2>
@@ -281,6 +298,30 @@
                     ></textarea>
 
                     <p class="text-xs text-gray-400 mt-1">Maximum 2,000 characters.</p>
+
+                    <!-- ADOPTER RETURN PHOTO -->
+                    <div class="mt-4">
+                        <label for="adopterReturnPhoto" class="block text-sm font-semibold text-gray-700 mb-2">
+                            Photo of Pet Being Returned <span class="text-red-500">*</span>
+                        </label>
+
+                        <input
+                            type="file"
+                            id="adopterReturnPhoto"
+                            name="adopterReturnPhoto"
+                            accept="image/jpeg,image/png,image/webp"
+                            required
+                            class="w-full border border-gray-300 rounded-xl p-3 text-sm
+                                file:mr-3 file:py-2 file:px-3 file:rounded-lg
+                                file:border-0 file:bg-orange-50 file:text-orange-600
+                                file:font-semibold hover:file:bg-orange-100"
+                        >
+
+                        <p class="text-xs text-gray-400 mt-1">
+                            Upload a clear photo showing the pet being returned.
+                            Accepted formats: JPG, PNG, and WEBP.
+                        </p>
+                    </div>
 
                     <div class="flex justify-end gap-3 mt-5">
                         <button
