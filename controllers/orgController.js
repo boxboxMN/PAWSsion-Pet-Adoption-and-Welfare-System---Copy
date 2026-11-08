@@ -3465,7 +3465,8 @@ exports.getPetReturnRequests = async (req, res) => {
                 r.updated_at,
                 a.name AS pet_name,
                 a.species,
-                a.image_path
+                a.image_path,
+                a.adoption_status
              FROM pet_return_requests r
              JOIN animals a ON a.animal_id = r.animal_id
              WHERE r.organization_id = ?
@@ -3631,14 +3632,14 @@ exports.updatePetReturnRequestStatus = async (req, res) => {
             );
 
             // 2. Make the returned pet available for adoption
-            await connection.query(
-                `UPDATE animals
-                SET adoption_status = 'Available'
-                WHERE animal_id = ?
-                AND organization_id = ?
-                AND adoption_status = 'Adopted'`,
-                [request.animal_id, organizationId]
-            );
+            // await connection.query(
+            //     `UPDATE animals
+            //     SET adoption_status = 'Available'
+            //     WHERE animal_id = ?
+            //     AND organization_id = ?
+            //     AND adoption_status = 'Adopted'`,
+            //     [request.animal_id, organizationId]
+            // );
         }
 
         await connection.commit();
@@ -3659,6 +3660,119 @@ exports.updatePetReturnRequestStatus = async (req, res) => {
             message: "Failed to process return request."
         });
 
+    } finally {
+        connection.release();
+    }
+};
+
+// PATCH: Mark an approved returned pet as available for adoption
+exports.markReturnedPetAsAvailable = async (req, res) => {
+    const accountId = req.session?.accountId;
+    const { id } = req.params;
+
+    if (!accountId) {
+        return res.status(401).json({
+            success: false,
+            message: "Unauthorized."
+        });
+    }
+
+    const connection = await pool.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const [orgRows] = await connection.query(
+            `SELECT organization_id
+             FROM organizations
+             WHERE account_id = ?
+             LIMIT 1`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            await connection.rollback();
+            return res.status(404).json({
+                success: false,
+                message: "Organization not found."
+            });
+        }
+
+        const organizationId = orgRows[0].organization_id;
+
+        const [requestRows] = await connection.query(
+            `SELECT
+                r.return_request_id,
+                r.status AS return_status,
+                app.status AS application_status,
+                a.animal_id,
+                a.adoption_status
+             FROM pet_return_requests r
+             JOIN user_adoption_applications app
+                ON app.application_id = r.application_id
+             JOIN animals a
+                ON a.animal_id = r.animal_id
+             WHERE r.return_request_id = ?
+               AND r.organization_id = ?
+               AND a.organization_id = ?
+             FOR UPDATE`,
+            [id, organizationId, organizationId]
+        );
+
+        if (!requestRows.length) {
+            await connection.rollback();
+            return res.status(404).json({
+                success: false,
+                message: "Return request not found or unauthorized."
+            });
+        }
+
+        const request = requestRows[0];
+
+        if (
+            request.return_status !== "Approved" ||
+            request.application_status !== "Returned"
+        ) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "Only approved and returned pets can be marked as available."
+            });
+        }
+
+        if (request.adoption_status !== "Adopted") {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "The pet is not currently marked as Adopted."
+            });
+        }
+
+        await connection.query(
+            `UPDATE animals
+             SET adoption_status = 'Available'
+             WHERE animal_id = ?
+               AND organization_id = ?
+               AND adoption_status = 'Adopted'`,
+            [request.animal_id, organizationId]
+        );
+
+        await connection.commit();
+    
+        return res.json({
+            success: true,
+            message: "The returned pet is now available for adoption."
+        });
+        
+    } catch (error) {
+        await connection.rollback();
+
+        console.error("Mark Returned Pet Available Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to mark the returned pet as available."
+        });
     } finally {
         connection.release();
     }
