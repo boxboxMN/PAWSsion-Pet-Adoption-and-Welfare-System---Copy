@@ -16,6 +16,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     await fetchAdoptionApplications();
+     await fetchReturnPetRequests();
 
     // 3. Search & Filter Event Listeners
     document.getElementById("searchInput")?.addEventListener("input", filterAndRenderTable);
@@ -27,8 +28,48 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (applicationId) {
          viewApplicationDetails(applicationId);
     }
-});
 
+    // Adoption Management Tabs
+    const adoptionTab = document.getElementById("adoptionApplicationsTab");
+    const returnRequestsTab = document.getElementById("returnPetRequestsTab");
+
+    const adoptionPanel = document.getElementById("adoptionApplicationsPanel");
+    const returnRequestsPanel = document.getElementById("returnPetRequestsPanel");
+
+    function switchAdoptionTab(activeTab) {
+        const showAdoption = activeTab === "adoption";
+
+        adoptionPanel.classList.toggle("hidden", !showAdoption);
+        returnRequestsPanel.classList.toggle("hidden", showAdoption);
+
+        adoptionTab.setAttribute("aria-selected", String(showAdoption));
+        returnRequestsTab.setAttribute("aria-selected", String(!showAdoption));
+
+        adoptionTab.classList.toggle("border-blue-600", showAdoption);
+        adoptionTab.classList.toggle("text-blue-600", showAdoption);
+        adoptionTab.classList.toggle("border-transparent", !showAdoption);
+        adoptionTab.classList.toggle("text-gray-500", !showAdoption);
+
+        returnRequestsTab.classList.toggle("border-blue-600", !showAdoption);
+        returnRequestsTab.classList.toggle("text-blue-600", !showAdoption);
+        returnRequestsTab.classList.toggle("border-transparent", showAdoption);
+        returnRequestsTab.classList.toggle("text-gray-500", showAdoption);
+    }
+
+    if (adoptionTab && returnRequestsTab && adoptionPanel && returnRequestsPanel) {
+        adoptionTab.addEventListener("click", () => {
+            switchAdoptionTab("adoption");
+        });
+
+        returnRequestsTab.addEventListener("click", async () => {
+            switchAdoptionTab("returns");
+            await fetchReturnPetRequests();
+        });
+
+        // Set the default active tab
+        switchAdoptionTab("adoption");
+    }
+});
 
 async function fetchAdoptionApplications() {
     const tableBody = document.getElementById("applicationsTableBody");
@@ -61,6 +102,455 @@ async function fetchAdoptionApplications() {
             </tr>
         `;
     }
+}
+
+let returnPetRequests = [];
+let returnCurrentPage = 1;
+const returnItemsPerPage = 5;
+
+async function fetchReturnPetRequests() {
+    const tableBody = document.getElementById("returnRequestsTableBody");
+    const countBadge = document.getElementById("returnRequestCount");
+    
+    if (!tableBody) return;
+
+    tableBody.innerHTML = `
+        <tr>
+            <td colspan="4" class="px-5 py-8 text-center text-gray-500">
+                Loading return pet requests...
+            </td>
+        </tr>
+    `;
+
+    try {
+        const response = await fetch("/org/return-requests", {
+            method: "GET",
+            credentials: "same-origin",
+            headers: {
+                "Accept": "application/json"
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.message || "Failed to load return pet requests.");
+        }
+
+        console.log("Return pet requests response:", data);
+
+        // Temporary: inspect the actual response structure first.
+        const requests = Array.isArray(data)
+            ? data
+            : data.requests || data.returnRequests || data.data || [];
+        
+        returnPetRequests = requests;
+        returnCurrentPage = 1;
+
+        const totalItems = requests.length;
+        const totalPages = Math.ceil(totalItems / returnItemsPerPage);
+
+        if (returnCurrentPage > totalPages) {
+            returnCurrentPage = Math.max(1, totalPages);
+        }
+
+        const startIndex = (returnCurrentPage - 1) * returnItemsPerPage;
+        const endIndex = Math.min(startIndex + returnItemsPerPage, totalItems);
+
+        const currentRequests = requests.slice(startIndex, endIndex);
+
+        const returnPaginationInfo = document.getElementById("returnPaginationInfo");
+
+        if (returnPaginationInfo) {
+            returnPaginationInfo.textContent = totalItems === 0
+                ? "Showing 0 of 0 results"
+                : `Showing ${endIndex} of ${totalItems} results`;
+        }
+
+        if (countBadge) {
+            const pendingCount = requests.filter(
+                request => request.status === "Pending"
+            ).length;
+        
+            countBadge.textContent = pendingCount > 0
+                ? pendingCount
+                : "";
+        
+            countBadge.classList.toggle("hidden", pendingCount === 0);
+        }
+
+        if (requests.length === 0) {
+            tableBody.innerHTML = `
+                <tr>
+                    <td colspan="4" class="px-5 py-8 text-center text-gray-500">
+                        No return pet requests found.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        tableBody.innerHTML = currentRequests.map(request => {
+            let petImage = request.pet_image || request.image_path || "";
+        
+            if (petImage && !petImage.startsWith("http") && !petImage.startsWith("/")) {
+                petImage = `/uploads/pets/${petImage}`;
+            }
+        
+            const statusBadge = getReturnRequestStatusBadgeHTML(request.status);
+        
+            const requestedDate = request.created_at
+                ? new Date(request.created_at)
+                : null;
+        
+            const appliedDate = requestedDate && !Number.isNaN(requestedDate.getTime())
+                ? requestedDate.toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric"
+                })
+                : "N/A";
+        
+            const appliedTime = requestedDate && !Number.isNaN(requestedDate.getTime())
+                ? requestedDate.toLocaleTimeString("en-US", {
+                    hour: "numeric",
+                    minute: "2-digit",
+                    hour12: true
+                })
+                : "";
+        
+            return `
+                <tr class="hover:bg-gray-50/50 transition-colors">
+                    <td class="py-4 px-6">
+                        <div class="flex items-center gap-3">
+                            ${
+                                petImage
+                                    ? `<img
+                                        src="${escapeHtml(petImage)}"
+                                        alt="${escapeHtml(request.pet_name || "Pet")}"
+                                        class="w-9 h-9 rounded-full object-cover border border-gray-100"
+                                        onerror="this.style.display='none';"
+                                    />`
+                                    : ""
+                            }
+                            <div>
+                                <span class="font-semibold text-gray-900 block">
+                                    ${escapeHtml(request.pet_name || request.animal_name || "N/A")}
+                                </span>
+                                <span class="text-xs text-gray-400 block mt-0.5">
+                                    ${escapeHtml(request.pet_type || request.species || "Pet")}${request.pet_gender ? " · " + escapeHtml(request.pet_gender) : ""}
+                                </span>
+                            </div>
+                        </div>
+                    </td>
+        
+                    <td class="py-4 px-6">
+                        <span class="font-medium text-gray-900 block">${appliedDate}</span>
+                        <span class="text-xs text-gray-400 block mt-0.5">${appliedTime}</span>
+                    </td>
+        
+                    <td class="py-4 px-6">
+                        ${statusBadge}
+                    </td>
+        
+                    <td class="py-4 px-6 text-center">
+                        ${
+                            request.status === "Pending"
+                                ? `
+                                    <div class="flex items-center justify-center gap-2">
+                                        <button
+                                            type="button"
+                                            onclick="updateReturnRequestStatus(${Number(request.return_request_id)}, 'Approved')"
+                                            class="text-emerald-600 hover:text-emerald-700 transition-colors p-2 rounded-lg hover:bg-emerald-50 cursor-pointer"
+                                            title="Approve Return Request"
+                                        >
+                                            <i class="fa-solid fa-check text-lg"></i>
+                                        </button>
+        
+                                        <button
+                                            type="button"
+                                            onclick="updateReturnRequestStatus(${Number(request.return_request_id)}, 'Rejected')"
+                                            class="text-rose-500 hover:text-rose-600 transition-colors p-2 rounded-lg hover:bg-rose-50 cursor-pointer"
+                                            title="Reject Return Request"
+                                        >
+                                            <i class="fa-solid fa-xmark text-lg"></i>
+                                        </button>
+                                    </div>
+                                `
+                                : ` <button type="button" onclick="viewReturnRequestDetails(${Number(request.return_request_id)})" class="text-blue-600 hover:text-blue-700 text-xs font-semibold border border-blue-200 rounded-lg px-3 py-2 hover:bg-blue-50 transition cursor-pointer">
+                                        <i class="fa-solid fa-eye mr-1"></i> View Details
+                                    </button> `
+                        }
+                    </td>
+                </tr>
+            `;
+        }).join("");
+
+        const returnPaginationControls = document.getElementById(
+            "returnPaginationControls"
+        );
+        
+        if (returnPaginationControls) {
+            let html = "";
+        
+            // Previous button
+            html += `
+                <button
+                    type="button"
+                    onclick="changeReturnPage(${returnCurrentPage - 1})"
+                    ${returnCurrentPage === 1 ? "disabled" : ""}
+                    class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs transition"
+                >
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+            `;
+        
+            // Page numbers
+            for (let page = 1; page <= totalPages; page++) {
+                html += page === returnCurrentPage
+                    ? `
+                        <button
+                            type="button"
+                            disabled
+                            class="w-8 h-8 flex items-center justify-center border border-blue-600 bg-blue-50 text-blue-600 font-semibold rounded-lg text-xs"
+                        >
+                            ${page}
+                        </button>
+                    `
+                    : `
+                        <button
+                            type="button"
+                            onclick="changeReturnPage(${page})"
+                            class="w-8 h-8 flex items-center justify-center border border-gray-200 text-gray-600 hover:bg-gray-50 rounded-lg text-xs font-medium transition"
+                        >
+                            ${page}
+                        </button>
+                    `;
+            }
+        
+            // Next button
+            html += `
+                <button
+                    type="button"
+                    onclick="changeReturnPage(${returnCurrentPage + 1})"
+                    ${returnCurrentPage === totalPages || totalPages === 0 ? "disabled" : ""}
+                    class="w-8 h-8 flex items-center justify-center border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs transition"
+                >
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            `;
+        
+            returnPaginationControls.innerHTML = html;
+        }
+    } catch (error) {
+        console.error("Error loading return pet requests:", error);
+
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="4" class="px-5 py-8 text-center text-red-500">
+                    Failed to load return pet requests. Please check the browser console.
+                </td>
+            </tr>
+        `;
+    }
+}
+
+async function changeReturnPage(newPage) {
+    const totalPages = Math.ceil(
+        returnPetRequests.length / returnItemsPerPage
+    );
+
+    if (newPage < 1 || newPage > totalPages) return;
+
+    returnCurrentPage = newPage;
+    await fetchReturnPetRequests();
+}
+
+function getReturnRequestStatusBadgeHTML(status) {
+    const cleanStatus = String(status || "").toLowerCase().trim();
+
+    if (cleanStatus === "approved") {
+        return `<span class="px-3 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-600">Approved</span>`;
+    }
+
+    if (cleanStatus === "rejected") {
+        return `<span class="px-3 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-500">Rejected</span>`;
+    }
+
+    return `<span class="px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-600">Pending</span>`;
+}
+
+async function updateReturnRequestStatus(requestId, status) {
+    const action = status === "Approved" ? "approve" : "reject";
+
+    const confirmed = await Swal.fire({
+        title: `${status} Return Request?`,
+        text: `Are you sure you want to ${action} this pet return request?`,
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: `Yes, ${action}`,
+        cancelButtonText: "Cancel",
+        confirmButtonColor: status === "Approved" ? "#16a34a" : "#dc2626"
+    });
+
+    if (!confirmed.isConfirmed) return;
+
+    try {
+        const response = await fetch(
+            `/org/return-requests/${encodeURIComponent(requestId)}/status`,
+            {
+                method: "PATCH",
+                credentials: "same-origin",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    status: status
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || data.success === false) {
+            throw new Error(
+                data.message || `Failed to ${action} return request.`
+            );
+        }
+
+        await Swal.fire({
+            icon: "success",
+            title: status === "Approved" ? "Return Approved" : "Return Rejected",
+            text: data.message || (
+                status === "Approved"
+                    ? "The pet is now available for adoption."
+                    : "The pet remains adopted."
+            ),
+            confirmButtonColor: "#2563eb"
+        });
+
+        await fetchReturnPetRequests();
+
+        // Refresh the existing adoption applications table as well.
+        await fetchAdoptionApplications();
+
+    } catch (error) {
+        console.error("Error updating return request:", error);
+
+        await Swal.fire({
+            icon: "error",
+            title: "Action Failed",
+            text: error.message || "Unable to update the return request.",
+            confirmButtonColor: "#dc2626"
+        });
+    }
+}
+
+function viewReturnRequestDetails(requestId) {
+    const request = returnPetRequests.find(
+        item => Number(item.return_request_id) === Number(requestId)
+    );
+
+    if (!request) {
+        Swal.fire({
+            icon: "error",
+            title: "Request Not Found",
+            text: "Unable to load the return request details."
+        });
+        return;
+    }
+
+    const requestedDate = request.created_at
+        ? new Date(request.created_at)
+        : null;
+
+    const formattedDate =
+        requestedDate && !Number.isNaN(requestedDate.getTime())
+            ? requestedDate.toLocaleString("en-US", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+                hour: "numeric",
+                minute: "2-digit"
+            })
+            : "N/A";
+    
+        const petName = escapeHtml(request.pet_name || request.animal_name || "N/A");
+        
+        let petImage = request.pet_image || request.image_path || "";
+
+        if (petImage && !petImage.startsWith("http") && !petImage.startsWith("/")) {
+            petImage = `/uploads/pets/${petImage}`;
+        }
+
+        const reason = request.return_reason?.trim();
+    
+        // NOTE: no whitespace inside <p> tags that use whitespace-pre-wrap
+        const reasonHTML = reason
+            ? `<p class="text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(reason)}</p>`
+            : `<p class="text-sm text-gray-400 italic">No reason provided</p>`;
+    
+        Swal.fire({
+            width: 480,
+            showCloseButton: true,
+            showConfirmButton: false,
+            confirmButtonColor: "#2563eb",
+            customClass: {
+                popup: "rounded-2xl",
+                htmlContainer: "!m-0 !p-0 !text-left",
+                actions: "!mt-6",
+                confirmButton: "!rounded-lg !px-6 !py-2 !text-sm !font-semibold"
+            },
+            title: "",
+            html: `
+                <div style="text-align:left">
+                    <!-- Header -->
+                    <div class="px-6 pt-6 pb-4 border-b border-gray-100">
+                        <p class="text-xs font-bold uppercase tracking-wide text-gray-400 mb-4">
+                            Return Request
+                        </p>
+
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-3 min-w-0">
+                                ${
+                                    petImage
+                                        ? `<img
+                                            src="${escapeHtml(petImage)}"
+                                            alt="${petName}"
+                                            class="h-12 w-12 shrink-0 rounded-full object-cover border border-gray-200"
+                                            onerror="this.style.display='none';"
+                                        />`
+                                        : `<div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600">
+                                            <i class="fa-solid fa-paw"></i>
+                                        </div>`
+                                }
+
+                                <h3 class="text-lg font-bold text-gray-900 truncate">
+                                    ${petName}
+                                </h3>
+                            </div>
+
+                            <div class="shrink-0">
+                                ${getReturnRequestStatusBadgeHTML(request.status)}
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Body -->
+                    <div class="px-6 py-5 space-y-5">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Return Reason</p>
+                            <div class="rounded-xl bg-gray-50 border border-gray-100 p-3.5">${reasonHTML}</div>
+                        </div>
+    
+                        <div class="flex items-center gap-2 text-xs text-gray-500">
+                            <i class="fa-regular fa-calendar"></i>
+                            <span>Requested on <span class="font-medium text-gray-700">${formattedDate}</span></span>
+                        </div>
+                    </div>
+                </div>
+            `
+        });
 }
 
 // Helper: Update Stat Cards
@@ -126,7 +616,9 @@ function filterAndRenderTable() {
             matchesStatus = true;
         } else if (statusVal === "declined" && (rawStatus.includes("declined") || rawStatus.includes("rejected"))) {
             matchesStatus = true;
-        } else if (statusVal === "cancelled" && rawStatus.includes("cancelled")) {
+        } else if (statusVal === "cancelled_by_adopter" && rawStatus.includes("cancelled by adopter")) {
+            matchesStatus = true;
+        } else if (statusVal === "cancelled_by_organization" && rawStatus.includes("cancelled by organization")) {
             matchesStatus = true;
         }
 
@@ -289,7 +781,10 @@ function getStatusBadgeHTML(status) {
     else if (cleanStatus.includes('review') || cleanStatus.includes('pending') || cleanStatus === '') {
         return `<span class="px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-600">Under Review</span>`;
     } 
-    else if (cleanStatus.includes('cancelled')) {
+    else if (cleanStatus.includes('cancelled by organization')) {
+        return `<span class="px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">Cancelled by Organization</span>`;
+    }
+    else if (cleanStatus.includes('cancelled by adopter')) {
         return `<span class="px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">Cancelled by Adopter</span>`;
     } 
     else {
