@@ -1896,10 +1896,18 @@ exports.checkAppliedStatus = async (req, res) => {
 
         // Query application with decline_reason included
         const [rows] = await pool.query(
-            `SELECT application_id, status, decline_reason 
-             FROM user_adoption_applications 
-             WHERE adopter_id = ? AND animal_id = ? 
-             ORDER BY created_at DESC LIMIT 1`,
+             `SELECT
+                app.application_id,
+                app.status,
+                app.decline_reason,
+                animal.adoption_status AS pet_adoption_status
+             FROM user_adoption_applications app
+             INNER JOIN animals animal
+                ON app.animal_id = animal.animal_id
+             WHERE app.adopter_id = ?
+               AND app.animal_id = ?
+             ORDER BY app.created_at DESC
+             LIMIT 1`,
             [adopterId, petId]
         );
 
@@ -1907,6 +1915,7 @@ exports.checkAppliedStatus = async (req, res) => {
             return res.json({ 
                 hasApplied: true, 
                 status: rows[0].status,
+                petAdoptionStatus: rows[0].pet_adoption_status,
                 declineReason: rows[0].decline_reason || "No specific reason provided."
             });
         }
