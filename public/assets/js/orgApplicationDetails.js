@@ -169,8 +169,11 @@ function populateDetailsUI(app) {
                 statusBadge.className = "inline-flex px-4 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-600";
             } else if (isInterviewScheduled) {
                 statusBadge.className = "inline-flex px-4 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-600";
-            } else if (lowerStatus.includes("cancelled")) {
-                // Kulay ng badge kapag kinansela ng adopter
+            } else if (lowerStatus.includes("cancelled by organization")) {
+                statusBadge.textContent = "Cancelled by Organization";
+                statusBadge.className = "inline-flex px-4 py-1.5 rounded-full text-sm font-medium bg-gray-200 text-gray-700";
+            } else if (lowerStatus.includes("cancelled by adopter")) {
+                statusBadge.textContent = "Cancelled by Adopter";
                 statusBadge.className = "inline-flex px-4 py-1.5 rounded-full text-sm font-medium bg-gray-200 text-gray-700";
             } else {
                 statusBadge.className = "inline-flex px-4 py-1.5 rounded-full text-sm font-medium bg-amber-100 text-amber-600";
@@ -190,6 +193,17 @@ function populateDetailsUI(app) {
         const canConfirmHandover = lowerStatus === "approved";
 
         confirmPetHandoverBtn.classList.toggle("hidden", !canConfirmHandover);
+    }
+
+    const cancelApprovedApplicationBtn = document.getElementById(
+        "cancelApprovedApplicationBtn"
+    );
+    
+    if (cancelApprovedApplicationBtn) {
+        cancelApprovedApplicationBtn.classList.toggle(
+            "hidden",
+            lowerStatus !== "approved"
+        );
     }
 
     const isDeclined = ["declined", "rejected"].includes(lowerStatus);
@@ -2153,6 +2167,140 @@ async function submitPetHandover() {
         if (confirmBtn) {
             confirmBtn.disabled = false;
             confirmBtn.innerHTML = 'Confirm Handover';
+        }
+    }
+}
+
+function openCancelApprovedApplicationModal() {
+    const modal = document.getElementById("cancelApprovedApplicationModal");
+    const reasonInput = document.getElementById("cancellationReasonInput");
+
+    if (!modal) return;
+
+    if (reasonInput) {
+        reasonInput.value = "";
+    }
+
+    modal.classList.remove("hidden");
+
+    if (reasonInput) {
+        reasonInput.focus();
+    }
+}
+
+function closeCancelApprovedApplicationModal() {
+    const modal = document.getElementById("cancelApprovedApplicationModal");
+
+    if (modal) {
+        modal.classList.add("hidden");
+    }
+}
+
+async function submitApprovedApplicationCancellation() {
+    const applicationId =
+        currentAppDetails?.application_id ??
+        currentAppDetails?.id;
+
+    const reasonInput = document.getElementById("cancellationReasonInput");
+    const submitBtn = document.getElementById("submitCancellationBtn");
+    const reason = reasonInput?.value.trim();
+
+    if (!applicationId) {
+        alert("Unable to identify the application. Please refresh and try again.");
+        return;
+    }
+
+    if (!reason) {
+        alert("Please provide a reason for cancellation.");
+        reasonInput?.focus();
+        return;
+    }
+
+    if (reason.length > 1000) {
+        alert("The cancellation reason must not exceed 1,000 characters.");
+        reasonInput?.focus();
+        return;
+    }
+
+    if (currentAppDetails?.status?.toLowerCase() !== "approved") {
+        alert("Only approved applications can be cancelled using this action.");
+        return;
+    }
+
+    const originalButtonHTML = submitBtn?.innerHTML;
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML =
+            '<i class="fa-solid fa-spinner fa-spin"></i> Cancelling...';
+    }
+
+    try {
+        const csrfResponse = await fetch("/auth/csrf-token");
+        const csrfData = await csrfResponse.json();
+
+        if (!csrfResponse.ok || !csrfData.token) {
+            throw new Error(
+                "Unable to get security token. Please refresh and try again."
+            );
+        }
+
+        const response = await fetch(
+            `/org/applications/${encodeURIComponent(applicationId)}/cancel`,
+            {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-csrf-token": csrfData.token
+                },
+                body: JSON.stringify({
+                    cancellation_reason: reason
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(
+                data.message || "Failed to cancel the adoption application."
+            );
+        }
+
+        closeCancelApprovedApplicationModal();
+
+        if (typeof Swal !== "undefined") {
+            await Swal.fire({
+                icon: "success",
+                title: "Application Cancelled",
+                text: data.message || "The adoption application has been cancelled.",
+                confirmButtonColor: "#F97316"
+            });
+        } else {
+            alert(data.message || "The adoption application has been cancelled.");
+        }
+
+        // Refresh the application details using the existing project function.
+        window.location.href = "/org/adoption";
+
+    } catch (error) {
+        console.error("Error cancelling adoption application:", error);
+
+        if (typeof Swal !== "undefined") {
+            Swal.fire({
+                icon: "error",
+                title: "Cancellation Failed",
+                text: error.message || "Unable to cancel the application. Please try again.",
+                confirmButtonColor: "#EF4444"
+            });
+        } else {
+            alert(error.message || "Unable to cancel the application.");
+        }
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML =
+                originalButtonHTML || "Confirm Cancellation";
         }
     }
 }
