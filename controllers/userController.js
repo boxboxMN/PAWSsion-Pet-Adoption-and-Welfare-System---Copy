@@ -1737,7 +1737,7 @@ exports.submitAdoptionApplication = async (req, res) => {
             ? (existingApp[0].status || '').trim().toLowerCase()
             : '';
 
-        if (existingApp.length > 0 && ['declined', 'rejected', 'cancelled'].includes(currentStatus)) {
+        if (existingApp.length > 0 && ['declined', 'rejected', 'cancelled by adopter', 'cancelled by organization'].includes(currentStatus)) {
 
             const [oldAppRows] = await pool.query(
                 `SELECT document_path FROM user_adoption_applications WHERE application_id = ?`,
@@ -1962,6 +1962,7 @@ exports.getUserApplications = async (req, res) => {
                 app.document_path,
                 app.status,
                 app.decline_reason,
+                app.cancellation_reason,
                 COALESCE(app.updated_at, app.created_at) AS created_at,
                 app.updated_at,
                 i.interview_date,
@@ -2062,7 +2063,7 @@ exports.cancelAdoptionApplication = async (req, res) => {
         // 2. I-update lamang kapag ang application ay naka-'Under Review' pa at pagmamay-ari ng user
         const [result] = await pool.query(
             `UPDATE user_adoption_applications 
-             SET status = 'Cancelled', updated_at = NOW() 
+             SET status = 'Cancelled by Adopter', updated_at = NOW()
              WHERE application_id = ? AND adopter_id = ? AND status = 'Under Review'`,
             [applicationId, adopterId]
         );
@@ -2123,12 +2124,12 @@ exports.getApprovedAdoptedPets = async (req, res) => {
             JOIN animals a ON app.animal_id = a.animal_id
             WHERE app.adopter_id = ? 
               AND UPPER(app.status) IN ('APPROVED', 'RECEIVED')
+              AND a.adoption_status = 'Adopted'
               AND NOT EXISTS (
-                  SELECT 1 
-                  FROM pet_returns pr
-                  WHERE pr.animal_id = a.animal_id
-                    AND pr.adopter_id = app.adopter_id
-                    AND UPPER(pr.status) = 'COMPLETED'
+                SELECT 1
+                FROM pet_return_requests r
+                WHERE r.application_id = app.application_id
+                    AND r.status = 'Approved'
               )
         `, [adopterId]);
 
@@ -2502,6 +2503,154 @@ async function checkKamustahanRemindersDue(accountId) {
 }
 exports.checkKamustahanRemindersDue = checkKamustahanRemindersDue;
 
+exports.submitPetReturnRequest = async (req, res) => {
+    const accountId = req.session?.accountId;
+    const applicationId = Number(req.params.applicationId);
+    const reason = typeof req.body?.return_reason === "string"
+        ? req.body.return_reason.trim()
+        : "";
+
+    if (!accountId) {
+        return res.status(401).json({
+            success: false,
+            message: "Unauthorized."
+        });
+    }
+
+    if (!Number.isSafeInteger(applicationId) || applicationId <= 0) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid adoption application."
+        });
+    }
+
+    if (!reason || reason.length > 2000) {
+        return res.status(400).json({
+            success: false,
+            message: "Please provide a return reason of up to 2000 characters."
+        });
+    }
+
+    const connection = await pool.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const [rows] = await connection.query(
+            `SELECT
+                app.application_id,
+                app.adopter_id,
+                app.animal_id,
+                app.organization_id,
+                app.status AS application_status,
+                a.adoption_status
+             FROM user_adoption_applications app
+             JOIN adopters ad ON ad.adopter_id = app.adopter_id
+             JOIN animals a ON a.animal_id = app.animal_id
+             WHERE app.application_id = ?
+               AND ad.account_id = ?
+             FOR UPDATE`,
+            [applicationId, accountId]
+        );
+
+        if (!rows.length) {
+            await connection.rollback();
+
+            return res.status(404).json({
+                success: false,
+                message: "Adoption application not found."
+            });
+        }
+
+        const application = rows[0];
+
+        if (!application.organization_id) {
+            await connection.rollback();
+        
+            return res.status(400).json({
+                success: false,
+                message: "This adoption is not linked to an organization and cannot be returned."
+            });
+        }
+
+        if (!["Approved", "Received"].includes(application.application_status)) {
+            await connection.rollback();
+
+            return res.status(400).json({
+                success: false,
+                message: "Only approved or received adoptions can be returned."
+            });
+        }
+
+        if (application.adoption_status !== "Adopted") {
+            await connection.rollback();
+
+            return res.status(400).json({
+                success: false,
+                message: "This pet is not currently marked as Adopted."
+            });
+        }
+
+        // One request per adoption application, even if previously rejected.
+        const [existing] = await connection.query(
+            `SELECT return_request_id
+             FROM pet_return_requests
+             WHERE application_id = ?
+             LIMIT 1`,
+            [applicationId]
+        );
+
+        if (existing.length) {
+            await connection.rollback();
+
+            return res.status(409).json({
+                success: false,
+                message: "A return request has already been submitted for this adoption."
+            });
+        }
+
+        await connection.query(
+            `INSERT INTO pet_return_requests
+                (application_id, adopter_id, animal_id, organization_id, return_reason, status)
+             VALUES (?, ?, ?, ?, ?, 'Pending')`,
+            [
+                application.application_id,
+                application.adopter_id,
+                application.animal_id,
+                application.organization_id,
+                reason
+            ]
+        );
+
+        await connection.commit();
+
+        return res.status(201).json({
+            success: true,
+            message: "Return request submitted successfully. The pet will remain Adopted while the request is pending."
+        });
+
+    } catch (error) {
+        await connection.rollback();
+
+        // Also handle the UNIQUE application_id constraint if two requests arrive together.
+        if (error.code === "ER_DUP_ENTRY") {
+            return res.status(409).json({
+                success: false,
+                message: "A return request has already been submitted for this adoption."
+            });
+        }
+
+        console.error("Submit Pet Return Request Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to submit return request."
+        });
+
+    } finally {
+        connection.release();
+    }
+};
 
 //functions for recent activities in user dashboard
 exports.getUserRecentActivities = async (req, res) => {
