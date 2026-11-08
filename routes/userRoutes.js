@@ -9,6 +9,7 @@ const matchmakerController = require("../controllers/matchmakerController");
 const { matchPets } = require("../controllers/matchmakerController");
 const { csrfSynchronisedProtection } = require("../middleware/csrf");
 const pool = require('../config/database');
+const { uploadReturnProof } = require("../config/upload");
 const {uploadAdoptionDocument,  uploadAvatar} = require("../config/upload");
 const { logActivity, createNotification } = require("../controllers/adminController"); 
 
@@ -210,6 +211,74 @@ router.get("/profile", checkUserSession, (req, res) => {
 }); 
 
 router.get("/api/user/applications", checkUserSession, userController.getUserApplications);
+
+// GET: View handover proof (Adopter only)
+router.get("/api/user/applications/:id/handover-proof", checkUserSession,
+    async (req, res) => {
+        try {
+            const { id } = req.params;
+            const accountId = req.session?.accountId;
+
+            const [rows] = await pool.query(
+                `SELECT app.handover_photo_path
+                 FROM user_adoption_applications app
+                 JOIN adopters ad ON app.adopter_id = ad.adopter_id
+                 WHERE app.application_id = ?
+                   AND ad.account_id = ?
+                   AND app.handover_photo_path IS NOT NULL`,
+                [id, accountId]
+            );
+
+            if (!rows.length) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Handover proof not found."
+                });
+            }
+
+            const filename = path.basename(rows[0].handover_photo_path);
+
+            const newPath = path.join(
+                __dirname,
+                '..',
+                'uploads',
+                'pet-proof',
+                filename
+            );
+            
+            const oldPath = path.join(
+                __dirname,
+                '..',
+                'private-uploads',
+                'handover-proof',
+                filename
+            );
+            
+            // Support both newly uploaded and previously saved handover photos.
+            const photoPath = fs.existsSync(newPath) ? newPath : oldPath;
+
+            return res.sendFile(photoPath, (err) => {
+                if (err && !res.headersSent) {
+                    console.error("Adopter handover proof file error:", err);
+
+                    res.status(404).json({
+                        success: false,
+                        message: "Handover proof image is unavailable."
+                    });
+                }
+            });
+
+        } catch (err) {
+            console.error("Adopter handover proof error:", err);
+
+            return res.status(500).json({
+                success: false,
+                message: "Unable to retrieve handover proof."
+            });
+        }
+    }
+);
+
 router.get("/api/user/donations", checkUserSession, userController.getUserDonations);
 router.get("/api/user/profile", checkUserSession, userController.getProfile);
 
@@ -287,7 +356,7 @@ router.get("/api/organizations", checkUserSession, userController.getOrganizatio
 router.post( "/api/user/donation/cash", checkUserSession, uploadReceipt.single("receipt"), userController.submitCashDonation);
 router.post('/api/user/donation/in-kind', checkUserSession, userController.submitInKindDonation);
 router.get("/api/user/approved-pets", checkUserSession, userController.getApprovedAdoptedPets);
-router.post( "/api/user/applications/:applicationId/return-request", checkUserSession,  userController.submitPetReturnRequest);
+router.post( "/api/user/applications/:applicationId/return-request", checkUserSession, uploadReturnProof.single("adopterReturnPhoto"), userController.submitPetReturnRequest);
 router.get("/api/user/kamustahan-history", checkUserSession, userController.getKamustahanHistory);
 router.post("/api/user/kamustahan", checkUserSession, uploadKamustahan.array("photos", 5), userController.submitKamustahanUpdate);
 
