@@ -186,6 +186,11 @@
                     Confirm Pet Handover
                 </button>
                 
+                 <button id="cancelApprovedApplicationBtn" type="button" onclick="openCancelApprovedApplicationModal()" class="hidden px-5 py-2.5 rounded-xl border border-red-500 bg-red-50 text-red-700 hover:bg-red-100 text-sm font-semibold transition cursor-pointer">
+                    <i class="fa-solid fa-ban mr-1"></i>
+                    Cancel Adoption
+                </button>
+                
                 <button id="reviewDecisionBtn" onclick="handleReviewDecision()" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition shadow-md shadow-blue-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600">
                     Review Decision
                 </button>
@@ -568,6 +573,54 @@
         </div>
     </div>
 
+    <!-- Cancel Approved Application Modal -->
+    <div id="cancelApprovedApplicationModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4">
+
+        <div class="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+
+            <div class="mb-4 flex items-center gap-3">
+                <div class="flex h-11 w-11 items-center justify-center rounded-full bg-red-100 text-red-600">
+                    <i class="fa-solid fa-ban"></i>
+                </div>
+
+                <div>
+                    <h2 class="text-lg font-bold text-gray-900">
+                        Cancel Adoption
+                    </h2>
+                    <p class="text-sm text-gray-500">
+                        Cancel this approved adoption application.
+                    </p>
+                </div>
+            </div>
+
+            <p class="mb-4 text-sm leading-relaxed text-gray-600">
+                Please provide a reason for cancelling this application.
+                The adopter will be able to see your reason.
+            </p>
+
+            <label for="cancellationReasonInput"
+                    class="mb-2 block text-sm font-semibold text-gray-700">
+                Reason for Cancellation <span class="text-red-600">*</span>
+            </label>
+
+            <textarea id="cancellationReasonInput" rows="4" maxlength="1000" required placeholder="Enter the reason for cancellation..." class="w-full resize-y rounded-xl border border-gray-300 p-3 text-sm text-gray-800 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100"></textarea>
+
+            <p class="mt-1 text-xs text-gray-500">
+                Maximum of 1,000 characters.
+            </p>
+
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" onclick="closeCancelApprovedApplicationModal()" class="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-100">
+                    Go Back
+                </button>
+
+                <button id="submitCancellationBtn" type="button" onclick="submitApprovedApplicationCancellation()" class="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700">
+                    Confirm Cancellation
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <!-- Logout Modal -->
     <div id="logoutModal" class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/45 backdrop-blur-sm opacity-0 pointer-events-none transition-opacity duration-200">
         <div class="bg-white rounded-2xl max-w-sm w-full mx-4 p-6 shadow-2xl scale-95 transition-transform duration-200">
