@@ -115,6 +115,28 @@ function populateDetailsUI(app) {
 
     const lowerStatus = status.toLowerCase();
 
+    // DISPLAY HANDOVER PROOF WHEN STATUS IS RECEIVED
+    const handoverProofCard = document.getElementById("org-handover-proof-card");
+    const handoverProofPhoto = document.getElementById("org-handover-proof-photo");
+
+    if (handoverProofCard && handoverProofPhoto) {
+        if (lowerStatus === "received" && app.handover_photo_path) {
+            handoverProofCard.classList.remove("hidden");
+
+            handoverProofPhoto.src =
+                `/org/applications/${app.application_id}/handover-proof`;
+
+            handoverProofPhoto.onerror = () => {
+                handoverProofPhoto.onerror = null;
+                handoverProofPhoto.alt = "Handover proof image is unavailable.";
+            };
+        } else {
+            handoverProofCard.classList.add("hidden");
+            handoverProofPhoto.removeAttribute("src");
+            handoverProofPhoto.onerror = null;
+        }
+    }
+    
     // FIX: Kung Under Review ang status, huwag hayaang maging "Post-Interview Review" 
     // kahit may naiwan pang lumang interview date sa database.
     const isUnderReview = lowerStatus.includes("under review") || lowerStatus.includes("pending");
@@ -2101,6 +2123,55 @@ function closePetHandoverModal() {
         ?.classList.add('hidden');
 }
 
+// ==========================================
+// HANDOVER PHOTO PREVIEW
+// ==========================================
+document.getElementById('handoverProofInput') ?.addEventListener('change', function () {
+
+    const file = this.files[0];
+    const previewContainer = document.getElementById('handoverProofPreviewContainer');
+    const previewImage = document.getElementById('handoverProofPreview');
+
+    if (!file) {
+        previewContainer.classList.add('hidden');
+        previewImage.src = '';
+        return;
+    }
+
+    // Validate image type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+    if (!allowedTypes.includes(file.type)) {
+        this.value = '';
+
+        previewContainer.classList.add('hidden');
+        previewImage.src = '';
+
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Invalid File',
+            text: 'Please select a JPG, PNG, or WEBP image.'
+        });
+    }
+
+    // Validate file size (5 MB)
+    if (file.size > 5 * 1024 * 1024) {
+        this.value = '';
+
+        previewContainer.classList.add('hidden');
+        previewImage.src = '';
+
+        return Swal.fire({
+            icon: 'warning',
+            title: 'File Too Large',
+            text: 'The maximum allowed photo size is 5 MB.'
+        });
+    }
+
+    previewImage.src = URL.createObjectURL(file);
+    previewContainer.classList.remove('hidden');
+});
+
 async function submitPetHandover() {
     if (!currentAppId) {
         return Swal.fire({
@@ -2112,6 +2183,39 @@ async function submitPetHandover() {
     }
 
     const confirmBtn = document.getElementById('confirmPetHandoverSubmitBtn');
+    const photoInput = document.getElementById('handoverProofInput');
+    const photo = photoInput?.files?.[0];
+
+    // Require photo proof
+    if (!photo) {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Photo Required',
+            text: 'Please upload a handover proof photo first.',
+            confirmButtonColor: '#2563EB'
+        });
+    }
+
+    // Validate image type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+    if (!allowedTypes.includes(photo.type)) {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Invalid File',
+            text: 'Please select a JPG, PNG, or WEBP image.'
+        });
+    }
+
+    // Validate file size
+    if (photo.size > 5 * 1024 * 1024) {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'File Too Large',
+            text: 'The maximum allowed photo size is 5 MB.'
+        });
+    }
+    
 
     if (confirmBtn) {
         confirmBtn.disabled = true;
@@ -2120,13 +2224,17 @@ async function submitPetHandover() {
     }
 
     try {
+        const formData = new FormData();
+        formData.append('handoverProof', photo);
+        
         const response = await fetch(
             `/org/applications/${currentAppId}/confirm-handover`,
             {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                // headers: {
+                //     'Content-Type': 'application/json'
+                // },
+                body: formData,
                 credentials: 'include'
             }
         );
@@ -2144,6 +2252,13 @@ async function submitPetHandover() {
         }
 
         closePetHandoverModal();
+
+        photoInput.value = '';
+
+        document.getElementById('handoverProofPreviewContainer')
+            ?.classList.add('hidden');
+
+        document.getElementById('handoverProofPreview').src = '';
 
         await Swal.fire({
             icon: 'success',
