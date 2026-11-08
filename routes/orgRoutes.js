@@ -32,7 +32,9 @@ const {
     getAnalyticsData,
     getKamustahanUpdates,
     schedulePetUpdate,
-    archiveKamustahanUpdate
+    archiveKamustahanUpdate,
+    getPetReturnRequests,
+    updatePetReturnRequestStatus
 } = require("../controllers/orgController");
 
 const router = express.Router();
@@ -757,6 +759,16 @@ router.patch('/applications/:id/status', async (req, res) => {
 }
 });
 
+/* ==========================================
+   RETURN PET REQUEST ROUTES
+========================================== */
+
+// GET: View return requests for this organization
+router.get("/return-requests", getPetReturnRequests);
+
+// PATCH: Approve or reject a return request
+router.patch("/return-requests/:id/status", updatePetReturnRequestStatus);
+
 // PATCH Confirm Pet Handover
 router.patch('/applications/:id/confirm-handover', async (req, res) => {
     const connection = await pool.getConnection();
@@ -848,6 +860,234 @@ router.patch('/applications/:id/confirm-handover', async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Failed to confirm pet handover."
+        });
+    }
+});
+
+// PATCH Cancel Approved Application (Organization)
+router.patch('/applications/:id/cancel', async (req, res) => {
+    let connection;
+    let transactionStarted = false;
+    let connectionReleased = false;
+
+    try {
+        connection = await pool.getConnection();
+
+        const { id } = req.params;
+        const accountId = req.session?.accountId;
+        const cancellationReason =
+            typeof req.body?.cancellation_reason === "string"
+                ? req.body.cancellation_reason.trim()
+                : "";
+
+        if (!accountId) {
+            connection.release();
+            connectionReleased = true;
+
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        if (!cancellationReason) {
+            connection.release();
+            connectionReleased = true;
+
+            return res.status(400).json({
+                success: false,
+                message: "A cancellation reason is required."
+            });
+        }
+
+        if (cancellationReason.length > 1000) {
+            connection.release();
+            connectionReleased = true;
+
+            return res.status(400).json({
+                success: false,
+                message: "Cancellation reason must not exceed 1000 characters."
+            });
+        }
+
+        await connection.beginTransaction();
+        transactionStarted = true;
+
+        // Verify organization ownership and lock the application row.
+        const [appRows] = await connection.query(
+            `SELECT app.application_id, app.animal_id, app.status, a.adoption_status
+             FROM user_adoption_applications app
+             INNER JOIN animals a ON app.animal_id = a.animal_id
+             INNER JOIN organizations o ON a.organization_id = o.organization_id
+             WHERE app.application_id = ?
+               AND o.account_id = ?
+             FOR UPDATE`,
+            [id, accountId]
+        );
+
+        if (!appRows.length) {
+            await connection.rollback();
+            transactionStarted = false;
+            connection.release();
+            connectionReleased = true;
+
+            return res.status(404).json({
+                success: false,
+                message: "Application not found or you do not have permission to update it."
+            });
+        }
+
+        if (appRows[0].status !== "Approved") {
+            await connection.rollback();
+            transactionStarted = false;
+            connection.release();
+            connectionReleased = true;
+
+            return res.status(400).json({
+                success: false,
+                message: "Only approved applications can be cancelled. Received applications must use the return process."
+            });
+        }
+
+        const [updateResult] = await connection.query(
+            `UPDATE user_adoption_applications
+             SET status = 'Cancelled by Organization',
+                 cancellation_reason = ?,
+                 updated_at = NOW()
+             WHERE application_id = ?
+               AND status = 'Approved'`,
+            [cancellationReason, id]
+        );
+
+        if (updateResult.affectedRows !== 1) {
+            await connection.rollback();
+            transactionStarted = false;
+            connection.release();
+            connectionReleased = true;
+
+            return res.status(409).json({
+                success: false,
+                message: "The application status changed. Please refresh and try again."
+            });
+        }
+
+        // Check if another active application still exists for this pet.
+        const [activeApplications] = await connection.query(
+            `SELECT application_id
+            FROM user_adoption_applications
+            WHERE animal_id = ?
+            AND application_id <> ?
+            AND status IN (
+                'Received',
+                'Under Review',
+                'Interview Scheduled',
+                'Post-Interview Review',
+                'Approved'
+            )
+            LIMIT 1`,
+            [appRows[0].animal_id, id]
+        );
+
+        // Restore the pet only if no other active application exists.
+        if (activeApplications.length === 0) {
+            await connection.query(
+                `UPDATE animals
+                SET adoption_status = 'Available'
+                WHERE animal_id = ?
+                AND organization_id = (
+                    SELECT organization_id
+                    FROM organizations
+                    WHERE account_id = ?
+                )
+                AND adoption_status = 'Adopted'`,
+                [appRows[0].animal_id, accountId]
+            );
+        }
+
+        await connection.commit();
+        transactionStarted = false;
+        connection.release();
+        connectionReleased = true;
+
+        // Record the cancellation in the activity log.
+        try {
+            await logActivity(
+                accountId,
+                "application_cancelled",
+                "application",
+                id,
+                cancellationReason
+            );
+        } catch (logError) {
+            console.error(
+                "Failed to log organization application cancellation:",
+                logError
+            );
+        }
+
+        // Notify the adopter.
+        try {
+            const [[applicantAccount]] = await pool.query(
+                `SELECT acc.account_id
+                FROM user_adoption_applications app
+                INNER JOIN adopters ad ON app.adopter_id = ad.adopter_id
+                INNER JOIN accounts acc ON ad.account_id = acc.account_id
+                WHERE app.application_id = ?`,
+                [id]
+            );
+
+            if (applicantAccount) {
+                await createNotification(
+                    applicantAccount.account_id,
+                    "Adoption Application Cancelled",
+                    `Your approved adoption application was cancelled by the organization. Reason: ${cancellationReason}`,
+                    "application_status",
+                    "/application"
+                );
+            }
+        } catch (notificationError) {
+            console.error(
+                "Failed to notify adopter about organization cancellation:",
+                notificationError
+            );
+        }
+
+        return res.json({
+            success: true,
+            message: "Approved application cancelled successfully.",
+            status: "Cancelled by Organization"
+        });
+
+    } catch (err) {
+        if (transactionStarted && connection) {
+            try {
+                await connection.rollback();
+            } catch (rollbackError) {
+                console.error(
+                    "Failed to rollback organization cancellation:",
+                    rollbackError
+                );
+            }
+        }
+    
+        if (connection && !connectionReleased) {
+            try {
+                connection.release();
+            } catch (releaseError) {
+                console.error(
+                    "Failed to release organization cancellation connection:",
+                    releaseError
+                );
+            } finally {
+                connectionReleased = true;
+            }
+        }
+    
+        console.error("Error cancelling approved application:", err);
+    
+        return res.status(500).json({
+            success: false,
+            message: "Failed to cancel the application."
         });
     }
 });
