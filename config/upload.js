@@ -8,10 +8,24 @@ const cloudinary = require("./cloudinary");
 // IMAGE FILE FILTER
 // ==========================================
 const imageFilter = (req, file, cb) => {
-    if (file.mimetype && file.mimetype.startsWith("image/")) {
+    // if (file.mimetype && file.mimetype.startsWith("image/")) {
+    //     cb(null, true);
+    // } else {
+    //     cb(new Error("Only images are allowed!"), false);
+    // }
+    const allowedTypes = [
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+    ];
+
+    if (allowedTypes.includes(file.mimetype)) {
         cb(null, true);
     } else {
-        cb(new Error("Only images are allowed!"), false);
+         cb(
+            new Error("Only JPG, PNG, and WEBP images are allowed!"),
+            false
+        );
     }
 };
 
@@ -179,6 +193,72 @@ const inkindProofStorage = multer.diskStorage({
 });
 
 // ==========================================
+// Storage Config for Pet Handover Proof
+// ==========================================
+const handoverProofStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const fs = require("fs");
+        const dir = "uploads/pet-proof/";
+
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        const accountId = req.session?.accountId || "guest";
+
+        cb(
+            null,
+            "handover-" + accountId + "-" + uniqueSuffix + path.extname(file.originalname)
+        );
+    }
+});
+
+const uploadHandoverProof = multer({
+    storage: handoverProofStorage,
+    fileFilter: imageFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024
+    }
+});
+
+// ==========================================
+// Storage Config for Pet Return Proof
+// ==========================================
+const returnProofStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const fs = require("fs");
+        const dir = "uploads/pet-proof/";
+
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        const accountId = req.session?.accountId || "guest";
+
+        cb(
+            null,
+            "return-" + accountId + "-" + uniqueSuffix + path.extname(file.originalname)
+        );
+    }
+});
+
+const uploadReturnProof = multer({
+    storage: returnProofStorage,
+    fileFilter: imageFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024
+    }
+});
+
+// ==========================================
 // EXPORT UPLOAD MIDDLEWARE
 // ==========================================
 module.exports = {
@@ -188,6 +268,8 @@ module.exports = {
     uploadDropoff,
     uploadAdoptionDocument,
     uploadAvatar,
+    uploadHandoverProof: uploadHandoverProof,
+    uploadReturnProof: uploadReturnProof,
     uploadDropoff: uploadDropoff ,
      uploadInkindProof: multer({ storage: inkindProofStorage, fileFilter: imageFilter }) 
 
