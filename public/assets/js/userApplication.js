@@ -91,9 +91,12 @@ function getStatusClass(status) {
             return "success";
         case "Received":
             return "success";
+        case "Returned":
+            return "returned";
         case "Declined":
             return "declined";
-        case "Cancelled":
+        case "Cancelled by Adopter":
+        case "Cancelled by Organization":
             return "cancelled";
         default:
             return "active";
@@ -220,6 +223,7 @@ async function loadApplications() {
             },
             documentPath: app.document_path,
             declineReason: app.decline_reason,
+            cancellationReason: app.cancellation_reason,
             meetupLocation: app.meetup_location,
             interview: {
                 date: app.interview_date,
@@ -474,6 +478,16 @@ function showDetails(app) {
                     </button>
                 `;
             }
+         } else if (app.status === "Received") {
+            detailsActions.innerHTML = `
+                <button
+                    type="button"
+                    onclick="openReturnPetModal(${app.id})"
+                    class="px-4 py-2 text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
+                >
+                    <i class="fas fa-rotate-left"></i> Return Pet
+                </button>
+            `;
         } else {
             detailsActions.innerHTML = "";
         }
@@ -590,25 +604,34 @@ function showDetails(app) {
         interviewCard.classList.add("hidden");
     }
 
-    // 6. DECLINE REASON CARD (Gaya ng ibang Card)
+    // 6. DECLINE / ORGANIZATION CANCELLATION REASON CARD
     const declineCard = document.getElementById("detail-decline-card");
     const declineContent = document.getElementById("detail-decline-content");
-    if (app.status === "Declined") {
+    const isDeclined = app.status === "Declined";
+    const isOrgCancelled = app.status === "Cancelled by Organization";
+
+    if (isDeclined || isOrgCancelled) {
         declineCard.classList.remove("hidden");
 
         const declineHeader = declineCard.querySelector(".section-title");
         if (declineHeader) {
             declineHeader.className = "section-title flex items-center gap-2 mb-4";
-            declineHeader.innerHTML = `
-                <i class="fas fa-circle-xmark text-red-600"></i> Reason for Decline
-            `;
+            declineHeader.innerHTML = isOrgCancelled
+                ? `<i class="fas fa-ban text-orange-600"></i> Reason for Cancellation`
+                : `<i class="fas fa-circle-xmark text-red-600"></i> Reason for Decline`;
         }
+        const reason = isOrgCancelled
+            ? app.cancellationReason
+            : app.declineReason;
+        
+        declineContent.innerHTML = `<p class="italic text-gray-800 leading-relaxed break-words whitespace-pre-line"></p>`;
 
-        declineContent.innerHTML = `
-            <p class="italic text-gray-800 leading-relaxed break-words whitespace-pre-line">
-                ${app.declineReason ? app.declineReason : 'No specific reason provided by the organization.'}
-            </p>
-        `;
+        declineContent.querySelector("p").textContent =
+            reason || (
+                isOrgCancelled
+                    ? "No cancellation reason provided by the organization."
+                    : "No specific reason provided by the organization."
+            );
     } else {
         declineCard.classList.add("hidden");
     }
@@ -652,6 +675,138 @@ function showDetails(app) {
 
     document.getElementById("app").scrollTo({ top: 0, behavior: "smooth" });
 }
+
+function openReturnPetModal(applicationId) {
+    const modal = document.getElementById("returnPetModal");
+    const applicationIdInput = document.getElementById("returnApplicationId");
+    const reasonInput = document.getElementById("returnReason");
+
+    if (!modal || !applicationIdInput || !reasonInput) {
+        console.error("Return Pet modal elements not found.");
+        return;
+    }
+
+    applicationIdInput.value = applicationId;
+    reasonInput.value = "";
+
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+}
+
+function closeReturnPetModal() {
+    const modal = document.getElementById("returnPetModal");
+
+    if (!modal) return;
+
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+}
+
+document.getElementById("returnPetForm")?.addEventListener("submit", async function (event) {
+    event.preventDefault();
+
+    const applicationId = document.getElementById("returnApplicationId")?.value;
+    const reasonInput = document.getElementById("returnReason");
+    const submitBtn = document.getElementById("submitReturnPetBtn");
+    const reason = reasonInput?.value.trim();
+
+    if (!applicationId || !reason) {
+        if (typeof Swal !== "undefined") {
+            Swal.fire({
+                icon: "warning",
+                title: "Required Information",
+                text: "Please provide a reason for returning the pet."
+            });
+        } else {
+            alert("Please provide a reason for returning the pet.");
+        }
+        return;
+    }
+
+    if (reason.length > 2000) {
+        alert("The return reason must not exceed 2,000 characters.");
+        return;
+    }
+
+    const originalButtonHTML = submitBtn?.innerHTML;
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Submitting...`;
+    }
+
+    try {
+        const csrfResponse = await fetch("/auth/csrf-token");
+        const csrfData = await csrfResponse.json();
+    
+        if (!csrfResponse.ok || !csrfData.token) {
+            throw new Error(
+                "Unable to get security token. Please refresh and try again."
+            );
+        }
+    
+        const response = await fetch(
+            `/api/user/applications/${encodeURIComponent(applicationId)}/return-request`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-csrf-token": csrfData.token
+                },
+                body: JSON.stringify({
+                    return_reason: reason
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Failed to submit return request.");
+        }
+
+        closeReturnPetModal();
+
+        if (typeof Swal !== "undefined") {
+            await Swal.fire({
+                icon: "success",
+                title: "Return Request Submitted",
+                text: data.message || "Your request has been sent to the organization for review.",
+                confirmButtonColor: "#F97316",
+                customClass: {
+                    popup: "rounded-2xl"
+                }
+            });
+        } else {
+            alert(data.message || "Return request submitted successfully.");
+        }
+
+        await loadApplications();
+        goBack();
+
+    } catch (error) {
+        console.error("Error submitting pet return request:", error);
+
+        if (typeof Swal !== "undefined") {
+            Swal.fire({
+                icon: "error",
+                title: "Submission Failed",
+                text: error.message || "Unable to submit your return request. Please try again.",
+                confirmButtonColor: "#EF4444",
+                customClass: {
+                    popup: "rounded-2xl"
+                }
+            });
+        } else {
+            alert(error.message || "Unable to submit your return request.");
+        }
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalButtonHTML || "Submit Request";
+        }
+    }
+});
 
 // =====================================================
 // RE-APPLY BUTTON HANDLER
