@@ -855,19 +855,61 @@ exports.updateAvatar = async (req, res) => {
         });
     }
 
-    // Cloudinary returns the hosted image URL here.
-    const profilePictureUrl = req.file?.path;
-    if (
-        typeof profilePictureUrl !== "string" ||
-        !/^https?:\/\//i.test(profilePictureUrl)
-    ) {
-        return res.status(500).json({
-            success: false,
-            error: "Cloudinary did not return a valid avatar URL."
-        });
-    }
-
     try {
+        // Cloudinary returns the hosted image URL here.
+        // const profilePictureUrl = req.file?.path;
+        // if (
+        //     typeof profilePictureUrl !== "string" ||
+        //     !/^https?:\/\//i.test(profilePictureUrl)
+        // ) {
+        //     return res.status(500).json({
+        //         success: false,
+        //         error: "Cloudinary did not return a valid avatar URL."
+        //     });
+        // }
+    
+        // try {
+        //     const queryText = `
+        //         UPDATE adopters
+        //         SET profile_picture = ?
+        //         WHERE account_id = ?
+        //     `;
+    
+        //     const [result] = await pool.query(queryText, [
+        //         profilePictureUrl,
+        //         accountId
+        //     ]);
+    
+        //     if (result.affectedRows === 0) {
+        //         return res.status(404).json({
+        //             success: false,
+        //             error: "Adopter profile record not found."
+        //         });
+        //     }
+    
+        //     return res.json({
+        //         success: true,
+        //         message: "Profile picture saved successfully!",
+        //         avatarUrl: profilePictureUrl
+        //     });
+    
+        // } catch (error) {
+        //     console.error("Avatar update error:", error);
+    
+        //     return res.status(500).json({
+        //         success: false,
+        //         error: "Failed to save profile picture."
+        //     });
+        // }
+        const profilePictureUrl = await uploadToCloudinary(
+            req.file,
+            "pawpon/avatars"
+        );
+
+         if (!profilePictureUrl) {
+            throw new Error("Cloudinary did not return an avatar URL.");
+        }
+
         const queryText = `
             UPDATE adopters
             SET profile_picture = ?
@@ -897,7 +939,7 @@ exports.updateAvatar = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            error: "Failed to save profile picture."
+            error: "Failed to upload and save profile picture."
         });
     }
 };
