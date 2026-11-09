@@ -353,7 +353,8 @@ router.post(
 
               return res.status(400).json({
                   success: false,
-                  error: "Unable to validate the uploaded file."
+                  error: "Unable to validate the uploaded file.",
+                  details: error.message
               });
           }
       });
