@@ -303,7 +303,8 @@ router.post(
   "/api/user/profile/avatar",
   checkUserSession,
   (req, res, next) => {
-      uploadAvatar.single("avatar")(req, res, async (err) => {
+      // uploadAvatar.single("avatar")(req, res, async (err) => {
+      upload.single("avatar")(req, res, async (err) => {
 
           if (err instanceof multer.MulterError) {
               return res.status(400).json({
