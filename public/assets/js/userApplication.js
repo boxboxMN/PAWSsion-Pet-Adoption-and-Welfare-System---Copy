@@ -725,21 +725,53 @@ function showDetails(app) {
     
     // 7. UPLOADED DOCUMENT (Ipakita ang totoong PDF/Image link na in-upload)
     const docContainer = document.querySelector('#details-view .border-dashed');
+    
     if (docContainer) {
         if (app.documentPath) {
-            let docUrl = app.documentPath.startsWith('/') ? app.documentPath : `/uploads/documents/${app.documentPath}`;
+            // let docUrl = app.documentPath.startsWith('/') ? app.documentPath : `/uploads/documents/${app.documentPath}`;
+            // docContainer.innerHTML = `
+            //     <i class="fas fa-file-alt text-3xl text-blue-500 mb-2 block"></i>
+            //     <span class="font-semibold text-gray-800 text-sm block break-all">${app.documentPath}</span>
+            //     <p class="text-xs text-gray-400 mt-1 mb-3">Submitted Requirement Proof (Uploaded on ${app.date})</p>
+            //     <a href="${docUrl}" target="_blank" class="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition">
+            //         <i class="fas fa-external-link-alt"></i> View Uploaded File
+            //     </a>
+            // `;
+
+            let docUrl;
+
+            if (app.documentPath.startsWith('https://') || app.documentPath.startsWith('http://')) {
+                docUrl = app.documentPath;
+            } else if (app.documentPath.startsWith('/')) {
+                docUrl = app.documentPath;
+            } else {
+                docUrl = `/uploads/documents/${app.documentPath}`;
+            }
+    
+            // Display only the filename instead of the entire URL
+            const docFileName = app.documentPath.split('/').pop();
+    
             docContainer.innerHTML = `
                 <i class="fas fa-file-alt text-3xl text-blue-500 mb-2 block"></i>
-                <span class="font-semibold text-gray-800 text-sm block break-all">${app.documentPath}</span>
-                <p class="text-xs text-gray-400 mt-1 mb-3">Submitted Requirement Proof (Uploaded on ${app.date})</p>
-                <a href="${docUrl}" target="_blank" class="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition">
+                <span class="font-semibold text-gray-800 text-sm block break-all">${docFileName}</span>
+                <p class="text-xs text-gray-400 mt-1 mb-3">
+                    Submitted Requirement Proof (Uploaded on ${app.date})
+                </p>
+                <a href="${docUrl}" target="_blank" rel="noopener noreferrer"
+                    class="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition">
                     <i class="fas fa-external-link-alt"></i> View Uploaded File
                 </a>
             `;
         } else {
+            // docContainer.innerHTML = `
+            //     <i class="fas fa-exclamation-triangle text-2xl text-amber-500 mb-2 block"></i>
+            //     <span class="font-medium text-gray-500 text-sm">No requirement document attached.</span>
+            // `;
             docContainer.innerHTML = `
                 <i class="fas fa-exclamation-triangle text-2xl text-amber-500 mb-2 block"></i>
-                <span class="font-medium text-gray-500 text-sm">No requirement document attached.</span>
+                <span class="font-medium text-gray-500 text-sm">
+                    No requirement document attached.
+                </span>
             `;
         }
     }
