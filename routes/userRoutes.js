@@ -2,7 +2,8 @@ const express = require("express");
 const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
-const { fileTypeFromFile } = require("file-type");
+// const { fileTypeFromFile } = require("file-type");
+const { FileType } = require("file-type");
 const router = express.Router();
 const userController = require("../controllers/userController");
 const matchmakerController = require("../controllers/matchmakerController");
@@ -49,7 +50,8 @@ async function validateAvatarFile(file) {
       return false;
   }
 
-  const detectedType = await fileTypeFromFile(file.path);
+  // const detectedType = await fileTypeFromFile(file.path);
+  const detectedType = await FileType.fromFile(file.path);
 
   if (!detectedType) {
       return false;
