@@ -3801,7 +3801,10 @@ exports.confirmPetReturnReceived = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            message: "Failed to confirm pet receipt."
+            message: "Failed to confirm pet receipt.",
+            details: error.message,
+            code: error.code,
+            sqlMessage: error.sqlMessage
         });
 
     } finally {
