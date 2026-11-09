@@ -270,6 +270,8 @@ function populateDetailsUI(app) {
             scheduleBtn.textContent = "Schedule Interview";
             scheduleBtn.className = "px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm font-semibold transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent";
         }
+        
+        scheduleBtn.classList.toggle("hidden", isApproved);
     }
 
     // DYNAMIC INTERVIEW BUTTON BASED ON APPLICATION STATUS
@@ -305,6 +307,8 @@ function populateDetailsUI(app) {
             reviewDecisionBtn.className = "px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold cursor-not-allowed opacity-50";
             reviewDecisionBtn.onclick = null;
         }
+
+        reviewDecisionBtn.classList.toggle("hidden", isApproved);
     }
 
 
