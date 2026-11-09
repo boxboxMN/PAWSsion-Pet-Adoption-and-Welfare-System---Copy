@@ -450,28 +450,31 @@ function showDetails(app) {
     detailStatusBadge.innerHTML = `<span class="dot"></span> ${app.status}`;
 
     // 1. TINGNAN KUNG TAPOS NA ANG INTERVIEW DATE/TIME
-    const now = new Date();
-    let isPastInterview = false;
+    // const now = new Date();
+    // let isPastInterview = false;
 
-    if (app.interview && app.interview.date) {
-        const interviewDateTime = new Date(app.interview.date);
-        if (app.interview.time) {
-            const [hours, minutes] = app.interview.time.split(':');
-            interviewDateTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-        } else {
-            interviewDateTime.setHours(23, 59, 59, 999);
-        }
+    // if (app.interview && app.interview.date) {
+    //     const interviewDateTime = new Date(app.interview.date);
+    //     if (app.interview.time) {
+    //         const [hours, minutes] = app.interview.time.split(':');
+    //         interviewDateTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+    //     } else {
+    //         interviewDateTime.setHours(23, 59, 59, 999);
+    //     }
         
-        if (now > interviewDateTime && app.status === "Interview Scheduled") {
-            isPastInterview = true;
-        }
-    }
+    //     if (now > interviewDateTime && app.status === "Interview Scheduled") {
+    //         isPastInterview = true;
+    //     }
+    // }
+    // Check if the organization has confirmed that the interview is done
+    const isPostInterviewReview = app.status === "Post-Interview Review";
+    
 
     // 2. KUNG LUMAGPAS NA ANG PETSA, I-UPDATE ANG HEADER & STATUS BANNER
-    if (isPastInterview) {
-        detailStatusBadge.className = "badge-status scheduled";
-        detailStatusBadge.innerHTML = `<span class="dot"></span> Post-Interview Review`;
-    }
+    // if (isPastInterview) {
+    //     detailStatusBadge.className = "badge-status scheduled";
+    //     detailStatusBadge.innerHTML = `<span class="dot"></span> Post-Interview Review`;
+    // }
 
     // Maglagay ng Cancel Application Button sa Header kapag "Under Review" ang status
     if (detailsActions) {
@@ -611,7 +614,7 @@ function showDetails(app) {
         const cardHeader = interviewCard.querySelector(".section-title");
         if (cardHeader) {
             cardHeader.className = "section-title flex flex-wrap items-center justify-between gap-2 mb-4";
-            if (isPastInterview) {
+            if (isPostInterviewReview) {
                 // TANGGALIN ANG REQUEST RESCHEDULE BUTTON AT PALITAN NG NOTIFICATION BANNER
                 cardHeader.innerHTML = `
                     <span class="flex items-center gap-2">
