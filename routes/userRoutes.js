@@ -10,7 +10,8 @@ const { matchPets } = require("../controllers/matchmakerController");
 const { csrfSynchronisedProtection } = require("../middleware/csrf");
 const pool = require('../config/database');
 const { uploadReturnProof } = require("../config/upload");
-const {uploadAdoptionDocument,  uploadAvatar} = require("../config/upload");
+// const {uploadAdoptionDocument,  uploadAvatar} = require("../config/upload");
+const {uploadAdoptionDocument} = require("../config/upload");
 const { logActivity, createNotification } = require("../controllers/adminController"); 
 
 const storage = multer.diskStorage({
@@ -31,8 +32,13 @@ const upload = multer({
     storage: storage,
     limits: { fileSize: 2 * 1024 * 1024 }, 
     fileFilter: function (req, file, cb) {
-        if (!file.mimetype.startsWith("image/")) {
-            return cb(new Error("Only image files are allowed!"), false);
+        // if (!file.mimetype.startsWith("image/")) {
+        //     return cb(new Error("Only image files are allowed!"), false);
+        // }
+        const allowedTypes = ["image/jpeg", "image/png"];
+
+        if (!allowedTypes.includes(file.mimetype)) {
+            return cb(new Error("Avatar must be a JPG or PNG image."), false);
         }
         cb(null, true);
     }
