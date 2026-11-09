@@ -315,7 +315,6 @@ async function fetchReturnPetRequests() {
                                                             Mark as Available
                                                         </button>
                                                     `
-                                                    : request.status === "Approved" &&
                                                          : request.status === "Returned" &&
                                                          request.adoption_status === "Available"
                                                             ? `
