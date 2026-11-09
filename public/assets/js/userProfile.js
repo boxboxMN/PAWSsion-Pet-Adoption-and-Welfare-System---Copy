@@ -160,6 +160,9 @@ const avatarOverlay = document.getElementById('avatarOverlay');
 const avatarInput = document.getElementById('avatarInput');
 const avatarDisplay = document.getElementById('avatarDisplay');
 
+let pendingAvatarFile = null;
+let avatarPreviewUrl = null;
+
 function setAvatarEditMode(editable) {
     const container = document.getElementById('avatarContainer');
     if(container) {
@@ -644,6 +647,47 @@ emailOtpResendBtn.addEventListener("click", sendProfileEmailOtp);
 
 emailOtpVerifyBtn.addEventListener("click", verifyProfileEmailOtp);
 
+async function uploadPendingAvatar() {
+    if (!pendingAvatarFile) return true;
+
+    const formData = new FormData();
+    formData.append('avatar', pendingAvatarFile);
+
+    try {
+        const response = await fetch('/api/user/profile/avatar', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Failed to upload profile picture.');
+        }
+
+        pendingAvatarFile = null;
+
+        if (avatarPreviewUrl) {
+            URL.revokeObjectURL(avatarPreviewUrl);
+            avatarPreviewUrl = null;
+        }
+
+        if (avatarInput) {
+            avatarInput.value = "";
+        }
+
+        return true;
+
+    } catch (error) {
+        console.error("Avatar upload error:", error);
+        showProfileModal(
+            'Profile details were saved, but the profile picture could not be uploaded: ' + error.message,
+            'error'
+        );
+        return false;
+    }
+}
+
 async function saveProfile() {
     let firstName = '';
     let lastName = '';
@@ -864,6 +908,10 @@ async function saveProfile() {
         }
 
         if (result.success) {
+            const avatarUploaded = await uploadPendingAvatar();
+
+            if (!avatarUploaded) return;
+            
             verifiedProfileEmail = "";
             showProfileModal('Your profile has been updated successfully!');
             await fetchProfileData();
@@ -887,6 +935,17 @@ async function saveProfile() {
 }
 
 function cancelEdit() {
+    pendingAvatarFile = null;
+
+    if (avatarPreviewUrl) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+        avatarPreviewUrl = null;
+    }
+
+    if (avatarInput) {
+        avatarInput.value = "";
+    }
+    
     fetchProfileData(); 
     exitEditMode();
 }
@@ -1011,58 +1070,92 @@ avatarOverlay?.addEventListener('click', () => {
     }
 });
 
-avatarInput?.addEventListener('change', async function() {
+// avatarInput?.addEventListener('change', async function() {
+//     const file = this.files[0];
+//     if (!file) return;
+
+//     if (!file.type.startsWith('image/')) {
+//         showProfileModal('Please select an image file.', 'error');
+//         return;
+//     }
+
+//     if (file.size > 2 * 1024 * 1024) {
+//         showProfileModal('File size is too large. Maximum limit is 2MB.', 'error');
+//         return;
+//     }
+
+//     const formData = new FormData();
+//     formData.append('avatar', file); 
+
+//     try {
+//         const response = await fetch('/api/user/profile/avatar', {
+//             method: 'POST',
+//             body: formData 
+//         });
+
+//         if (!response.ok) {
+//             const errData = await response.json().catch(() => ({}));
+//             console.error("Avatar API response:", errData);
+//              const errorMessage = [
+//                 errData.error,
+//                 errData.details
+//             ].filter(Boolean).join(" | ");
+//             throw new Error(errData.error || `Server responded with status ${response.status}`);
+//         }
+
+//         const result = await response.json();
+//         if (result.success) {
+//                 showProfileModal('Your profile picture has been uploaded successfully!');
+//                 const imageUrl = getProfileImageUrl(result.avatarUrl);
+//                 if (avatarDisplay) {
+//                     avatarDisplay.innerHTML = `
+//                         <img src="${imageUrl}" alt="Profile Picture" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null; this.src='/images/default-avatar.png';" >
+//                     `;
+//                 }
+//                 await refreshTopbarAvatar();
+//             } else {
+//                 showProfileModal('Failed to upload: ' + result.error, 'error');
+//             }
+//     } catch (error) {
+//         console.error("Avatar upload error detailed:", error);
+//          showProfileModal(
+//             'A network error occurred: ' + error.message,
+//             'error'
+//         );
+//     }
+// });
+
+avatarInput?.addEventListener('change', function() {
     const file = this.files[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-        showProfileModal('Please select an image file.', 'error');
+    const allowedTypes = ["image/jpeg", "image/png"];
+
+    if (!allowedTypes.includes(file.type)) {
+        showProfileModal('Please select a JPG or PNG image.', 'error');
+        this.value = "";
         return;
     }
 
     if (file.size > 2 * 1024 * 1024) {
         showProfileModal('File size is too large. Maximum limit is 2MB.', 'error');
+        this.value = "";
         return;
     }
 
-    const formData = new FormData();
-    formData.append('avatar', file); 
+    if (avatarPreviewUrl) {
+        URL.revokeObjectURL(avatarPreviewUrl);
+    }
 
-    try {
-        const response = await fetch('/api/user/profile/avatar', {
-            method: 'POST',
-            body: formData 
-        });
+    pendingAvatarFile = file;
+    avatarPreviewUrl = URL.createObjectURL(file);
 
-        if (!response.ok) {
-            const errData = await response.json().catch(() => ({}));
-            console.error("Avatar API response:", errData);
-             const errorMessage = [
-                errData.error,
-                errData.details
-            ].filter(Boolean).join(" | ");
-            throw new Error(errData.error || `Server responded with status ${response.status}`);
-        }
-
-        const result = await response.json();
-        if (result.success) {
-                showProfileModal('Your profile picture has been uploaded successfully!');
-                const imageUrl = getProfileImageUrl(result.avatarUrl);
-                if (avatarDisplay) {
-                    avatarDisplay.innerHTML = `
-                        <img src="${imageUrl}" alt="Profile Picture" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null; this.src='/images/default-avatar.png';" >
-                    `;
-                }
-                await refreshTopbarAvatar();
-            } else {
-                showProfileModal('Failed to upload: ' + result.error, 'error');
-            }
-    } catch (error) {
-        console.error("Avatar upload error detailed:", error);
-         showProfileModal(
-            'A network error occurred: ' + error.message,
-            'error'
-        );
+    if (avatarDisplay) {
+        avatarDisplay.innerHTML = `
+            <img src="${avatarPreviewUrl}"
+                alt="Profile Picture Preview"
+                class="w-full h-full object-cover rounded-full">
+        `;
     }
 });
 
