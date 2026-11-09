@@ -1036,6 +1036,11 @@ avatarInput?.addEventListener('change', async function() {
 
         if (!response.ok) {
             const errData = await response.json().catch(() => ({}));
+            console.error("Avatar API response:", errData);
+             const errorMessage = [
+                errData.error,
+                errData.details
+            ].filter(Boolean).join(" | ");
             throw new Error(errData.error || `Server responded with status ${response.status}`);
         }
 
