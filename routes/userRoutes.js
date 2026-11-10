@@ -244,7 +244,17 @@ router.get("/api/user/applications/:id/handover-proof", checkUserSession,
                 });
             }
 
-            const filename = path.basename(rows[0].handover_photo_path);
+            const photoUrl = rows[0].handover_photo_path;
+
+            // Cloudinary image URL
+            if (
+                typeof photoUrl === "string" &&
+                /^https:\/\/res\.cloudinary\.com\//i.test(photoUrl)
+            ) {
+                return res.redirect(photoUrl);
+            }
+
+            const filename = path.basename(photoUrl);
 
             const newPath = path.join(
                 __dirname,
