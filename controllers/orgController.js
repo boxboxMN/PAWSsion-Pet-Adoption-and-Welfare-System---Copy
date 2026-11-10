@@ -3766,6 +3766,8 @@ exports.confirmPetReturnReceived = async (req, res) => {
 
         const organizationReceivedPhoto =
             `uploads/pet-proof/${req.file.filename}`;
+            console.log("Uploaded return proof:", req.file);
+            console.log("Saved photo path:", organizationReceivedPhoto);
 
         await connection.query(
             `UPDATE pet_return_requests
