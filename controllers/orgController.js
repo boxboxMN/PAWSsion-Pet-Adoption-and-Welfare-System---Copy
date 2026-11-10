@@ -3765,8 +3765,13 @@ exports.confirmPetReturnReceived = async (req, res) => {
             });
         }
 
-        const organizationReceivedPhoto =
-            `uploads/pet-proof/${req.file.filename}`;
+        // const organizationReceivedPhoto =
+        //     `uploads/pet-proof/${req.file.filename}`;
+
+        const organizationReceivedPhoto = await uploadToCloudinary(
+            req.file,
+            "pawpon/pet-proof"
+        );
 
         await connection.query(
             `UPDATE pet_return_requests
