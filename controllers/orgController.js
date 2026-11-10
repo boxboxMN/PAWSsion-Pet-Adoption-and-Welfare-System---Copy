@@ -3,6 +3,7 @@ const { generateEmbedding } = require("../services/embeddingService");
 const { logActivity } = require("./adminController");
 const { createNotification, notifyAllAdmins } = require("./adminController");
 const { ensureAnimalImagesTable } = require("../models/animalImageModel");
+const { uploadToCloudinary } = require("../services/cloudinaryUpload");
 
 // ==========================================
 // RECYCLE BIN: Auto-purge pets na sobra na sa 30 araw
