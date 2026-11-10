@@ -177,8 +177,6 @@ async function loadApplications() {
         // ---------------------------------------------
         const data = await response.json();
 
-        console.log("User applications:", data);
-
         // ---------------------------------------------
         // CHECK SUCCESS
         // ---------------------------------------------
