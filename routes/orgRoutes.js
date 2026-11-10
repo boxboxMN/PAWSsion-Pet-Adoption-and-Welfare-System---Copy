@@ -876,7 +876,11 @@ router.patch('/applications/:id/confirm-handover', uploadHandoverProof.single('h
             });
         }
 
-        const handoverPhotoPath = `uploads/pet-proof/${req.file.filename}`;
+        // const handoverPhotoPath = `uploads/pet-proof/${req.file.filename}`;
+        const handoverPhotoPath = await uploadToCloudinary(
+            req.file,
+            "pawpon/pet-proof"
+        );
         
         // Update the application only. Do not change the animal's Adopted status.
         await connection.query(
@@ -1022,7 +1026,14 @@ router.get("/return-requests/:id/proof/:type", async (req, res) => {
             });
         }
 
-        const filename = path.basename(rows[0].photo_path);
+        const photoUrl = rows[0].photo_path;
+
+         // Cloudinary image URL
+        if (typeof photoUrl === "string" && /^https:\/\/res\.cloudinary\.com\//i.test(photoUrl)) {
+            return res.redirect(photoUrl);
+        }
+        
+        const filename = path.basename(photoUrl);
 
         const photoPath = path.join(
             __dirname,
