@@ -2592,7 +2592,7 @@ exports.submitPetReturnRequest = async (req, res) => {
         });
     }
     
-    const adopterReturnPhoto = `uploads/pet-proof/${req.file.filename}`;
+    // const adopterReturnPhoto = `uploads/pet-proof/${req.file.filename}`;
     
     const connection = await pool.getConnection();
 
@@ -2671,6 +2671,11 @@ exports.submitPetReturnRequest = async (req, res) => {
                 message: "A return request has already been submitted for this adoption."
             });
         }
+
+       const adopterReturnPhoto = await uploadToCloudinary(
+            req.file,
+            "pawpon/pet-proof"
+        );
 
         await connection.query(
             `INSERT INTO pet_return_requests
