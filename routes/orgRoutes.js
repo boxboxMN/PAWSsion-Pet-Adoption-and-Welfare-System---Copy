@@ -2,6 +2,7 @@ const express = require("express");
 const path = require("path");
 const fs = require("fs");
 const pool = require("../config/database");
+const { uploadToCloudinary } = require("../services/cloudinaryUpload");
 const { csrfSynchronisedProtection } = require("../middleware/csrf");
 const { uploadPet, uploadQR, uploadHandoverProof, uploadReturnProof, uploadDropoff,uploadInkindProof  } = require('../config/upload');
 // const { logActivity } = require("../controllers/adminController");
