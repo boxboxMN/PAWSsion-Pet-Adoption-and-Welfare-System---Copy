@@ -14,6 +14,7 @@ const { uploadReturnProof } = require("../config/upload");
 // const {uploadAdoptionDocument,  uploadAvatar} = require("../config/upload");
 const {uploadAdoptionDocument} = require("../config/upload");
 const { logActivity, createNotification } = require("../controllers/adminController"); 
+const { uploadToCloudinary } = require("../services/cloudinaryUpload");
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -418,7 +419,12 @@ router.put('/api/user/kamustahan/:id', checkUserSession, uploadKamustahan.array(
         
         // Gamitin ang pool na naka-export sa itaas
         if (req.files && req.files.length > 0) {
-            const photoPaths = req.files.map(file => `/uploads/kamustahan/${file.filename}`);
+            // const photoPaths = req.files.map(file => `/uploads/kamustahan/${file.filename}`);
+             const photoPaths = await Promise.all(
+                req.files.map(file =>
+                    uploadToCloudinary(file, "pawpon/kamustahan")
+                )
+             );
             await pool.query(
                 'UPDATE kamustahan_updates SET update_text = ?, photos = ? WHERE update_id = ?', 
                 [update_text, JSON.stringify(photoPaths), updateId]
