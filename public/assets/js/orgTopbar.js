@@ -1,7 +1,5 @@
 async function loadTopbar({ title = "", subtitle = "" }) {
 
-    console.log("Subtitle received:", subtitle);
-
     const container = document.getElementById("headerContainer");
 
     const response = await fetch("/organization/header.html");
@@ -10,9 +8,6 @@ async function loadTopbar({ title = "", subtitle = "" }) {
     const titleEl = document.getElementById("pageTitle");
     const subtitleEl = document.getElementById("pageSubtitle");
 
-    console.log(titleEl);
-    console.log(subtitleEl);
-
     if (titleEl) {
         titleEl.textContent = title;
     }
@@ -20,8 +15,6 @@ async function loadTopbar({ title = "", subtitle = "" }) {
     if (subtitleEl) {
         subtitleEl.textContent = subtitle;
     }
-
-    console.log("Subtitle after setting:", subtitleEl.textContent);
 
     // IDAGDAG ITO: Tawagin ang function para i-sync ang profile pic mula sa server session
     await updateTopbarProfilePic();
@@ -288,7 +281,6 @@ async function __checkOrgSession() {
 
             if (__orgTabAccountId === null) {
                 __orgTabAccountId = currentId;
-                console.log("[Org Tab] Initial account_id:", currentId);
                 return;
             }
 
