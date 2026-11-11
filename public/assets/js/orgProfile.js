@@ -60,7 +60,6 @@ async function syncHeaderProfilePic() {
 
 // 1. Subukan patakbuhin agad pagka-load ng DOM
 document.addEventListener('DOMContentLoaded', () => {
-    console.log("🔥 orgProfile.js DOMContentLoaded fired!");
     syncHeaderProfilePic();
 });
 
@@ -84,7 +83,6 @@ const observer = new MutationObserver(async (mutations, obs) => {
 
         if (isSynced) {
             obs.disconnect();
-            console.log("Organization header profile picture synced.");
         }
     } finally {
         isSyncingHeaderProfilePic = false;
