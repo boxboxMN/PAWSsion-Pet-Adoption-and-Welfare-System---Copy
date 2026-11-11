@@ -2229,14 +2229,14 @@ exports.submitKamustahanUpdate = async (req, res) => {
             vet_visit, vet_visit_date, vet_diagnosis,
             weight_kg, concerns
         } = req.body;
+     
+// let photoPaths = [];
+// if (req.files && req.files.length > 0) {
 
-       
-let photoPaths = [];
-if (req.files && req.files.length > 0) {
-
-    photoPaths = req.files.map(file => `/uploads/kamustahan/${file.filename}`);
-}
-const photoPath = JSON.stringify(photoPaths); 
+//     photoPaths = req.files.map(file => `/uploads/kamustahan/${file.filename}`);
+// }
+// const photoPath = JSON.stringify(photoPaths); 
+        let photoPath = JSON.stringify([]);
 
         if (!animal_id || !organization_id || !update_text) {
             return res.status(400).json({ success: false, error: "Please fill in all required fields." });
@@ -2346,6 +2346,19 @@ const photoPath = JSON.stringify(photoPaths);
         const cleanVetDiagnosis = vet_diagnosis ? String(vet_diagnosis).trim().slice(0, 500) : null;
         const cleanConcerns     = concerns     ? String(concerns).trim().slice(0, 1000) : null;
 
+        // Upload Kamustahan photos to Cloudinary
+        let photoPaths = [];
+        
+        if (req.files && req.files.length > 0) {
+            photoPaths = await Promise.all(
+                req.files.map(file =>
+                    uploadToCloudinary(file, "pawpon/kamustahan")
+                )
+            );
+        }
+        
+        photoPath = JSON.stringify(photoPaths);
+        
         // ==========================================
         // 6. UPDATE RECORD
         // ==========================================
