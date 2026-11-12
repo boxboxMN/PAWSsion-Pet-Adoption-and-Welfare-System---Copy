@@ -110,8 +110,15 @@ exports.sendRegistrationOtp = async (req, res) => {
         });
 
     } catch (error) {
-        console.error("sendRegistrationOtp error:", error.message);
+        // console.error("sendRegistrationOtp error:", error.message);
 
+        console.error("sendRegistrationOtp error:", {
+            message: error.message,
+            code: error.code,
+            command: error.command,
+            responseCode: error.responseCode
+        });
+        
         return res.status(500).json({
             message: "Unable to send the verification code right now. Please try again later."
         });
