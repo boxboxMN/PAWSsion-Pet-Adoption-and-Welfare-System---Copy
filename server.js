@@ -4,6 +4,18 @@ const session = require('express-session');
 const helmet = require('helmet');
 const transporter = require("./config/email");
 
+transporter.verify()
+    .then(() => {
+        console.log("EMAIL SMTP STATUS: READY");
+    })
+    .catch((error) => {
+        console.error("EMAIL SMTP STATUS: FAILED", {
+            code: error.code,
+            command: error.command,
+            responseCode: error.responseCode
+        });
+    });
+
 const app = express();
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
@@ -1281,18 +1293,6 @@ app.get("/api/session-status", adminController.getSessionStatus);
 //         console.log("Email transporter is ready.");
 //     }
 // });
-
-transporter.verify()
-    .then(() => {
-        console.log("EMAIL SMTP STATUS: READY");
-    })
-    .catch((error) => {
-        console.error("EMAIL SMTP STATUS: FAILED", {
-            code: error.code,
-            command: error.command,
-            responseCode: error.responseCode
-        });
-    });
 
 const PORT = process.env.PORT || 3000;
 
