@@ -1274,13 +1274,25 @@ app.get("/faqs", (req, res) => {
 
 app.get("/api/session-status", adminController.getSessionStatus);
 
-transporter.verify((error) => {
-    if (error) {
-        console.error("Email transporter connection failed:", error.message);
-    } else {
-        console.log("Email transporter is ready.");
-    }
-});
+// transporter.verify((error) => {
+//     if (error) {
+//         console.error("Email transporter connection failed:", error.message);
+//     } else {
+//         console.log("Email transporter is ready.");
+//     }
+// });
+
+transporter.verify()
+    .then(() => {
+        console.log("EMAIL SMTP STATUS: READY");
+    })
+    .catch((error) => {
+        console.error("EMAIL SMTP STATUS: FAILED", {
+            code: error.code,
+            command: error.command,
+            responseCode: error.responseCode
+        });
+    });
 
 const PORT = process.env.PORT || 3000;
 
