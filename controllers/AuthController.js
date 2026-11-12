@@ -111,7 +111,6 @@ exports.sendRegistrationOtp = async (req, res) => {
 
     } catch (error) {
         // console.error("sendRegistrationOtp error:", error.message);
-
         console.error("sendRegistrationOtp error:", {
             message: error.message,
             code: error.code,
