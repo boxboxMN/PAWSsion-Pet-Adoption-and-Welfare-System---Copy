@@ -97,6 +97,19 @@ observer.observe(document.documentElement, {
 //hide the org profile data
 let currentOrgData = null;
 
+// Organization email change verification
+let pendingOrgEmail = "";
+let verifiedOrgEmail = "";
+
+// OTP Modal Elements
+const orgEmailOtpModal = document.getElementById("orgEmailOtpModal");
+const orgEmailOtpTarget = document.getElementById("orgEmailOtpTarget");
+const orgEmailOtpInput = document.getElementById("orgEmailOtpInput");
+const orgEmailOtpMessage = document.getElementById("orgEmailOtpMessage");
+const orgEmailOtpCancelBtn = document.getElementById("orgEmailOtpCancelBtn");
+const orgEmailOtpResendBtn = document.getElementById("orgEmailOtpResendBtn");
+const orgEmailOtpVerifyBtn = document.getElementById("orgEmailOtpVerifyBtn");
+
 // Cascading address dropdown data caches
 let regionsData = [];
 let provincesData = [];
@@ -483,6 +496,7 @@ openEditModalBtn?.addEventListener("click", async () => {
     };
 
     document.getElementById("editOrgName").value = safeValue(currentOrgData.organization_name);
+    document.getElementById("editOrgEmail").value = safeValue(currentOrgData.email);
     document.getElementById("editContact").value = safeValue(currentOrgData.contact_number);
     document.getElementById("editContactPerson").value = safeValue(currentOrgData.contact_person);
     document.getElementById("editAddress").value = safeValue(currentOrgData.address);
@@ -547,9 +561,167 @@ const hideEditModal = () => {
 
 cancelEditBtn?.addEventListener("click", hideEditModal);
 
+
+async function sendOrgEmailOtp() {
+    orgEmailOtpResendBtn.disabled = true;
+    orgEmailOtpVerifyBtn.disabled = true;
+
+    try {
+        const response = await fetch("/api/organization/email-change/send-otp", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            credentials: "include",
+            body: JSON.stringify({
+                email: pendingOrgEmail
+            })
+        });
+
+        const result = await response.json();
+
+        orgEmailOtpMessage.textContent = result.message || (
+            response.ok
+                ? "Verification code sent."
+                : "Unable to send verification code."
+        );
+
+        orgEmailOtpMessage.className = response.ok
+            ? "mt-3 text-sm text-green-600"
+            : "mt-3 text-sm text-red-600";
+
+    } catch (error) {
+        console.error("Organization email OTP send error:", error);
+
+        orgEmailOtpMessage.textContent =
+            "An error occurred while sending the verification code.";
+
+        orgEmailOtpMessage.className = "mt-3 text-sm text-red-600";
+
+    } finally {
+        orgEmailOtpResendBtn.disabled = false;
+        orgEmailOtpVerifyBtn.disabled = false;
+    }
+}
+
+orgEmailOtpVerifyBtn?.addEventListener("click", async () => {
+    const otp = orgEmailOtpInput.value.trim();
+
+    if (!/^\d{6}$/.test(otp)) {
+        orgEmailOtpMessage.textContent = "Please enter a valid 6-digit verification code.";
+        orgEmailOtpMessage.className = "mt-3 text-sm text-red-600";
+        orgEmailOtpInput.focus();
+        return;
+    }
+
+    orgEmailOtpVerifyBtn.disabled = true;
+    orgEmailOtpMessage.textContent = "Verifying code...";
+    orgEmailOtpMessage.className = "mt-3 text-sm text-slate-600";
+
+    try {
+        const response = await fetch("/api/organization/email-change/verify-otp", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            credentials: "include",
+            body: JSON.stringify({
+                email: pendingOrgEmail,
+                otp: otp
+            })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            orgEmailOtpMessage.textContent =
+                result.message || "Incorrect verification code.";
+
+            orgEmailOtpMessage.className = "mt-3 text-sm text-red-600";
+            return;
+        }
+
+        verifiedOrgEmail = pendingOrgEmail;
+
+        orgEmailOtpMessage.textContent = "Email verified successfully!";
+        orgEmailOtpMessage.className = "mt-3 text-sm text-green-600";
+
+        orgEmailOtpModal.classList.add("hidden");
+        orgEmailOtpInput.value = "";
+
+        editModalMessage.textContent =
+            "New email verified! Click Save Changes again to update your profile.";
+
+        editModalMessage.className =
+            "text-xs font-semibold text-green-600 mt-2 block";
+
+    } catch (error) {
+        console.error("Organization email OTP verification error:", error);
+
+        orgEmailOtpMessage.textContent =
+            "An error occurred while verifying the code.";
+
+        orgEmailOtpMessage.className = "mt-3 text-sm text-red-600";
+
+    } finally {
+        orgEmailOtpVerifyBtn.disabled = false;
+    }
+});
+
+
+// Resend organization email verification code
+orgEmailOtpResendBtn?.addEventListener("click", async () => {
+    if (!pendingOrgEmail) return;
+
+    orgEmailOtpMessage.textContent = "Sending a new verification code...";
+    orgEmailOtpMessage.className = "mt-3 text-sm text-slate-600";
+
+    await sendOrgEmailOtp();
+});
+
+// Cancel organization email verification
+orgEmailOtpCancelBtn?.addEventListener("click", () => {
+    orgEmailOtpModal.classList.add("hidden");
+    orgEmailOtpInput.value = "";
+    orgEmailOtpMessage.textContent = "";
+
+    pendingOrgEmail = "";
+
+    const saveProfileBtn = document.getElementById("saveProfileBtn");
+
+    if (saveProfileBtn) {
+        saveProfileBtn.disabled = false;
+        saveProfileBtn.innerHTML = "Save Changes";
+    }
+});
+
 // ACTION: I-submit ang mga Binagong Data (Texts + Image)
 editProfileForm?.addEventListener("submit", async (e) => {
     e.preventDefault();
+
+    const saveProfileBtn = document.getElementById("saveProfileBtn");
+    const newEmail = document.getElementById("editOrgEmail").value.trim().toLowerCase();
+    const currentEmail = String(currentOrgData?.email || "").trim().toLowerCase();
+
+    // Check if the email was changed
+    if (newEmail !== currentEmail && verifiedOrgEmail !== newEmail) {
+        if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+            editModalMessage.textContent = "Please enter a valid email address.";
+            editModalMessage.className = "text-xs font-semibold text-red-500 mt-2 block";
+            return;
+        }
+
+        pendingOrgEmail = newEmail;
+
+        orgEmailOtpTarget.textContent = newEmail;
+        orgEmailOtpInput.value = "";
+        orgEmailOtpMessage.textContent = "Sending verification code...";
+        orgEmailOtpMessage.className = "mt-3 text-sm text-slate-600";
+        orgEmailOtpModal.classList.remove("hidden");
+
+        await sendOrgEmailOtp();
+        return;
+    }
 
     // 2. VALIDATION NG MOBILE NUMBER
     const contactValue = editContactInput.value.trim();
@@ -585,13 +757,14 @@ editProfileForm?.addEventListener("submit", async (e) => {
     
     editModalMessage.classList.add("hidden");
 
-    const saveProfileBtn = document.getElementById("saveProfileBtn");
     saveProfileBtn.disabled = true;
     saveProfileBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Saving...`;
 
     // 1. Gumawa ng FormData Instance
     const formData = new FormData();
     formData.append("organization_name", document.getElementById("editOrgName").value.trim());
+    // formData.append("email", document.getElementById("editOrgEmail").value.trim());
+    formData.append("email", newEmail);
     formData.append("contact_number", document.getElementById("editContact").value.trim());
     formData.append("contact_person", document.getElementById("editContactPerson").value.trim());
     formData.append("address", document.getElementById("editAddress").value.trim());
@@ -631,7 +804,7 @@ editProfileForm?.addEventListener("submit", async (e) => {
             saveProfileBtn.innerHTML = "Save Changes";
         }
     } catch (error) {
-        console.error(error);
+        console.error("Organization profile update error:",error);
         editModalMessage.textContent = "An error occurred while saving profile.";
         editModalMessage.className = "text-xs font-semibold text-red-500 mt-2 block";
         saveProfileBtn.disabled = false;

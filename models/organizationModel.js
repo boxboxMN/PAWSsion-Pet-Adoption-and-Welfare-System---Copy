@@ -6,6 +6,7 @@ const Organization = {
     getProfileByAccountId: async (accountId) => {
         const query = `
             SELECT 
+                a.email,
                 organization_name, 
                 contact_number, 
                 organization_type, 
@@ -18,8 +19,10 @@ const Organization = {
                 description,
                 contact_person,
                 profile_pic 
-            FROM organizations 
-            WHERE account_id = ? 
+            FROM organizations o
+            INNER JOIN accounts a
+                ON a.account_id = o.account_id
+            WHERE a.account_id = ? 
             LIMIT 1
         `;
         const [rows] = await pool.query(query, [accountId]);
@@ -43,36 +46,140 @@ const Organization = {
 
     // Bagong function para mag-update ng profile details at profile pic
     updateProfile: async (accountId, profileData) => {
-        const { organization_name, contact_number, contact_person, address, region, province, city, barangay, zip_code, description, profile_pic } = profileData;
-    
-        // Dynamic query: I-update lang ang profile_pic kung may bagong file na in-upload
-        let query = `
-            UPDATE organizations 
-            SET 
-                organization_name = ?, 
-                contact_number = ?, 
-                contact_person = ?, 
-                address = ?, 
-                region = ?,
-                province = ?, 
-                city = ?, 
-                barangay = ?,
-                zip_code = ?,
-                description = ?
-        `;
-        
-        const params = [organization_name, contact_number, contact_person, address, region, province, city, barangay, zip_code, description];
+        const connection = await pool.getConnection();
 
-        if (profile_pic) {
-            query += `, profile_pic = ? `;
-            params.push(profile_pic);
+        try {
+            await connection.beginTransaction();
+
+            const { organization_name, contact_number, contact_person, address, region, province, city, barangay, zip_code, description, profile_pic, email } = profileData;
+            
+            // Confirm that this account belongs to an organization.
+            const [orgRows] = await connection.query(
+                `SELECT account_id
+                FROM organizations
+                WHERE account_id = ?
+                LIMIT 1
+                FOR UPDATE`,
+                [accountId]
+            );
+
+            if (orgRows.length === 0) {
+                throw new Error("Organization not found.");
+            }
+
+            // Get the current account email.
+            const [accounts] = await connection.query(
+                `SELECT email
+                FROM accounts
+                WHERE account_id = ?
+                LIMIT 1
+                FOR UPDATE`,
+                [accountId]
+            );
+
+            if (accounts.length === 0) {
+                throw new Error("Account not found.");
+            }
+
+            const currentEmail = String(accounts[0].email || "")
+                .trim()
+                .toLowerCase();
+
+            const newEmail = String(email || currentEmail)
+                .trim()
+                .toLowerCase();
+
+            const emailChanged = newEmail !== currentEmail;
+
+            // Check whether the new email is already registered to another account.
+            if (emailChanged) {
+                const [duplicates] = await connection.query(
+                    `SELECT account_id
+                    FROM accounts
+                    WHERE LOWER(email) = LOWER(?)
+                    AND account_id != ?
+                    LIMIT 1`,
+                    [newEmail, accountId]
+                );
+
+                if (duplicates.length > 0) {
+                    throw new Error("EMAIL_ALREADY_EXISTS");
+                }
+            }
+
+            // Require a valid, verified, unexpired OTP for email changes.
+            if (emailChanged) {
+                const [otpRows] = await connection.query(
+                    `SELECT id
+                    FROM profile_email_change_otps
+                    WHERE account_id = ?
+                    AND email = ?
+                    AND verified_at IS NOT NULL
+                    AND expires_at > NOW()
+                    AND attempts < 5
+                    ORDER BY id DESC
+                    LIMIT 1
+                    FOR UPDATE`,
+                    [accountId, newEmail]
+                );
+
+                if (otpRows.length === 0) {
+                    throw new Error("EMAIL_VERIFICATION_REQUIRED");
+                }
+
+                await connection.query(
+                    `UPDATE accounts
+                    SET email = ?
+                    WHERE account_id = ?`,
+                    [newEmail, accountId]
+                );
+
+                await connection.query(
+                    `DELETE FROM profile_email_change_otps
+                    WHERE account_id = ? AND email = ?`,
+                    [accountId, newEmail]
+                );
+            }
+
+            // Dynamic query: I-update lang ang profile_pic kung may bagong file na in-upload
+            let query = `
+                UPDATE organizations 
+                SET 
+                    organization_name = ?, 
+                    contact_number = ?, 
+                    contact_person = ?, 
+                    address = ?, 
+                    region = ?,
+                    province = ?, 
+                    city = ?, 
+                    barangay = ?,
+                    zip_code = ?,
+                    description = ?
+            `;
+            
+            const params = [organization_name, contact_number, contact_person, address, region, province, city, barangay, zip_code, description];
+
+            if (profile_pic) {
+                query += `, profile_pic = ? `;
+                params.push(profile_pic);
+            }
+
+            query += ` WHERE account_id = ?`;
+            params.push(accountId);
+
+            const [result] = await pool.query(query, params);
+            // return result.affectedRows > 0;
+
+            await connection.commit();
+
+            return emailChanged || result.affectedRows > 0;
+        } catch (error) {
+            await connection.rollback();
+            throw error;
+
+        } finally {
+            connection.release();
         }
-
-        query += ` WHERE account_id = ?`;
-        params.push(accountId);
-
-        const [result] = await pool.query(query, params);
-        return result.affectedRows > 0;
     },
 
     // Tulong na function: kunin ang tunay na organizations.organization_id gamit ang account_id (galing session)

@@ -221,6 +221,22 @@
                         <label class="text-xs font-bold text-blue-600 block uppercase tracking-wider mb-1">Organization Name</label>
                         <input type="text" id="editOrgName" required class="w-full text-sm font-semibold text-gray-700 px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-blue-900 transition bg-slate-50/50">
                     </div>
+
+                    <div>
+                        <label class="text-xs font-bold text-blue-600 block uppercase tracking-wider mb-1">
+                            Gmail / Email Address
+                        </label>
+                        <input
+                            type="email"
+                            id="editOrgEmail"
+                            required
+                            placeholder="organization@gmail.com"
+                            class="w-full text-sm font-semibold text-gray-700 px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-blue-900 transition bg-slate-50/50"
+                        >
+                        <p class="text-[11px] text-gray-400 mt-1">
+                            Changing your email address requires OTP verification.
+                        </p>
+                    </div>
                 
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
@@ -317,6 +333,76 @@
                     <button id="confirmLogoutBtn" class="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-medium rounded-xl transition shadow-sm shadow-red-200 text-sm">
                         Yes, Logout
                     </button>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Organization Email Change Verification Modal -->
+        <div id="orgEmailOtpModal"
+            class="hidden fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4">
+
+            <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+
+                <h2 class="text-xl font-bold text-slate-800">
+                    Verify Your New Email
+                </h2>
+
+                <p class="mt-2 text-sm text-slate-600">
+                    We will send a 6-digit verification code to your new email address.
+                </p>
+
+                <p id="orgEmailOtpTarget"
+                    class="mt-3 break-words font-semibold text-blue-900">
+                </p>
+
+                <div class="mt-5">
+                    <label for="orgEmailOtpInput"
+                        class="mb-1 block text-sm font-medium text-slate-700">
+                        Verification Code
+                    </label>
+
+                    <input
+                        id="orgEmailOtpInput"
+                        type="text"
+                        inputmode="numeric"
+                        autocomplete="one-time-code"
+                        maxlength="6"
+                        pattern="[0-9]{6}"
+                        placeholder="Enter 6-digit code"
+                        class="w-full rounded-xl border border-slate-300 px-4 py-3 text-center text-lg tracking-[0.3em] focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    />
+                </div>
+
+                <p id="orgEmailOtpMessage"
+                    role="status"
+                    aria-live="polite"
+                    class="mt-3 text-sm text-slate-600">
+                </p>
+
+                <div class="mt-5 flex flex-wrap justify-end gap-2">
+
+                    <button
+                        id="orgEmailOtpCancelBtn"
+                        type="button"
+                        class="rounded-xl border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50">
+                        Cancel
+                    </button>
+
+                    <button
+                        id="orgEmailOtpResendBtn"
+                        type="button"
+                        class="rounded-xl border border-blue-200 px-4 py-2 text-blue-900 hover:bg-blue-50">
+                        Send Code
+                    </button>
+
+                    <button
+                        id="orgEmailOtpVerifyBtn"
+                        type="button"
+                        class="rounded-xl bg-blue-900 px-4 py-2 text-white hover:bg-blue-800">
+                        Verify Code
+                    </button>
+
                 </div>
             </div>
         </div>
