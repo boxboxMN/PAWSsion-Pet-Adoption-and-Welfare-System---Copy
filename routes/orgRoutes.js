@@ -1,7 +1,10 @@
 const express = require("express");
 const path = require("path");
+const fs = require("fs");
 const pool = require("../config/database");
-const { uploadPet, uploadQR, uploadDropoff,uploadInkindProof  } = require('../config/upload');
+const { uploadToCloudinary } = require("../services/cloudinaryUpload");
+const { csrfSynchronisedProtection } = require("../middleware/csrf");
+const { uploadPet, uploadQR, uploadHandoverProof, uploadReturnProof, uploadDropoff,uploadInkindProof  } = require('../config/upload');
 // const { logActivity } = require("../controllers/adminController");
 const { logActivity, createNotification } = require("../controllers/adminController");
 
@@ -32,7 +35,11 @@ const {
     getAnalyticsData,
     getKamustahanUpdates,
     schedulePetUpdate,
-    archiveKamustahanUpdate
+    archiveKamustahanUpdate,
+    getPetReturnRequests,
+    updatePetReturnRequestStatus,
+    confirmPetReturnReceived,
+    markReturnedPetAsAvailable
 } = require("../controllers/orgController");
 
 const router = express.Router();
@@ -289,6 +296,7 @@ router.get('/applications/:id', async (req, res) => {
             app.emergency_name,
             app.emergency_phone,
             app.emergency_relation,
+            app.handover_photo_path,
             app.document_path,
             app.status,
             app.decline_reason,
@@ -354,6 +362,196 @@ router.get('/applications/:id', async (req, res) => {
     }
 });
 
+// GET: Load Adopter Qualification Checklist
+router.get('/applications/:id/qualification-checklist', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const accountId = req.session?.accountId;
+
+        if (!accountId) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        // Get the organization linked to the logged-in account
+        const [orgRows] = await pool.query(
+            `SELECT organization_id
+             FROM organizations
+             WHERE account_id = ?`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Organization not found."
+            });
+        }
+
+        const orgId = orgRows[0].organization_id;
+
+        // Verify that the application belongs to this organization
+        const [appRows] = await pool.query(
+            `SELECT app.application_id
+             FROM user_adoption_applications app
+             INNER JOIN animals a ON app.animal_id = a.animal_id
+             WHERE app.application_id = ?
+               AND a.organization_id = ?`,
+            [id, orgId]
+        );
+
+        if (!appRows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Application not found or unauthorized access."
+            });
+        }
+
+        // Load the saved checklist, if one exists
+        const [rows] = await pool.query(
+            `SELECT checklist_data, notes, updated_at
+             FROM adoption_qualification_checklists
+             WHERE application_id = ?`,
+            [id]
+        );
+
+        if (!rows.length) {
+            return res.json({
+                success: true,
+                checklist: null
+            });
+        }
+
+        let checklistData = {};
+
+        try {
+            checklistData = JSON.parse(rows[0].checklist_data);
+        } catch (parseError) {
+            console.error("Checklist JSON parse error:", parseError);
+
+            return res.status(500).json({
+                success: false,
+                message: "Unable to read the saved checklist."
+            });
+        }
+
+        return res.json({
+            success: true,
+            checklist: {
+                data: checklistData,
+                notes: rows[0].notes,
+                updated_at: rows[0].updated_at
+            }
+        });
+
+    } catch (err) {
+        console.error("Load Qualification Checklist Error:", err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to load qualification checklist."
+        });
+    }
+});
+
+// POST: Save or Update Adopter Qualification Checklist
+router.post('/applications/:id/qualification-checklist', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const accountId = req.session?.accountId;
+        const { checklist_data, notes } = req.body;
+
+        if (!accountId) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        if (
+            !checklist_data ||
+            typeof checklist_data !== "object" ||
+            Array.isArray(checklist_data)
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid checklist data."
+            });
+        }
+
+        if (notes !== undefined && notes !== null && typeof notes !== "string") {
+            return res.status(400).json({
+                success: false,
+                message: "Notes must be text."
+            });
+        }
+
+        // Verify the organization linked to the logged-in account
+        const [orgRows] = await pool.query(
+            `SELECT organization_id
+             FROM organizations
+             WHERE account_id = ?`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Organization not found."
+            });
+        }
+
+        const orgId = orgRows[0].organization_id;
+
+        // Verify application ownership and allow checklist use
+        // without changing its current status
+        const [appRows] = await pool.query(
+            `SELECT app.application_id
+             FROM user_adoption_applications app
+             INNER JOIN animals a ON app.animal_id = a.animal_id
+             WHERE app.application_id = ?
+               AND a.organization_id = ?`,
+            [id, orgId]
+        );
+
+        if (!appRows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Application not found or unauthorized access."
+            });
+        }
+
+        await pool.query(
+            `INSERT INTO adoption_qualification_checklists
+                (application_id, checklist_data, notes)
+             VALUES (?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                checklist_data = VALUES(checklist_data),
+                notes = VALUES(notes)`,
+            [
+                id,
+                JSON.stringify(checklist_data),
+                notes?.trim() || null
+            ]
+        );
+
+        return res.json({
+            success: true,
+            message: "Qualification checklist saved successfully."
+        });
+
+    } catch (err) {
+        console.error("Save Qualification Checklist Error:", err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to save qualification checklist."
+        });
+    }
+});
+
 // PATCH Update Application Status (Decline, Approve, Schedule Interview)
 router.patch('/applications/:id/status', async (req, res) => {
     // Gumamit ng connection mula sa pool para sa Transaction
@@ -363,7 +561,7 @@ router.patch('/applications/:id/status', async (req, res) => {
         const { id } = req.params;
         const { status, decline_reason, meetup_location } = req.body;
 
-        const validStatuses = ['Under Review', 'Interview Scheduled', 'Approved', 'Declined'];
+       const validStatuses = ['Under Review', 'Interview Scheduled', 'Post-Interview Review', 'Approved', 'Declined'];
 
         if (!status || !validStatuses.includes(status)) {
             connection.release();
@@ -395,8 +593,14 @@ router.patch('/applications/:id/status', async (req, res) => {
 
         // Get the animal_id of the pet from the application 
         const [appRows] = await connection.query(
-            `SELECT animal_id FROM user_adoption_applications WHERE application_id = ?`,
-            [id]
+            `SELECT app.animal_id, app.status 
+                FROM user_adoption_applications app  
+                INNER JOIN animals a ON app.animal_id = a.animal_id
+                INNER JOIN organizations o ON a.organization_id = o.organization_id
+                WHERE application_id = ?
+                AND o.account_id = ?
+                FOR UPDATE`,
+            [id, req.session?.accountId]
         );
 
         if (appRows.length === 0) {
@@ -405,6 +609,29 @@ router.patch('/applications/:id/status', async (req, res) => {
             return res.status(404).json({ 
                 success: false, 
                 message: "Application not found." 
+            });
+        }
+
+        // Prevent returned applications from re-entering the adoption workflow
+        if (appRows[0].status === 'Returned') {
+            await connection.rollback();
+            connection.release();
+
+            return res.status(409).json({
+                success: false,
+                message: "This application has already been returned and can no longer be updated."
+            });
+        }
+    
+         // Only allow completing an interview that is currently scheduled
+        if (status === 'Post-Interview Review' && appRows[0].status !== 'Interview Scheduled') 
+        {
+            await connection.rollback();
+            connection.release();
+
+            return res.status(400).json({
+                success: false,
+                message: 'Only applications with a scheduled interview can be marked as post-interview.'
             });
         }
 
@@ -450,20 +677,25 @@ router.patch('/applications/:id/status', async (req, res) => {
                 [animalId]
             );
 
+            
             await connection.query(`
                 INSERT INTO kamustahan_updates (
-                    organization_id, animal_id, adopter_id, update_date,
-                    update_text, photos, status, created_at
+                    organization_id, animal_id, adopter_id, 
+                    update_date, update_text, photos, 
+                    status, created_at
                 )
-                SELECT
-                    p.organization_id, app.animal_id, app.adopter_id, CURDATE(),
-                    '', '', 'For Update', NOW()
+                SELECT 
+                    p.organization_id, 
+                    app.animal_id, 
+                    app.adopter_id, 
+                    CURDATE(), 
+                    'Kamustahan schedule created upon adoption approval.', 
+                    '[]', 
+                    'For Update', 
+                    NOW()
                 FROM user_adoption_applications app
                 JOIN animals p ON app.animal_id = p.animal_id
                 WHERE app.application_id = ?
-                ON DUPLICATE KEY UPDATE
-                    status = 'For Update',
-                    update_date = CURDATE()
             `, [id]);
 
             // =========================================================================
@@ -550,12 +782,558 @@ router.patch('/applications/:id/status', async (req, res) => {
 }
 });
 
+/* ==========================================
+   RETURN PET REQUEST ROUTES
+========================================== */
+
+// GET: View return requests for this organization
+router.get("/return-requests", getPetReturnRequests);
+
+// PATCH: Approve or reject a return request
+router.patch("/return-requests/:id/status", updatePetReturnRequestStatus);
+
+// PATCH: Organization confirms receipt of returned pet with proof photo
+router.patch(
+    "/return-requests/:id/confirm-received",
+    csrfSynchronisedProtection,
+    uploadReturnProof.single("organizationReceivedPhoto"),
+    confirmPetReturnReceived
+);
+
+// PATCH: Mark an approved returned pet as available
+router.patch("/return-requests/:id/mark-available", markReturnedPetAsAvailable);
+
+// PATCH Confirm Pet Handover
+router.patch('/applications/:id/confirm-handover', uploadHandoverProof.single('handoverProof'), async (req, res) => {
+    const connection = await pool.getConnection();
+
+    try {
+        const { id } = req.params;
+        const accountId = req.session?.accountId;
+
+        if (!accountId) {
+            connection.release();
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        if (!req.file) {
+            connection.release();
+            return res.status(400).json({
+                success: false,
+                message: "Please upload a handover proof photo."
+            });
+        }
+
+        const [orgRows] = await connection.query(
+            `SELECT organization_id
+            FROM organizations
+            WHERE account_id = ?`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            connection.release();
+            return res.status(404).json({
+                success: false,
+                message: "Organization not found."
+            });
+        }
+
+        const organizationId = orgRows[0].organization_id;
+        await connection.beginTransaction();
+
+        // Verify that this application belongs to the organization's pet.
+        const [appRows] = await connection.query(
+            `SELECT app.application_id, app.status
+             FROM user_adoption_applications app
+             JOIN animals a ON app.animal_id = a.animal_id
+             WHERE app.application_id = ?
+               AND a.organization_id = ?
+             FOR UPDATE`,
+            [id, organizationId]
+        );
+
+        if (appRows.length === 0) {
+            await connection.rollback();
+            connection.release();
+
+            return res.status(404).json({
+                success: false,
+                message: "Application not found or you do not have permission to update it."
+            });
+        }
+
+        if (appRows[0].status !== 'Approved') {
+            await connection.rollback();
+            connection.release();
+
+            return res.status(400).json({
+                success: false,
+                message: "Only approved applications can be marked as received."
+            });
+        }
+
+        // const handoverPhotoPath = `uploads/pet-proof/${req.file.filename}`;
+        const handoverPhotoPath = await uploadToCloudinary(
+            req.file,
+            "pawpon/pet-proof"
+        );
+        
+        // Update the application only. Do not change the animal's Adopted status.
+        await connection.query(
+            `UPDATE user_adoption_applications
+             SET status = 'Received',  handover_photo_path = ?, updated_at = NOW()
+             WHERE application_id = ?`,
+            [handoverPhotoPath, id]
+        );
+
+        await connection.commit();
+        connection.release();
+
+        res.json({
+            success: true,
+            message: "Pet handover confirmed successfully. Application status is now Received.",
+            status: "Received"
+        });
+
+    } catch (err) {
+        await connection.rollback();
+        connection.release();
+
+        console.error("Error confirming pet handover:", err);
+
+        res.status(500).json({
+            success: false,
+            message: "Failed to confirm pet handover."
+        });
+    }
+});
+
+// GET: View handover proof (Organization only)
+router.get('/applications/:id/handover-proof', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const accountId = req.session?.accountId;
+
+        if (!accountId) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        // Verify that the application belongs to this organization.
+        const [rows] = await pool.query(
+            `SELECT app.handover_photo_path
+             FROM user_adoption_applications app
+             JOIN animals a ON app.animal_id = a.animal_id
+             JOIN organizations o ON a.organization_id = o.organization_id
+             WHERE app.application_id = ?
+               AND o.account_id = ?
+               AND app.handover_photo_path IS NOT NULL`,
+            [id, accountId]
+        );
+
+        if (!rows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Handover proof not found."
+            });
+        }
+
+        const photoUrl = rows[0].handover_photo_path;
+
+         // Cloudinary image URL
+        if (
+            typeof photoUrl === "string" &&
+            /^https:\/\/res\.cloudinary\.com\//i.test(photoUrl)
+        ) {
+            return res.redirect(photoUrl);
+        }
+        
+        const filename = path.basename(photoUrl);
+        const newPath = path.join(
+            __dirname,
+            '..',
+            'uploads',
+            'pet-proof',
+            filename
+        );
+        
+        const oldPath = path.join(
+            __dirname,
+            '..',
+            'private-uploads',
+            'handover-proof',
+            filename
+        );
+
+        // Support both newly uploaded and previously saved handover photos.
+        const photoPath = fs.existsSync(newPath) ? newPath : oldPath;
+
+        return res.sendFile(photoPath, (err) => {
+            if (err && !res.headersSent) {
+                console.error("Handover proof file error:", err);
+                res.status(404).json({
+                    success: false,
+                    message: "Handover proof image is unavailable."
+                });
+            }
+        });
+
+    } catch (err) {
+        console.error("Organization handover proof error:", err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to retrieve handover proof."
+        });
+    }
+});
+
+// GET: View pet return proof photos (Organization only)
+router.get("/return-requests/:id/proof/:type", async (req, res) => {
+    try {
+        const { id, type } = req.params;
+        const accountId = req.session?.accountId;
+
+        if (!accountId) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        if (!["adopter", "organization"].includes(type)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid proof type."
+            });
+        }
+
+        const photoColumn = type === "adopter"
+            ? "r.adopter_return_photo"
+            : "r.organization_received_photo";
+
+        const [rows] = await pool.query(
+            `SELECT ${photoColumn} AS photo_path
+             FROM pet_return_requests r
+             JOIN animals a ON r.animal_id = a.animal_id
+             JOIN organizations o ON r.organization_id = o.organization_id
+             WHERE r.return_request_id = ?
+               AND o.account_id = ?
+               AND ${photoColumn} IS NOT NULL`,
+            [id, accountId]
+        );
+
+        if (!rows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Return proof photo not found."
+            });
+        }
+
+        const photoUrl = rows[0].photo_path;
+
+         // Cloudinary image URL
+        if (typeof photoUrl === "string" && /^https:\/\/res\.cloudinary\.com\//i.test(photoUrl)) {
+            return res.redirect(photoUrl);
+        }
+        
+        const filename = path.basename(photoUrl);
+
+        const photoPath = path.join(
+            __dirname,
+            "..",
+            "uploads",
+            "pet-proof",
+            filename
+        );
+
+        return res.sendFile(photoPath, (err) => {
+            if (err && !res.headersSent) {
+                console.error("Return proof file error:", err);
+
+                res.status(404).json({
+                    success: false,
+                    message: "Return proof image is unavailable."
+                });
+            }
+        });
+
+    } catch (err) {
+        console.error("Organization return proof error:", err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to retrieve return proof."
+        });
+    }
+});
+
+// PATCH Cancel Approved Application (Organization)
+router.patch('/applications/:id/cancel', async (req, res) => {
+    let connection;
+    let transactionStarted = false;
+    let connectionReleased = false;
+
+    try {
+        connection = await pool.getConnection();
+
+        const { id } = req.params;
+        const accountId = req.session?.accountId;
+        const cancellationReason =
+            typeof req.body?.cancellation_reason === "string"
+                ? req.body.cancellation_reason.trim()
+                : "";
+
+        if (!accountId) {
+            connection.release();
+            connectionReleased = true;
+
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        if (!cancellationReason) {
+            connection.release();
+            connectionReleased = true;
+
+            return res.status(400).json({
+                success: false,
+                message: "A cancellation reason is required."
+            });
+        }
+
+        if (cancellationReason.length > 1000) {
+            connection.release();
+            connectionReleased = true;
+
+            return res.status(400).json({
+                success: false,
+                message: "Cancellation reason must not exceed 1000 characters."
+            });
+        }
+
+        await connection.beginTransaction();
+        transactionStarted = true;
+
+        // Verify organization ownership and lock the application row.
+        const [appRows] = await connection.query(
+            `SELECT app.application_id, app.animal_id, app.status, a.adoption_status
+             FROM user_adoption_applications app
+             INNER JOIN animals a ON app.animal_id = a.animal_id
+             INNER JOIN organizations o ON a.organization_id = o.organization_id
+             WHERE app.application_id = ?
+               AND o.account_id = ?
+             FOR UPDATE`,
+            [id, accountId]
+        );
+
+        if (!appRows.length) {
+            await connection.rollback();
+            transactionStarted = false;
+            connection.release();
+            connectionReleased = true;
+
+            return res.status(404).json({
+                success: false,
+                message: "Application not found or you do not have permission to update it."
+            });
+        }
+
+        if (appRows[0].status !== "Approved") {
+            await connection.rollback();
+            transactionStarted = false;
+            connection.release();
+            connectionReleased = true;
+
+            return res.status(400).json({
+                success: false,
+                message: "Only approved applications can be cancelled. Received applications must use the return process."
+            });
+        }
+
+        const [updateResult] = await connection.query(
+            `UPDATE user_adoption_applications
+             SET status = 'Cancelled by Organization',
+                 cancellation_reason = ?,
+                 updated_at = NOW()
+             WHERE application_id = ?
+               AND status = 'Approved'`,
+            [cancellationReason, id]
+        );
+
+        if (updateResult.affectedRows !== 1) {
+            await connection.rollback();
+            transactionStarted = false;
+            connection.release();
+            connectionReleased = true;
+
+            return res.status(409).json({
+                success: false,
+                message: "The application status changed. Please refresh and try again."
+            });
+        }
+
+        // Check if another active application still exists for this pet.
+        const [activeApplications] = await connection.query(
+            `SELECT application_id
+            FROM user_adoption_applications
+            WHERE animal_id = ?
+            AND application_id <> ?
+            AND status IN (
+                'Received',
+                'Under Review',
+                'Interview Scheduled',
+                'Post-Interview Review',
+                'Approved'
+            )
+            LIMIT 1`,
+            [appRows[0].animal_id, id]
+        );
+
+        // Restore the pet only if no other active application exists.
+        if (activeApplications.length === 0) {
+            await connection.query(
+                `UPDATE animals
+                SET adoption_status = 'Available'
+                WHERE animal_id = ?
+                AND organization_id = (
+                    SELECT organization_id
+                    FROM organizations
+                    WHERE account_id = ?
+                )
+                AND adoption_status = 'Adopted'`,
+                [appRows[0].animal_id, accountId]
+            );
+        }
+
+        await connection.commit();
+        transactionStarted = false;
+        connection.release();
+        connectionReleased = true;
+
+        // Record the cancellation in the activity log.
+        try {
+            await logActivity(
+                accountId,
+                "application_cancelled",
+                "application",
+                id,
+                cancellationReason
+            );
+        } catch (logError) {
+            console.error(
+                "Failed to log organization application cancellation:",
+                logError
+            );
+        }
+
+        // Notify the adopter.
+        try {
+            const [[applicantAccount]] = await pool.query(
+                `SELECT acc.account_id
+                FROM user_adoption_applications app
+                INNER JOIN adopters ad ON app.adopter_id = ad.adopter_id
+                INNER JOIN accounts acc ON ad.account_id = acc.account_id
+                WHERE app.application_id = ?`,
+                [id]
+            );
+
+            if (applicantAccount) {
+                await createNotification(
+                    applicantAccount.account_id,
+                    "Adoption Application Cancelled",
+                    `Your approved adoption application was cancelled by the organization. Reason: ${cancellationReason}`,
+                    "application_status",
+                    "/application"
+                );
+            }
+        } catch (notificationError) {
+            console.error(
+                "Failed to notify adopter about organization cancellation:",
+                notificationError
+            );
+        }
+
+        return res.json({
+            success: true,
+            message: "Approved application cancelled successfully.",
+            status: "Cancelled by Organization"
+        });
+
+    } catch (err) {
+        if (transactionStarted && connection) {
+            try {
+                await connection.rollback();
+            } catch (rollbackError) {
+                console.error(
+                    "Failed to rollback organization cancellation:",
+                    rollbackError
+                );
+            }
+        }
+    
+        if (connection && !connectionReleased) {
+            try {
+                connection.release();
+            } catch (releaseError) {
+                console.error(
+                    "Failed to release organization cancellation connection:",
+                    releaseError
+                );
+            } finally {
+                connectionReleased = true;
+            }
+        }
+    
+        console.error("Error cancelling approved application:", err);
+    
+        return res.status(500).json({
+            success: false,
+            message: "Failed to cancel the application."
+        });
+    }
+});
+
 // POST: Save/Schedule Interview
 router.post('/applications/:id/schedule', async (req, res) => {
     try {
         const { id } = req.params;
         let { interview_date, interview_time, interview_method, interview_location_link, override_reason } = req.body;
 
+         // Only allow scheduling for applications owned by this organization
+        // and currently Under Review or Interview Scheduled.
+        const [appRows] = await pool.query(
+            `SELECT app.status
+             FROM user_adoption_applications app
+             INNER JOIN animals a ON app.animal_id = a.animal_id
+             INNER JOIN organizations o ON a.organization_id = o.organization_id
+             WHERE app.application_id = ?
+               AND o.account_id = ?`,
+            [id, req.session?.accountId]
+        );
+
+        if (appRows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: "Application not found."
+            });
+        }
+
+        if (!['Under Review', 'Interview Scheduled'].includes(appRows[0].status)) {
+            return res.status(409).json({
+                success: false,
+                message: "This application can no longer be scheduled or rescheduled."
+            });
+        }
+        
         if (!interview_date || !interview_time) {
             return res.status(400).json({ success: false, error: "Interview date and time are required." });
         }
@@ -692,6 +1470,31 @@ router.patch('/applications/:id/approve-reschedule', async (req, res) => {
     try {
         const { id } = req.params;
 
+        // Prevent reschedule actions for returned applications
+        const [[appRow]] = await pool.query(
+            `SELECT app.status
+            FROM user_adoption_applications app
+            INNER JOIN animals a ON app.animal_id = a.animal_id
+            INNER JOIN organizations o ON a.organization_id = o.organization_id
+            WHERE app.application_id = ?
+            AND o.account_id = ?`,
+            [id, req.session?.accountId]
+        );
+
+        if (!appRow) {
+            return res.status(404).json({
+                success: false,
+                message: "Application not found."
+            });
+        }
+
+        if (appRow.status === 'Returned') {
+            return res.status(409).json({
+                success: false,
+                message: "This application has already been returned. Rescheduling is no longer allowed."
+            });
+        }
+
         // 1. Kunin ang requested date at time
         const [rows] = await pool.query(
             `SELECT requested_interview_date, requested_interview_time FROM application_interviews WHERE application_id = ?`,
@@ -749,6 +1552,31 @@ router.patch('/applications/:id/approve-reschedule', async (req, res) => {
 router.patch('/applications/:id/reject-reschedule', async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Prevent reschedule actions for returned applications
+        const [[appRow]] = await pool.query(
+            `SELECT app.status
+            FROM user_adoption_applications app
+            INNER JOIN animals a ON app.animal_id = a.animal_id
+            INNER JOIN organizations o ON a.organization_id = o.organization_id
+            WHERE app.application_id = ?
+            AND o.account_id = ?`,
+            [id, req.session?.accountId]
+        );
+
+        if (!appRow) {
+            return res.status(404).json({
+                success: false,
+                message: "Application not found."
+            });
+        }
+
+        if (appRow.status === 'Returned') {
+            return res.status(409).json({
+                success: false,
+                message: "This application has already been returned. Rescheduling is no longer allowed."
+            });
+        }
 
         await pool.query(
             `UPDATE application_interviews 
@@ -1200,342 +2028,108 @@ router.post(
         }
     }
 );
-router.get('/kamustahan/:updateId/consultations', async (req, res) => {
-    try {
-        if (!req.session?.accountId) {
-            return res.status(401).json({ success: false, message: "Unauthorized." });
-        }
-
-        const [org] = await pool.query(
-            `SELECT organization_id FROM organizations WHERE account_id = ?`,
-            [req.session.accountId]
-        );
-
-        if (!org.length) {
-            return res.status(404).json({ success: false, message: "Organization not found." });
-        }
-
-        const orgId = org[0].organization_id;
-
-        // Verify the update belongs to this org before exposing consultations
-        const [[update]] = await pool.query(
-            `SELECT update_id FROM kamustahan_updates WHERE update_id = ? AND organization_id = ?`,
-            [req.params.updateId, orgId]
-        );
-
-        if (!update) {
-            return res.status(404).json({ success: false, message: "Update not found or unauthorized." });
-        }
-
-        const [rows] = await pool.query(
-            `SELECT * FROM kamustahan_consultations WHERE update_id = ? ORDER BY created_at ASC`,
-            [req.params.updateId]
-        );
-
-        res.json({ success: true, consultations: rows });
-    } catch (err) {
-        console.error("Get Consultations Error:", err);
-        res.status(500).json({ success: false, message: "Server error." });
-    }
-});
 router.post('/kamustahan/:updateId/acknowledge', async (req, res) => {
     try {
-        if (!req.session?.accountId) {
-            return res.status(401).json({ success: false, message: "Unauthorized." });
-        }
+        if (!req.session?.accountId) return res.status(401).json({ success: false, message: "Unauthorized." });
 
-        const { message } = req.body; 
+        const { message, evaluation_checklist, verdict, follow_up_date } = req.body;
         const { updateId } = req.params;
 
         const [org] = await pool.query(
             `SELECT organization_id FROM organizations WHERE account_id = ?`,
             [req.session.accountId]
         );
-
-        if (!org.length) {
-            return res.status(404).json({ success: false, message: "Organization not found." });
-        }
+        if (!org.length) return res.status(404).json({ success: false, message: "Organization not found." });
         const orgId = org[0].organization_id;
 
-        // ==========================================
-        // CHECK KUNG NAKA-ARCHIVE NA
-        // ==========================================
-        const [[currentRecord]] = await pool.query(
-            `SELECT is_archived, status FROM kamustahan_updates WHERE update_id = ? AND organization_id = ?`,
+        // ⭐ 1. CHECK KUNG MAY VERDICT NA (IMMUTABLE LOCK) + kunin ang animal/adopter IDs
+        const [[existing]] = await pool.query(
+            `SELECT org_verdict, animal_id, adopter_id 
+             FROM kamustahan_updates 
+             WHERE update_id = ? AND organization_id = ?`,
             [updateId, orgId]
         );
 
-        if (!currentRecord) {
+        if (!existing) {
             return res.status(404).json({ success: false, message: "Record not found." });
         }
 
-        if (currentRecord.is_archived == 1 || currentRecord.status === 'Archived') {
-            return res.status(403).json({ 
-                success: false, 
-                message: "This record has been archived. You can no longer edit notes." 
+        if (existing.org_verdict) {
+            return res.status(403).json({
+                success: false,
+                message: "This update has already been evaluated and locked. You can no longer change it."
             });
         }
 
-        // ==========================================
-        // I-UPDATE ANG RECORD
-        // ==========================================
-        await pool.query(`
-            UPDATE kamustahan_updates 
-            SET consultation_status = 'resolved',
-                org_response = ?,
-                org_responded_at = NOW()
-            WHERE update_id = ? AND organization_id = ?
-        `, [message ? message.trim() : null, updateId, orgId]);
-
-        // Notify Adopter (Safe Try-Catch)
-        try {
-            const [[update]] = await pool.query(
-                `SELECT adopter_id FROM kamustahan_updates WHERE update_id = ?`,
-                [updateId]
-            );
-            
-            if (update && update.adopter_id) {
-                const [[adopterAcct]] = await pool.query(
-                    `SELECT account_id FROM adopters WHERE adopter_id = ?`,
-                    [update.adopter_id]
-                );
-                if (adopterAcct && adopterAcct.account_id) {
-                    await createNotification(
-                        adopterAcct.account_id,
-                        "Update Reviewed",
-                        "The organization has reviewed your pet update.",
-                        "kamustahan_reviewed",
-                        "/kamustahan"
-                    );
-                }
+        // ⭐ 2. VALIDATE FOLLOW-UP DATE (huwag payagan ang past date)
+        if (follow_up_date) {
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            if (!dateRegex.test(String(follow_up_date).trim())) {
+                return res.status(400).json({ success: false, message: "Invalid follow-up date format." });
             }
-        } catch (notifErr) {
-            console.warn("Notification failed, but review saved:", notifErr.message);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const parsed = new Date(`${follow_up_date}T00:00:00`);
+            if (isNaN(parsed.getTime()) || parsed < today) {
+                return res.status(400).json({ success: false, message: "The follow-up date cannot be a past date." });
+            }
         }
 
-        res.json({ success: true, message: "Marked as reviewed." });
+        // 3. I-UPDATE ANG KASALUKUYANG ROW (history record)
+        await pool.query(`
+            UPDATE kamustahan_updates
+            SET consultation_status = 'resolved',
+                org_response = ?,
+                org_evaluation_checklist = ?,
+                org_verdict = ?,
+                follow_up_date = ?,
+                org_responded_at = NOW()
+            WHERE update_id = ? AND organization_id = ?
+        `, [
+            message ? message.trim() : null,
+            evaluation_checklist ? JSON.stringify(evaluation_checklist) : null,
+            verdict || null,
+            follow_up_date || null,
+            updateId,
+            orgId
+        ]);
+
+        // ⭐ 4. KUNG MAY FOLLOW-UP DATE → GUMAWA NG BAGONG 'For Update' ROW
+        // Ito ang mag-o-open ng bagong update cycle para sa adopter.
+        if (follow_up_date) {
+            const [[pending]] = await pool.query(
+                `SELECT update_id FROM kamustahan_updates
+                 WHERE animal_id = ? 
+                   AND adopter_id = ? 
+                   AND organization_id = ?
+                   AND status = 'For Update'
+                   AND is_archived = 0
+                 LIMIT 1`,
+                [existing.animal_id, existing.adopter_id, orgId]
+            );
+
+            if (pending) {
+                // May existing pending na — i-update lang ang deadline
+                await pool.query(
+                    `UPDATE kamustahan_updates SET scheduled_date = ? WHERE update_id = ?`,
+                    [follow_up_date, pending.update_id]
+                );
+            } else {
+                await pool.query(
+                    `INSERT INTO kamustahan_updates
+                        (organization_id, animal_id, adopter_id, 
+                        update_date, update_text, photos, 
+                        scheduled_date, status, created_at)
+                    VALUES (?, ?, ?, CURDATE(), 'Follow-up kamustahan scheduled.', '[]', ?, 'For Update', NOW())`,
+                    [orgId, existing.animal_id, existing.adopter_id, follow_up_date]
+                );
+            }
+        }
+
+        res.json({ success: true, message: "Evaluation saved successfully." });
     } catch (err) {
         console.error("Acknowledge Error:", err);
         res.status(500).json({ success: false, message: err.message });
-    }
-});
-router.get('/return-requests/count', async (req, res) => {
-    try {
-        const [org] = await pool.query(
-            `SELECT organization_id FROM organizations WHERE account_id = ?`,
-            [req.session.accountId]
-        );
-        if (!org.length) return res.status(404).json({ success: false, message: "Organization not found." });
-        const orgId = org[0].organization_id;
-
-        const [rows] = await pool.query(`
-            SELECT COUNT(*) AS count 
-            FROM pet_returns pr
-            JOIN animals a ON pr.animal_id = a.animal_id
-            WHERE a.organization_id = ? AND pr.status IN ('Pending', 'Approved')
-        `, [orgId]);
-        
-        res.json({ success: true, count: rows[0].count });
-    } catch (error) {
-        console.error("Fetch Return Count Error:", error);
-        res.status(500).json({ success: false, message: 'Server error' });
-    }
-});
-
-// 2. Kunin ang LISTAHAN ng pending returns
-router.get('/return-requests', async (req, res) => {
-    try {
-        const [org] = await pool.query(
-            `SELECT organization_id FROM organizations WHERE account_id = ?`,
-            [req.session.accountId]
-        );
-        if (!org.length) return res.status(404).json({ success: false, message: "Organization not found." });
-        const orgId = org[0].organization_id;
-
-        const [requests] = await pool.query(`
-            SELECT pr.*, a.name AS pet_name, a.image_path AS pet_image, 
-                   ad.first_name, ad.last_name, acc.email
-            FROM pet_returns pr
-            JOIN animals a ON pr.animal_id = a.animal_id
-            JOIN adopters ad ON pr.adopter_id = ad.adopter_id
-            JOIN accounts acc ON ad.account_id = acc.account_id
-            WHERE a.organization_id = ? AND pr.status IN ('Pending', 'Approved')
-            ORDER BY pr.created_at DESC
-        `, [orgId]);
-
-        res.json({ success: true, requests });
-    } catch (error) {
-        console.error("Fetch Return Requests Error:", error);
-        res.status(500).json({ success: false, message: 'Server error' });
-    }
-});
-// ⭐ APPROVE / REJECT ONLY (no finalization yet)
-router.put('/return-requests/:id/respond', async (req, res) => {
-    try {
-        const returnId = req.params.id;
-        const { action, org_response } = req.body;
-
-        const [request] = await pool.query(`
-            SELECT pr.animal_id, pr.adopter_id, pr.status
-            FROM pet_returns pr
-            WHERE pr.id = ?
-        `, [returnId]);
-
-        if (request.length === 0)
-            return res.status(404).json({ success: false, message: 'Request not found' });
-
-        if (request[0].status !== 'Pending')
-            return res.status(400).json({ success: false, message: 'This request has already been processed.' });
-
-        const adopterId = request[0].adopter_id;
-
-        // Update status only — DO NOT touch animals / applications yet
-        await pool.query(
-            `UPDATE pet_returns SET status = ?, org_response = ? WHERE id = ?`,
-            [action, org_response || null, returnId]
-        );
-
-        const [adopterAcc] = await pool.query(
-            `SELECT account_id FROM adopters WHERE adopter_id = ?`, [adopterId]
-        );
-
-        if (adopterAcc.length > 0) {
-            const notifMsg = action === 'Approved'
-                ? `Your return request has been approved. ${org_response || 'Please coordinate with the shelter for the handover.'}`
-                : (org_response || `Your return request has been declined.`);
-
-            await createNotification(
-                adopterAcc[0].account_id,
-                `Pet Return Request ${action}`,
-                notifMsg,
-                "return_response",
-                "/kamustahan"
-            );
-        }
-
-        res.json({ success: true, message: `Return request ${action.toLowerCase()}.` });
-    } catch (error) {
-        console.error("Respond Return Error:", error);
-        res.status(500).json({ success: false, message: 'Server error' });
-    }
-});
-router.put('/return-requests/:id/complete', async (req, res) => {
-    try {
-        const returnId = req.params.id;
-
-        const [request] = await pool.query(
-            `SELECT animal_id, adopter_id, status FROM pet_returns WHERE id = ?`,
-            [returnId]
-        );
-
-        if (!request.length)
-            return res.status(404).json({ success: false, message: 'Request not found' });
-
-        if (request[0].status !== 'Approved')
-            return res.status(400).json({ success: false, message: 'Return must be approved first.' });
-
-        const animalId = request[0].animal_id;
-        const adopterId = request[0].adopter_id;
-
-        // Finalize return
-        await pool.query(`UPDATE pet_returns SET status = 'Completed' WHERE id = ?`, [returnId]);
-        await pool.query(`UPDATE animals SET adoption_status = 'Available' WHERE animal_id = ?`, [animalId]);
-        await pool.query(
-            `UPDATE user_adoption_applications 
-             SET status = 'Returned' 
-             WHERE animal_id = ? AND adopter_id = ? AND status = 'Approved'`,
-            [animalId, adopterId]
-        );
-
-        // ⭐ Archive the kamustahan_updates for this pet
-        await pool.query(
-            `UPDATE kamustahan_updates 
-             SET status = 'Archived',
-                 is_archived = 1,
-                 scheduled_date = NULL
-             WHERE animal_id = ? 
-               AND adopter_id = ? 
-               AND is_archived = 0`,
-            [animalId, adopterId]
-        );
-
-        const [adopterAcc] = await pool.query(
-            `SELECT account_id FROM adopters WHERE adopter_id = ?`, [adopterId]
-        );
-
-        if (adopterAcc.length) {
-            await createNotification(
-                adopterAcc[0].account_id,
-                "Pet Return Completed",
-                "The shelter has received your pet. The return process is now complete.",
-                "return_completed",
-                "/kamustahan"
-            );
-        }
-
-        res.json({ success: true, message: 'Pet return completed successfully.' });
-    } catch (error) {
-        console.error("Complete Return Error:", error);
-        res.status(500).json({ success: false, message: 'Server error' });
-    }
-});router.put('/return-requests/:id/complete', async (req, res) => {
-    try {
-        const returnId = req.params.id;
-
-        const [request] = await pool.query(
-            `SELECT animal_id, adopter_id, status FROM pet_returns WHERE id = ?`,
-            [returnId]
-        );
-
-        if (!request.length)
-            return res.status(404).json({ success: false, message: 'Request not found' });
-
-        if (request[0].status !== 'Approved')
-            return res.status(400).json({ success: false, message: 'Return must be approved first.' });
-
-        const animalId = request[0].animal_id;
-        const adopterId = request[0].adopter_id;
-
-        // Finalize return
-        await pool.query(`UPDATE pet_returns SET status = 'Completed' WHERE id = ?`, [returnId]);
-        await pool.query(`UPDATE animals SET adoption_status = 'Available' WHERE animal_id = ?`, [animalId]);
-        await pool.query(
-            `UPDATE user_adoption_applications 
-             SET status = 'Returned' 
-             WHERE animal_id = ? AND adopter_id = ? AND status = 'Approved'`,
-            [animalId, adopterId]
-        );
-
-        // ⭐ Archive the kamustahan_updates for this pet
-        await pool.query(
-            `UPDATE kamustahan_updates 
-             SET status = 'Archived',
-                 is_archived = 1,
-                 scheduled_date = NULL
-             WHERE animal_id = ? 
-               AND adopter_id = ? 
-               AND is_archived = 0`,
-            [animalId, adopterId]
-        );
-
-        const [adopterAcc] = await pool.query(
-            `SELECT account_id FROM adopters WHERE adopter_id = ?`, [adopterId]
-        );
-
-        if (adopterAcc.length) {
-            await createNotification(
-                adopterAcc[0].account_id,
-                "Pet Return Completed",
-                "The shelter has received your pet. The return process is now complete.",
-                "return_completed",
-                "/kamustahan"
-            );
-        }
-
-        res.json({ success: true, message: 'Pet return completed successfully.' });
-    } catch (error) {
-        console.error("Complete Return Error:", error);
-        res.status(500).json({ success: false, message: 'Server error' });
     }
 });
 module.exports = router;

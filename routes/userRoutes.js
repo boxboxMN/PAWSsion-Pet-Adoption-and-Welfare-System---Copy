@@ -2,15 +2,19 @@ const express = require("express");
 const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
-const { fileTypeFromFile } = require("file-type");
+// const { fileTypeFromFile } = require("file-type");
+const FileType = require("file-type");
 const router = express.Router();
 const userController = require("../controllers/userController");
 const matchmakerController = require("../controllers/matchmakerController");
 const { matchPets } = require("../controllers/matchmakerController");
 const { csrfSynchronisedProtection } = require("../middleware/csrf");
 const pool = require('../config/database');
-const {uploadAdoptionDocument,  uploadAvatar} = require("../config/upload");
+const { uploadReturnProof } = require("../config/upload");
+// const {uploadAdoptionDocument,  uploadAvatar} = require("../config/upload");
+const {uploadAdoptionDocument} = require("../config/upload");
 const { logActivity, createNotification } = require("../controllers/adminController"); 
+const { uploadToCloudinary } = require("../services/cloudinaryUpload");
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -30,8 +34,13 @@ const upload = multer({
     storage: storage,
     limits: { fileSize: 2 * 1024 * 1024 }, 
     fileFilter: function (req, file, cb) {
-        if (!file.mimetype.startsWith("image/")) {
-            return cb(new Error("Only image files are allowed!"), false);
+        // if (!file.mimetype.startsWith("image/")) {
+        //     return cb(new Error("Only image files are allowed!"), false);
+        // }
+        const allowedTypes = ["image/jpeg", "image/png"];
+
+        if (!allowedTypes.includes(file.mimetype)) {
+            return cb(new Error("Avatar must be a JPG or PNG image."), false);
         }
         cb(null, true);
     }
@@ -42,7 +51,8 @@ async function validateAvatarFile(file) {
       return false;
   }
 
-  const detectedType = await fileTypeFromFile(file.path);
+  // const detectedType = await fileTypeFromFile(file.path);
+  const detectedType = await FileType.fromFile(file.path);
 
   if (!detectedType) {
       return false;
@@ -210,6 +220,84 @@ router.get("/profile", checkUserSession, (req, res) => {
 }); 
 
 router.get("/api/user/applications", checkUserSession, userController.getUserApplications);
+
+// GET: View handover proof (Adopter only)
+router.get("/api/user/applications/:id/handover-proof", checkUserSession,
+    async (req, res) => {
+        try {
+            const { id } = req.params;
+            const accountId = req.session?.accountId;
+
+            const [rows] = await pool.query(
+                `SELECT app.handover_photo_path
+                 FROM user_adoption_applications app
+                 JOIN adopters ad ON app.adopter_id = ad.adopter_id
+                 WHERE app.application_id = ?
+                   AND ad.account_id = ?
+                   AND app.handover_photo_path IS NOT NULL`,
+                [id, accountId]
+            );
+
+            if (!rows.length) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Handover proof not found."
+                });
+            }
+
+            const photoUrl = rows[0].handover_photo_path;
+
+            // Cloudinary image URL
+            if (
+                typeof photoUrl === "string" &&
+                /^https:\/\/res\.cloudinary\.com\//i.test(photoUrl)
+            ) {
+                return res.redirect(photoUrl);
+            }
+
+            const filename = path.basename(photoUrl);
+
+            const newPath = path.join(
+                __dirname,
+                '..',
+                'uploads',
+                'pet-proof',
+                filename
+            );
+            
+            const oldPath = path.join(
+                __dirname,
+                '..',
+                'private-uploads',
+                'handover-proof',
+                filename
+            );
+            
+            // Support both newly uploaded and previously saved handover photos.
+            const photoPath = fs.existsSync(newPath) ? newPath : oldPath;
+
+            return res.sendFile(photoPath, (err) => {
+                if (err && !res.headersSent) {
+                    console.error("Adopter handover proof file error:", err);
+
+                    res.status(404).json({
+                        success: false,
+                        message: "Handover proof image is unavailable."
+                    });
+                }
+            });
+
+        } catch (err) {
+            console.error("Adopter handover proof error:", err);
+
+            return res.status(500).json({
+                success: false,
+                message: "Unable to retrieve handover proof."
+            });
+        }
+    }
+);
+
 router.get("/api/user/donations", checkUserSession, userController.getUserDonations);
 router.get("/api/user/profile", checkUserSession, userController.getProfile);
 
@@ -234,7 +322,8 @@ router.post(
   "/api/user/profile/avatar",
   checkUserSession,
   (req, res, next) => {
-      uploadAvatar.single("avatar")(req, res, async (err) => {
+      // uploadAvatar.single("avatar")(req, res, async (err) => {
+      upload.single("avatar")(req, res, async (err) => {
 
           if (err instanceof multer.MulterError) {
               return res.status(400).json({
@@ -275,7 +364,8 @@ router.post(
 
               return res.status(400).json({
                   success: false,
-                  error: "Unable to validate the uploaded file."
+                  error: "Unable to validate the uploaded file.",
+                  details: error.message
               });
           }
       });
@@ -287,8 +377,9 @@ router.get("/api/organizations", checkUserSession, userController.getOrganizatio
 router.post( "/api/user/donation/cash", checkUserSession, uploadReceipt.single("receipt"), userController.submitCashDonation);
 router.post('/api/user/donation/in-kind', checkUserSession, userController.submitInKindDonation);
 router.get("/api/user/approved-pets", checkUserSession, userController.getApprovedAdoptedPets);
+router.post( "/api/user/applications/:applicationId/return-request", checkUserSession, uploadReturnProof.single("adopterReturnPhoto"), userController.submitPetReturnRequest);
 router.get("/api/user/kamustahan-history", checkUserSession, userController.getKamustahanHistory);
-router.post("/api/user/kamustahan", checkUserSession, uploadKamustahan.single("photos"), userController.submitKamustahanUpdate);
+router.post("/api/user/kamustahan", checkUserSession, uploadKamustahan.array("photos", 5), userController.submitKamustahanUpdate);
 
 router.post(
     "/api/adoptions/submit-application",
@@ -321,17 +412,22 @@ router.get("/api/user/upcoming-schedules", checkUserSession, userController.getU
 
 router.get("/api/organizations/:id", checkUserSession,  userController.getOrganizationById);
 
-router.put('/api/user/kamustahan/:id', checkUserSession, uploadKamustahan.single('photos'), async (req, res) => {
+router.put('/api/user/kamustahan/:id', checkUserSession, uploadKamustahan.array('photos', 5), async (req, res) => {
     try {
         const updateId = req.params.id;
         const { update_text } = req.body;
         
         // Gamitin ang pool na naka-export sa itaas
-        if (req.file) {
-            const photoPath = `/uploads/kamustahan/${req.file.filename}`;
+        if (req.files && req.files.length > 0) {
+            // const photoPaths = req.files.map(file => `/uploads/kamustahan/${file.filename}`);
+             const photoPaths = await Promise.all(
+                req.files.map(file =>
+                    uploadToCloudinary(file, "pawpon/kamustahan")
+                )
+             );
             await pool.query(
                 'UPDATE kamustahan_updates SET update_text = ?, photos = ? WHERE update_id = ?', 
-                [update_text, photoPath, updateId]
+                [update_text, JSON.stringify(photoPaths), updateId]
             );
         } else {
             await pool.query(
@@ -348,130 +444,5 @@ router.put('/api/user/kamustahan/:id', checkUserSession, uploadKamustahan.single
 });
 
 router.get("/api/user/kamustahan-due", checkUserSession, userController.getKamustahanDue);
-router.post('/api/adopter/request-return', checkUserSession, async (req, res) => {
-    try {
-        const { pet_id, reason, details } = req.body; 
-        const accountId = req.session.accountId; // Ito ay 3
-
-        if (!pet_id || !reason || !details) {
-            return res.status(400).json({ success: false, message: 'Missing required fields.' });
-        }
-
-        // 1. Kunin ang tamang adopter_id (1) gamit ang account_id (3)
-        const [adopterRows] = await pool.query(
-            `SELECT adopter_id FROM adopters WHERE account_id = ?`,
-            [accountId]
-        );
-
-        if (adopterRows.length === 0) {
-            return res.status(403).json({ success: false, message: 'Adopter profile not found.' });
-        }
-
-        const adopterId = adopterRows[0].adopter_id;
-
-        // 2. I-verify kung talagang adopted ng user ang pet AT kunin ang organization_id
-        const [adoption] = await pool.query(
-            `SELECT app.application_id, a.organization_id 
-             FROM user_adoption_applications app
-             JOIN animals a ON app.animal_id = a.animal_id
-             WHERE app.animal_id = ? AND app.adopter_id = ? AND app.status = 'Approved'`, 
-            [pet_id, adopterId]
-        );
-
-        if (adoption.length === 0) {
-            return res.status(403).json({ success: false, message: 'Pet not found in your adopted list.' });
-        }
-
-        const organizationId = adoption[0].organization_id;
-
-        // 3. I-save ang return request sa database 
-        await pool.query(
-            `INSERT INTO pet_returns (animal_id, adopter_id, reason, details, status) VALUES (?, ?, ?, ?, 'Pending')`,
-            [pet_id, adopterId, reason, details]
-        );
-
-        // 4. I-notify ang Organization
-        const [orgAccount] = await pool.query(
-            `SELECT account_id FROM organizations WHERE organization_id = ?`,
-            [organizationId]
-        );
-
-        if (orgAccount.length > 0) {
-            await createNotification(
-                orgAccount[0].account_id,
-                "New Pet Return Request",
-                "An adopter has submitted a request to return a pet.",
-                "return_request",
-                "/org/kamustahan"
-            );
-        }
-
-        res.json({ success: true, message: 'Return request submitted successfully.' });
-
-    } catch (error) {
-        console.error('Return Request Error:', error);
-        res.status(500).json({ success: false, message: 'Server error' });
-    }
-});
-router.get('/api/adopter/return-requests', checkUserSession, async (req, res) => {
-    try {
-        const [adopterRows] = await pool.query(
-            `SELECT adopter_id FROM adopters WHERE account_id = ?`,
-            [req.session.accountId]
-        );
-
-        if (adopterRows.length === 0) {
-            return res.json({ success: true, requests: [] });
-        }
-
-        const adopterId = adopterRows[0].adopter_id;
-
-        // ⭐ Latest return request per pet only
-        const [requests] = await pool.query(
-            `SELECT pr.id, pr.animal_id, pr.status, pr.org_response, pr.created_at
-             FROM pet_returns pr
-             INNER JOIN (
-                 SELECT animal_id, MAX(id) AS max_id
-                 FROM pet_returns
-                 WHERE adopter_id = ?
-                 GROUP BY animal_id
-             ) latest ON pr.id = latest.max_id
-             WHERE pr.adopter_id = ?`,
-            [adopterId, adopterId]
-        );
-
-        res.json({ success: true, requests });
-    } catch (error) {
-        console.error("Return Requests Error:", error);
-        res.status(500).json({ success: false });
-    }
-});
-router.get('/api/adopter/return-history', checkUserSession, async (req, res) => {
-    try {
-        const [adopterRows] = await pool.query(
-            `SELECT adopter_id FROM adopters WHERE account_id = ?`,
-            [req.session.accountId]
-        );
-
-        if (adopterRows.length === 0)
-            return res.json({ success: true, requests: [] });
-
-        const [requests] = await pool.query(`
-            SELECT pr.*, a.name AS pet_name, a.image_path AS pet_image,
-                   o.organization_name
-            FROM pet_returns pr
-            JOIN animals a ON pr.animal_id = a.animal_id
-            JOIN organizations o ON a.organization_id = o.organization_id
-            WHERE pr.adopter_id = ?
-            ORDER BY pr.created_at DESC
-        `, [adopterRows[0].adopter_id]);
-
-        res.json({ success: true, requests });
-    } catch (error) {
-        console.error("Return History Error:", error);
-        res.status(500).json({ success: false });
-    }
-});
-module.exports = router;
 
 module.exports = router;

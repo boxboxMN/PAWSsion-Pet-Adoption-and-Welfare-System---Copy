@@ -1274,7 +1274,8 @@ function viewReceiptDirect(receiptPathRaw) {
 
     if (modalImg) {
         modalImg.src = fullPath;
-        modalImg.classList.add("max-h-[85vh]", "w-auto", "object-contain", "mx-auto");
+        // BINAGO: Nilagyan ng max-h-[70vh] at w-auto para hindi lumaki nang sobra
+        modalImg.className = "max-h-[70vh] w-auto max-w-full object-contain rounded-lg shadow-md mx-auto";
     }
 
     if (titleEl) {
@@ -1290,8 +1291,6 @@ function viewReceiptDirect(receiptPathRaw) {
         modal.querySelector("div")?.classList.remove("scale-95");
     }
 }
-
-
 /**
  * Opens the in-kind proof image in the same lightbox modal.
  */

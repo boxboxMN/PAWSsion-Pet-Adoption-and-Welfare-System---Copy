@@ -8,8 +8,17 @@ let currentDate = new Date();
 let currentUpdateIdForReply = null;
 let currentOrgName = "Organization Name"; 
 
-// ⭐ RETURN REQUEST STATE
-let currentReturnRequestId = null;
+
+const ORG_EVALUATION_ITEMS = [
+    { key: 'photo_quality',     label: 'Photo Quality',       icon: 'fa-image' },
+    { key: 'health_info',       label: 'Health Information',  icon: 'fa-stethoscope' },
+    { key: 'behavior_info',     label: 'Behavior Information',icon: 'fa-brain' },
+    { key: 'overall_wellbeing', label: 'Overall Well-being',  icon: 'fa-heart' }
+];
+let orgEvaluationAnswers = {};
+
+// ⭐ CAROUSEL STATE (MULTIPLE PHOTOS)
+let orgModalPhotos = [];
 
 // ==========================================
 // DATE HELPERS
@@ -188,7 +197,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     await fetchKamustahanData();
-    await fetchReturnRequests(); 
 
     window.addEventListener('click', function(e) {
         const menu = document.getElementById('exportDropdownMenu');
@@ -205,20 +213,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
      const tabActive = document.getElementById("tabActive");
     const tabArchive = document.getElementById("tabArchive");
-    const tabReturns = document.getElementById("tabReturns");
     const tableView = document.getElementById("tableViewContainer");
     const calendarView = document.getElementById("calendarViewContainer");
-    const returnTable = document.getElementById("returnTableContainer");
     const viewToggleBtn = document.querySelector('.bg-gray-100.p-1');
 
     function switchTab(tabName) {
-        [tabActive, tabArchive, tabReturns].forEach(t => {
+        [tabActive, tabArchive].forEach(t => {
             t.className = "text-sm font-medium text-gray-500 hover:text-gray-800 pb-3 px-1 transition-colors flex items-center gap-2";
         });
         
         tableView.classList.add("hidden");
         calendarView.classList.add("hidden");
-        returnTable.classList.add("hidden");
 
         if (tabName === 'active') {
             tabActive.className = "text-sm font-semibold text-blue-600 border-b-2 border-blue-600 pb-3 px-1 transition-colors";
@@ -232,17 +237,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             tableView.classList.remove("hidden");
             if(viewToggleBtn) viewToggleBtn.classList.remove("hidden");
             filterAndRenderTable(true);
-        } else if (tabName === 'returns') {
-            tabReturns.className = "text-sm font-semibold text-rose-600 border-b-2 border-rose-600 pb-3 px-1 transition-colors flex items-center gap-2";
-            returnTable.classList.remove("hidden");
-            if(viewToggleBtn) viewToggleBtn.classList.add("hidden");
-            fetchReturnRequests();
         }
     }
 
     if(tabActive) tabActive.addEventListener("click", () => switchTab('active'));
     if(tabArchive) tabArchive.addEventListener("click", () => switchTab('archive'));
-    if(tabReturns) tabReturns.addEventListener("click", () => switchTab('returns'));
 
     // Status Filter Dropdown Logic
     const statusFilterSelect = document.getElementById("statusFilterSelect");
@@ -253,253 +252,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 });
-
-// ==========================================
-// ⭐ RETURN REQUESTS LOGIC
-// ==========================================
-async function fetchReturnRequests() {
-    try {
-        const res = await fetch('/org/return-requests');
-        const data = await res.json();
-
-        const badge = document.getElementById('returnCountBadge');
-        
-        if (data.success) {
-            if (data.requests.length > 0) {
-                if(badge) {
-                    badge.textContent = data.requests.length;
-                    badge.classList.remove('hidden');
-                }
-            } else {
-                if(badge) badge.classList.add('hidden');
-            }
-            renderReturnList(data.requests);
-        }
-    } catch (err) {
-        console.error("Error loading return requests:", err);
-    }
-}
-
-function renderReturnList(requests) {
-    const container = document.getElementById('orgReturnList');
-    if (!container) return;
-    
-    if (requests.length === 0) {
-        container.innerHTML = `
-            <div class="py-12 text-center text-gray-400">
-                <i class="fa-solid fa-check-circle text-4xl mb-3 text-emerald-400"></i>
-                <p class="text-sm">No pending pet returns. All good!</p>
-            </div>
-        `;
-        return;
-    }
-    
-    container.innerHTML = requests.map(req => {
-    const isApproved = req.status === 'Approved';
-    const badge = isApproved
-        ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700"><i class="fas fa-truck-fast mr-1"></i>Awaiting Handover</span>`
-        : `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700"><i class="fas fa-clock mr-1"></i>Pending Review</span>`;
-
-    return `
-        <div class="flex items-center justify-between p-4 hover:bg-rose-50/30 transition">
-            <div class="flex items-center gap-4">
-                <img src="${req.pet_image ? (req.pet_image.startsWith('/') ? req.pet_image : '/uploads/pets/' + req.pet_image) : '/assets/images/default-pet.png'}" class="w-12 h-12 rounded-full object-cover border border-gray-200 shrink-0" />
-                <div>
-                    <div class="flex items-center gap-2">
-                        <h4 class="font-bold text-gray-800 text-sm">${escapeHtml(req.pet_name)}</h4>
-                        ${badge}
-                    </div>
-                    <p class="text-xs text-gray-500 mt-0.5">Adopter: <strong>${escapeHtml(req.first_name)} ${escapeHtml(req.last_name)}</strong></p>
-                    <p class="text-[11px] text-rose-600 font-semibold mt-1">Reason: ${escapeHtml(req.reason)}</p>
-                </div>
-            </div>
-            <button onclick="openReviewReturnModal(${req.id})" class="px-4 py-2 bg-rose-100 text-rose-700 text-xs font-bold rounded-lg hover:bg-rose-200 transition flex items-center gap-2">
-                <i class="fa-regular fa-eye"></i> ${isApproved ? 'Manage' : 'Review'}
-            </button>
-        </div>`;
-}).join('');
-    
-    window.allReturnRequests = requests;
-}
-// ==========================================
-// RETURN MODAL — OPEN
-// ==========================================
-function openReviewReturnModal(returnId) {
-    // ⭐ Safety: force-close any leftover confirm modal (z-2147483646)
-    const confirmModal = document.getElementById('customConfirmModal');
-    if (confirmModal) confirmModal.classList.remove('is-open');
-
-    const req = window.allReturnRequests.find(r => r.id === returnId);
-    if (!req) {
-        console.error('Return request not found:', returnId);
-        return;
-    }
-
-    currentReturnRequestId = returnId;
-
-    document.getElementById('modalReturnPetName').textContent = req.pet_name;
-    document.getElementById('modalReturnAdopterName').textContent = `${req.first_name} ${req.last_name}`;
-    document.getElementById('modalReturnAdopterEmail').textContent = req.email;
-    document.getElementById('modalReturnReason').textContent = req.reason;
-    document.getElementById('modalReturnDetails').textContent = `"${req.details}"`;
-
-    const imgSrc = req.pet_image
-        ? (req.pet_image.startsWith('/') ? req.pet_image : '/uploads/pets/' + req.pet_image)
-        : '/assets/images/default-pet.png';
-    document.getElementById('modalReturnPetImage').src = imgSrc;
-
-    const responseInput = document.getElementById('modalReturnOrgResponse');
-    const statusLabel   = document.getElementById('modalReturnStatusLabel');
-    const actions       = document.getElementById('returnModalActions');
-
-    // ⭐ Reset state bago mag-render
-    responseInput.disabled = false;
-    responseInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
-
-    if (req.status === 'Approved') {
-        statusLabel.innerHTML = `<span class="text-[10px] font-bold px-2 py-1 rounded-full bg-blue-100 text-blue-700 inline-flex items-center"><i class="fas fa-truck-fast mr-1"></i>Approved — Waiting for Handover</span>`;
-        responseInput.disabled = true;
-        responseInput.classList.add('bg-gray-100', 'cursor-not-allowed');
-        responseInput.value = req.org_response || '';
-        actions.innerHTML = `
-            <button type="button" onclick="closeReviewReturnModal()" class="flex-1 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 transition">Close</button>
-            <button type="button" onclick="completeReturn(${req.id})" class="flex-1 px-4 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition shadow-sm">
-                <i class="fas fa-check-circle mr-1"></i> Mark as Received
-            </button>`;
-    } else if (req.status === 'Pending') {
-        statusLabel.innerHTML = `<span class="text-[10px] font-bold px-2 py-1 rounded-full bg-amber-100 text-amber-700 inline-flex items-center"><i class="fas fa-clock mr-1"></i>Pending Review</span>`;
-        responseInput.value = '';
-        actions.innerHTML = `
-            <button type="button" onclick="closeReviewReturnModal()" class="flex-1 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 transition">Cancel</button>
-            <button type="button" onclick="processReturn('Rejected')" class="flex-1 px-4 py-2.5 bg-gray-800 text-white text-sm font-bold rounded-xl hover:bg-gray-900 transition shadow-sm">Decline</button>
-            <button type="button" onclick="processReturn('Approved')" class="flex-1 px-4 py-2.5 bg-rose-600 text-white text-sm font-bold rounded-xl hover:bg-rose-700 transition shadow-sm">Accept Return</button>`;
-    } else {
-        // Rejected / Completed — read-only
-        statusLabel.innerHTML = `<span class="text-[10px] font-bold px-2 py-1 rounded-full bg-slate-200 text-slate-700 inline-flex items-center"><i class="fas fa-lock mr-1"></i>${req.status}</span>`;
-        responseInput.disabled = true;
-        responseInput.classList.add('bg-gray-100', 'cursor-not-allowed');
-        responseInput.value = req.org_response || '';
-        actions.innerHTML = `
-            <button type="button" onclick="closeReviewReturnModal()" class="flex-1 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 text-sm font-bold rounded-xl hover:bg-gray-50 transition">Close</button>`;
-    }
-
-    const modal = document.getElementById('reviewReturnModal');
-    if (modal) {
-        modal.classList.remove('hidden', 'opacity-0', 'pointer-events-none');
-        modal.querySelector('div').classList.remove('scale-95');
-    }
-}
-
-// ==========================================
-// RETURN MODAL — CLOSE (improved safety)
-// ==========================================
-function closeReviewReturnModal() {
-    const modal = document.getElementById('reviewReturnModal');
-    if (!modal) return;
-
-    modal.classList.add('opacity-0', 'pointer-events-none');
-    const whiteBox = modal.querySelector('div');
-    if (whiteBox) whiteBox.classList.add('scale-95');
-
-    setTimeout(() => {
-        modal.classList.add('hidden');
-    }, 200);
-
-    currentReturnRequestId = null;
-}
-
-// ==========================================
-// BACKDROP CLICK + ESC HANDLERS
-// ==========================================
-function handleReviewReturnBackdropClick(event) {
-    // Only close if click is directly on the backdrop (not on white box)
-    if (event.target.id === 'reviewReturnModal') {
-        closeReviewReturnModal();
-    }
-}
-
-// ESC key handler
-document.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
-
-    // Close whichever modal is open (priority: confirm > return)
-    const confirmModal = document.getElementById('customConfirmModal');
-    if (confirmModal && confirmModal.classList.contains('is-open')) {
-        confirmModal.classList.remove('is-open');
-        return;
-    }
-
-    const returnModal = document.getElementById('reviewReturnModal');
-    if (returnModal && !returnModal.classList.contains('hidden') && !returnModal.classList.contains('opacity-0')) {
-        closeReviewReturnModal();
-    }
-});
-async function completeReturn(returnId) {
-    showConfirm(
-        "Confirm that you have physically received the pet. This will finalize the return and remove the pet from the adopter's Kamustahan list.",
-        async () => {
-            try {
-                const res = await fetch(`/org/return-requests/${returnId}/complete`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' }
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    closeReviewReturnModal();
-                    showToast('Pet return completed successfully.', 'success');
-                    fetchReturnRequests();
-                    fetchKamustahanData();
-                } else {
-                    showToast(data.message || 'Failed to complete return.', 'error');
-                }
-            } catch (err) {
-                console.error(err);
-                showToast('An error occurred.', 'error');
-            }
-        },
-        null,
-        { title: 'Complete Pet Return', okText: 'Confirm Received', type: 'warning' }
-    );
-}
-async function processReturn(action) {
-    if (!currentReturnRequestId) return;
-    
-    const orgResponseInput = document.getElementById('modalReturnOrgResponse').value.trim();
-    
-    // Validation: Kailangan may nakasulat na mensahe
-    if (!orgResponseInput) {
-        showToast("Please provide a message or reason for the adopter.", "warning");
-        return;
-    }
-
-    const msg = action === 'Approved' 
-        ? "Are you sure? This will mark the pet as Available." 
-        : "Are you sure you want to decline this return request?";
-        
-    showConfirm(msg, async () => {
-        try {
-            const res = await fetch(`/org/return-requests/${currentReturnRequestId}/respond`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: action, org_response: orgResponseInput })
-            });
-            const data = await res.json();
-
-            if (data.success) {
-                closeReviewReturnModal();
-                showToast(`Return request ${action.toLowerCase()} successfully.`, 'success');
-                fetchReturnRequests(); // I-refresh ang listahan
-                fetchKamustahanData(); // I-refresh ang pets data
-            } else {
-                showToast(data.message || 'Failed to process request.', 'error');
-            }
-        } catch (err) {
-            console.error(err);
-            showToast('An error occurred.', 'error');
-        }
-    }, null, { title: action === 'Approved' ? 'Accept Return' : 'Decline Return', okText: 'Confirm', type: action === 'Approved' ? 'warning' : 'error' });
-}
 // ==========================================
 // EVENT DELEGATION
 // ==========================================
@@ -516,6 +268,14 @@ document.addEventListener("click", (e) => {
         openUpdateModal(item);
     } else if (action === "schedule") {
         openScheduleModal(updateId);
+    }
+});
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+
+    const confirmModal = document.getElementById('customConfirmModal');
+    if (confirmModal && confirmModal.classList.contains('is-open')) {
+        confirmModal.classList.remove('is-open');
     }
 });
 
@@ -736,9 +496,29 @@ function updatePaginationUI(startIndex, endIndex, totalItems) {
 }
 
 function updateStatistics(data) {
-    const total = data.filter(i => i.is_archived != 1).length;
-    const forUpdateCount = data.filter(i => i.update_status === 'For Update' && i.is_archived != 1).length;
-    const updatedCount = data.filter(i => i.update_status !== 'For Update' && i.formatted_date && i.is_archived != 1).length;
+    // 1. Kunin lang ang mga active (hindi archived) na rows
+    const activeData = data.filter(i => i.is_archived != 1);
+
+    // 2. Total Adopted Pets = BILANG NG UNIQUE PETS (by animal_id)
+    const uniquePetIds = new Set(activeData.map(i => i.animal_id));
+    const total = uniquePetIds.size;
+
+    // 3. Updated = unique pets na may nai-submit nang update
+    const updatedPetIds = new Set(
+        activeData
+            .filter(i => i.formatted_date && i.update_status !== 'For Update')
+            .map(i => i.animal_id)
+    );
+    const updatedCount = updatedPetIds.size;
+
+    // 4. For Update = unique pets na naghihintay pa ng update 
+    // (Kasama dito ang mga "Scheduled" sa table kasi wala pa silang na-submit)
+    const forUpdatePetIds = new Set(
+        activeData
+            .filter(i => !i.formatted_date || i.update_status === 'For Update')
+            .map(i => i.animal_id)
+    );
+    const forUpdateCount = forUpdatePetIds.size;
 
     const statTotalPets = document.getElementById("statTotalPets");
     const statUpdated = document.getElementById("statUpdated");
@@ -757,46 +537,39 @@ async function openUpdateModal(item) {
 
     const modal = document.getElementById("updateModal");
     const modalPetName = document.getElementById("modalPetName");
-    const modalPhoto = document.getElementById("modalPhoto");
     const modalText = document.getElementById("modalText");
     const modalAdopter = document.getElementById("modalAdopter");
     const modalDate = document.getElementById("modalDate");
     const modalActionContainer = document.getElementById("modalActionContainer");
-    const modalRiskBadge = document.getElementById("modalRiskBadge");
 
     modalPetName.textContent = item.pet_name || 'Pet Details';
     modalAdopter.innerHTML = `<i class="fa-regular fa-user mr-1"></i> Adopter: ${item.adopter_name || 'N/A'}`;
     
-    let photoUrl = "https://images.unsplash.com/photo-1543466835-00a7907e9de1";
+      orgModalPhotos = [];
     if (item.update_photos) {
         try {
-            let parsed = JSON.parse(item.update_photos);
-            if (Array.isArray(parsed) && parsed.length > 0) photoUrl = parsed[0];
-        } catch (e) { photoUrl = item.update_photos; }
-        if (!photoUrl.startsWith('http') && !photoUrl.startsWith('/')) photoUrl = `/uploads/${photoUrl}`;
+            const parsed = JSON.parse(item.update_photos);
+            orgModalPhotos = Array.isArray(parsed) ? parsed : [parsed];
+        } catch (e) {
+            orgModalPhotos = [item.update_photos];
+        }
     }
-    modalPhoto.src = photoUrl;
+    
+    if (orgModalPhotos.length === 0) orgModalPhotos = ["https://images.unsplash.com/photo-1543466835-00a7907e9de1"];
+
+    orgModalPhotos = orgModalPhotos.map(p => {
+        if (!p.startsWith('http') && !p.startsWith('/')) return `/uploads/${p}`;
+        return p;
+    });
+
+    currentOrgPhotoIndex = 0;
+    updateOrgPhotoView();
 
     const displayDate = item.formatted_date || item.formatted_scheduled_date || (item.scheduled_date ? formatReadableDate(item.scheduled_date) : null) || 'N/A';
     modalDate.innerHTML = `<i class="fa-regular fa-calendar mr-1"></i> Date: ${displayDate}`;
 
     modalText.textContent = item.update_text || "No message provided.";
 
-    if (item.risk_level && item.formatted_date) {
-        modalRiskBadge.classList.remove('hidden');
-        if (item.risk_level === 'high') {
-            modalRiskBadge.className = 'text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-rose-100 text-rose-700 border border-rose-200';
-            modalRiskBadge.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i> High Risk';
-        } else if (item.risk_level === 'medium') {
-            modalRiskBadge.className = 'text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-amber-100 text-amber-700 border border-amber-200';
-            modalRiskBadge.innerHTML = '<i class="fas fa-exclamation-circle mr-1"></i> Medium Risk';
-        } else {
-            modalRiskBadge.className = 'text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wider bg-emerald-100 text-emerald-700 border border-emerald-200';
-            modalRiskBadge.innerHTML = '<i class="fas fa-check-circle mr-1"></i> Low Risk';
-        }
-    } else {
-        modalRiskBadge.classList.add('hidden');
-    }
 
     const renderTags = (jsonData, colorClass) => {
         let html = '';
@@ -837,21 +610,49 @@ async function openUpdateModal(item) {
         modalActionContainer.innerHTML = `<button onclick='archiveUpdate(${Number(item.update_id)})' class="bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-xl text-sm font-semibold transition-colors inline-flex items-center gap-2"><i class="fa-solid fa-box-archive"></i> Archive Record</button>`;
     }
 
+      orgEvaluationAnswers = {};
+    try {
+        if (item.org_evaluation_checklist) {
+            const parsed = typeof item.org_evaluation_checklist === 'string'
+                ? JSON.parse(item.org_evaluation_checklist)
+                : item.org_evaluation_checklist;
+            if (parsed && typeof parsed === 'object') {
+                orgEvaluationAnswers = parsed;
+            }
+        }
+    } catch (e) { console.warn('Invalid org evaluation JSON:', e); }
+
+    renderEvaluationChecklist();
+    updateVerdictPreview(item.org_verdict); 
+
+    const followUpInput = document.getElementById('followUpDate');
+    if (followUpInput) {
+        followUpInput.value = item.follow_up_date ? String(item.follow_up_date).slice(0, 10) : '';
+    }
+
     const prevNoteContainer = document.getElementById('prevOrgNoteContainer');
     const prevNoteText = document.getElementById('prevOrgNoteText');
     const reviewInput = document.getElementById('orgReviewNote');
     const reviewBtn = document.getElementById('markReviewedBtn');
 
     const isArchived = item.is_archived == 1 || item.update_status === 'Archived';
+    const isEvaluated = !!item.org_verdict;
 
-    if (isArchived) {
+
+    if (isArchived || isEvaluated)  {
         reviewInput.disabled = true;
         reviewInput.value = item.org_response || '';
-        reviewInput.placeholder = "This record has been archived. Notes are locked.";
+        reviewInput.placeholder = isArchived ? "This record has been archived. Evaluation is locked." : "Evaluation already submitted. You cannot change it.";
         reviewInput.classList.add('bg-gray-200', 'cursor-not-allowed', 'text-gray-500');
         
         reviewBtn.classList.add('hidden');
         
+        document.querySelectorAll('#evaluationChecklist .eval-btn').forEach(b => {
+            b.disabled = true;
+            b.classList.add('cursor-not-allowed', 'opacity-70');
+        });
+        if (followUpInput) followUpInput.disabled = true;
+
         if (item.org_response) {
             prevNoteContainer.classList.remove('hidden');
             prevNoteText.textContent = item.org_response;
@@ -862,22 +663,60 @@ async function openUpdateModal(item) {
         reviewInput.disabled = false;
         reviewInput.classList.remove('bg-gray-200', 'cursor-not-allowed', 'text-gray-500');
         reviewBtn.classList.remove('hidden');
+        reviewBtn.innerHTML = '<i class="fas fa-check-circle"></i> Save Evaluation & Send';
 
         if (item.org_response) {
             prevNoteContainer.classList.remove('hidden');
             prevNoteText.textContent = item.org_response;
             reviewInput.value = item.org_response; 
-            reviewBtn.innerHTML = '<i class="fas fa-edit"></i> Update Note';
         } else {
             prevNoteContainer.classList.add('hidden');
             reviewInput.value = '';
-            reviewBtn.innerHTML = '<i class="fas fa-check-circle"></i> Mark as Reviewed & Send';
         }
     }
     
     modal.classList.remove("hidden");
 }
+function updateOrgPhotoView() {
+    const img = document.getElementById("modalPhoto");
+    const prevBtn = document.getElementById("prevPhotoBtn");
+    const nextBtn = document.getElementById("nextPhotoBtn");
+    const counter = document.getElementById("photoCounter");
 
+    if (!img || !prevBtn || !nextBtn || !counter) return;
+
+    img.src = orgModalPhotos[currentOrgPhotoIndex];
+
+    if (orgModalPhotos.length > 1) {
+        counter.classList.remove('hidden');
+        counter.textContent = `${currentOrgPhotoIndex + 1} / ${orgModalPhotos.length}`;
+        
+        prevBtn.classList.toggle('hidden', currentOrgPhotoIndex === 0);
+        nextBtn.classList.toggle('hidden', currentOrgPhotoIndex === orgModalPhotos.length - 1);
+    } else {
+        counter.classList.add('hidden');
+        prevBtn.classList.add('hidden');
+        nextBtn.classList.add('hidden');
+    }
+}
+
+function nextOrgPhoto() {
+    if (currentOrgPhotoIndex < orgModalPhotos.length - 1) {
+        currentOrgPhotoIndex++;
+        updateOrgPhotoView();
+    }
+}
+
+function prevOrgPhoto() {
+    if (currentOrgPhotoIndex > 0) {
+        currentOrgPhotoIndex--;
+        updateOrgPhotoView();
+    }
+}
+
+function zoomOrgPhoto() {
+    window.open(orgModalPhotos[currentOrgPhotoIndex], '_blank');
+}
 function closeUpdateModal() {
     const modal = document.getElementById("updateModal");
     if (modal) modal.classList.add("hidden");
@@ -885,12 +724,167 @@ function closeUpdateModal() {
     if (input) input.value = ''; 
 }
 
+// ==========================================
+// ORG EVALUATION CHECKLIST RENDERING
+// ==========================================
+function renderEvaluationChecklist() {
+    const grid = document.getElementById('evaluationChecklist');
+    if (!grid) return;
+
+    grid.innerHTML = ORG_EVALUATION_ITEMS.map(item => `
+        <div class="bg-white border border-slate-200 rounded-xl p-3" data-eval-key="${item.key}">
+            <div class="text-[11px] font-bold text-slate-700 mb-2 flex items-center gap-1.5">
+                <i class="fas ${item.icon} text-slate-400"></i> ${item.label}
+            </div>
+            <div class="grid grid-cols-3 gap-1">
+
+                <button type="button" data-eval-value="satisfied"
+                    class="eval-btn flex flex-col items-center justify-center text-[9px] font-semibold py-2 rounded-md border-2 border-slate-200 text-slate-500 transition leading-tight">
+                    <i class="fas fa-check mb-0.5"></i>
+                    <span>Satisfied</span>
+                </button>
+
+                <button type="button" data-eval-value="follow_up"
+                    class="eval-btn flex flex-col items-center justify-center text-[9px] font-semibold py-2 rounded-md border-2 border-slate-200 text-slate-500 transition leading-tight">
+                    <i class="fas fa-exclamation mb-0.5"></i>
+                    <span>Follow-up</span>
+                </button>
+
+                <button type="button" data-eval-value="unsatisfied"
+                    class="eval-btn flex flex-col items-center justify-center text-[9px] font-semibold py-2 rounded-md border-2 border-slate-200 text-slate-500 transition leading-tight">
+                    <i class="fas fa-times mb-0.5"></i>
+                    <span>Unsatisfied</span>
+                </button>
+
+            </div>
+        </div>
+    `).join('');
+
+    // Attach click handlers
+    grid.querySelectorAll('[data-eval-key]').forEach(wrapper => {
+        const key = wrapper.dataset.evalKey;
+        wrapper.querySelectorAll('.eval-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                setEvalAnswer(key, btn.dataset.evalValue);
+            });
+        });
+    });
+
+    // Restore existing answers
+    Object.entries(orgEvaluationAnswers).forEach(([key, val]) => {
+        const btn = grid.querySelector(`[data-eval-key="${key}"] [data-eval-value="${val}"]`);
+        if (btn) applyEvalButtonStyle(btn, val);
+    });
+}
+
+function setEvalAnswer(key, val) {
+    orgEvaluationAnswers[key] = val;
+
+    const wrapper = document.querySelector(`[data-eval-key="${key}"]`);
+    if (!wrapper) return;
+
+    // Reset lahat ng buttons sa default style
+    wrapper.querySelectorAll('.eval-btn').forEach(b => {
+        b.className = 'eval-btn flex flex-col items-center justify-center text-[9px] font-semibold py-2 rounded-md border-2 border-slate-200 text-slate-500 transition leading-tight';
+    });
+
+    // I-apply ang active color sa napiling button
+    const selected = wrapper.querySelector(`[data-eval-value="${val}"]`);
+    if (selected) applyEvalButtonStyle(selected, val);
+
+    updateVerdictPreview();
+}
+
+function applyEvalButtonStyle(btn, val) {
+    const theme = {
+        satisfied:   'border-emerald-500 bg-emerald-50 text-emerald-700',
+        follow_up:   'border-amber-500 bg-amber-50 text-amber-700',
+        unsatisfied: 'border-rose-500 bg-rose-50 text-rose-700'
+    }[val];
+
+    if (theme) {
+        btn.className = `eval-btn flex flex-col items-center justify-center text-[9px] font-semibold py-2 rounded-md border-2 transition leading-tight ${theme}`;
+    }
+}
+function computeVerdict() {
+    const values = ORG_EVALUATION_ITEMS.map(i => orgEvaluationAnswers[i.key]);
+    if (values.some(v => !v)) return null;
+    if (values.includes('unsatisfied')) return 'urgent';
+    if (values.includes('follow_up'))   return 'follow_up';
+    return 'approved';
+}
+
+function updateVerdictPreview(savedVerdict = null) {
+    const box = document.getElementById('verdictPreview');
+    const followUpSection = document.getElementById('followUpSection');
+    if (!box) return;
+
+    const computedVerdict = computeVerdict();
+    const verdict = computedVerdict || savedVerdict;
+
+    if (!verdict) {
+        box.className = 'text-xs text-slate-400 italic text-center py-2';
+        box.innerHTML = 'Complete all items above to see the verdict.';
+        if (followUpSection) followUpSection.classList.add('hidden');
+        return;
+    }
+
+    const themes = {
+        approved: {
+            cls: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+            icon: 'fa-circle-check', label: 'APPROVED',
+            msg: 'Update is satisfactory. Pet is doing well.'
+        },
+        follow_up: {
+            cls: 'bg-amber-50 border-amber-200 text-amber-800',
+            icon: 'fa-triangle-exclamation', label: 'FOLLOW-UP NEEDED',
+            msg: 'Some items need monitoring. Set a follow-up date.'
+        },
+        urgent: {
+            cls: 'bg-rose-50 border-rose-200 text-rose-800',
+            icon: 'fa-circle-exclamation', label: 'URGENT CONCERN',
+            msg: 'Immediate attention needed. Set a follow-up date.'
+        }
+    };
+
+    const t = themes[verdict];
+
+    const savedTag = (!computedVerdict && savedVerdict)
+        ? `<span class="text-[9px] font-bold uppercase tracking-wider bg-white/60 px-1.5 py-0.5 rounded ml-1">Saved</span>`
+        : '';
+
+    box.className = `p-3 rounded-xl border text-xs font-semibold flex items-start gap-2 ${t.cls}`;
+    box.innerHTML = `
+        <i class="fas ${t.icon} mt-0.5 text-sm shrink-0"></i>
+        <div>
+            <span class="block uppercase text-[10px] opacity-80 mb-0.5">Overall Verdict ${savedTag}</span>
+            <strong class="block">${t.label}</strong>
+            <span class="opacity-80 text-[11px] font-medium">${t.msg}</span>
+        </div>`;
+
+    if (followUpSection) {
+        followUpSection.classList.toggle('hidden', verdict === 'approved');
+    }
+}
+
 async function markAsReviewed() {
     if (!currentUpdateIdForReply) return;
-    
-    const input = document.getElementById('orgReviewNote');
+    const verdict = computeVerdict();
+
+    if (!verdict) {
+        showToast('Please complete all 4 evaluation items before saving.', 'warning');
+        return;
+    }
+
+    const followUpDate = document.getElementById('followUpDate')?.value || null;
+
+    if (verdict !== 'approved' && !followUpDate) {
+        showToast('Please set a follow-up date for this verdict.', 'warning');
+        return;
+    }
+
     const btn = document.getElementById('markReviewedBtn');
-    const message = input.value.trim();
+    const message = document.getElementById('orgReviewNote')?.value.trim() || '';
 
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
@@ -899,22 +893,26 @@ async function markAsReviewed() {
         const res = await fetch(`/org/kamustahan/${currentUpdateIdForReply}/acknowledge`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message })
+           body: JSON.stringify({
+                message,
+                evaluation_checklist: orgEvaluationAnswers,
+                verdict,
+                follow_up_date: followUpDate
+            })
         });
         
         const text = await res.text();
         let data;
-        try {
-            data = JSON.parse(text);
-        } catch (e) {
-            console.error("Server returned non-JSON response:", text);
+        try { data = JSON.parse(text); }
+        catch (e) {
+            console.error("Non-JSON response:", text);
             throw new Error("Server error: " + text.substring(0, 100));
         }
 
         if (data.success) {
             closeUpdateModal();
             fetchKamustahanData(); 
-            showToast('Update marked as reviewed.', 'success');
+            showToast('Evaluation saved & response sent to adopter.', 'success');
         } else {
             showToast(data.message || 'Failed to save.', 'error');
         }
@@ -923,7 +921,8 @@ async function markAsReviewed() {
         showToast(err.message || 'Network error.', 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-check-circle"></i> Mark as Reviewed';
+        btn.innerHTML = '<i class="fas fa-check-circle"></i> Save Evaluation & Send';
+
     }
 }
 
@@ -1344,8 +1343,36 @@ function exportSingleKamustahan() {
 
     let healthData = {};
     let behaviorData = {};
-    try { if (item.health_checklist) healthData = JSON.parse(item.health_checklist); } catch(e){}
+     let evalData = {};
+
+     try { if (item.health_checklist)   healthData   = JSON.parse(item.health_checklist); } catch(e){}
     try { if (item.behavior_checklist) behaviorData = JSON.parse(item.behavior_checklist); } catch(e){}
+    try {
+        if (item.org_evaluation_checklist) {
+            evalData = typeof item.org_evaluation_checklist === 'string'
+                ? JSON.parse(item.org_evaluation_checklist)
+                : item.org_evaluation_checklist;
+        }
+    } catch(e){}
+
+    const verdictMap = {
+        approved:  { label: 'APPROVED',          color: '#059669', bg: '#ecfdf5', border: '#a7f3d0' },
+        follow_up: { label: 'FOLLOW-UP NEEDED',  color: '#d97706', bg: '#fffbeb', border: '#fde68a' },
+        urgent:    { label: 'URGENT CONCERN',    color: '#dc2626', bg: '#fef2f2', border: '#fecaca' }
+    };
+    const verdictInfo = item.org_verdict ? verdictMap[item.org_verdict] : null;
+
+    const evalLabels = {
+        photo_quality:     'Photo Quality',
+        health_info:       'Health Information',
+        behavior_info:     'Behavior Information',
+        overall_wellbeing: 'Overall Well-being'
+    };
+    const evalIconMap = {
+        satisfied:   { icon: '✓', color: '#059669', label: 'Satisfied' },
+        follow_up:   { icon: '⚠', color: '#d97706', label: 'Follow-up' },
+        unsatisfied: { icon: '✗', color: '#dc2626', label: 'Unsatisfied' }
+    };
 
     let photoUrl = "https://images.unsplash.com/photo-1543466835-00a7907e9de1";
     if (item.update_photos) {
@@ -1362,20 +1389,37 @@ function exportSingleKamustahan() {
     const displayDate = item.formatted_date || item.formatted_scheduled_date || (item.scheduled_date ? formatReadableDate(item.scheduled_date) : 'N/A');
     const generatedDate = new Date().toLocaleDateString('en-US', { timeZone: 'Asia/Manila', year: 'numeric', month: 'long', day: 'numeric' });
 
-    let riskColor = '#64748b'; 
-    let riskText = 'N/A';
-    if (item.risk_level === 'high') { riskColor = '#dc2626'; riskText = 'HIGH RISK'; }
-    else if (item.risk_level === 'medium') { riskColor = '#d97706'; riskText = 'MEDIUM RISK'; }
-    else if (item.risk_level === 'low') { riskColor = '#059669'; riskText = 'LOW RISK'; }
+    const followUpDate = item.follow_up_date
+        ? new Date(item.follow_up_date).toLocaleDateString('en-US', { timeZone: 'Asia/Manila', month: 'long', day: 'numeric', year: 'numeric' })
+        : null;
+   
 
     const renderTableRows = (data, textColor) => {
-        if (Object.keys(data).length === 0) return '<tr><td colspan="2" style="padding: 10px; text-align: center; color: #94a3b8; font-style: italic;">No data provided</td></tr>';
+        if (Object.keys(data).length === 0) {
+            return '<tr><td colspan="2" style="padding: 10px; text-align: center; color: #94a3b8; font-style: italic;">No data provided</td></tr>';
+        }
         return Object.entries(data).map(([key, val]) => `
             <tr style="border-bottom: 1px solid #f1f5f9;">
                 <td style="padding: 10px 12px; font-weight: 600; color: #475569; text-transform: capitalize; width: 40%; background: #fafafa;">${key}</td>
                 <td style="padding: 10px 12px; font-weight: 700; color: ${textColor}; text-transform: capitalize;">${val}</td>
             </tr>
         `).join('');
+    };
+     const renderEvalRows = () => {
+        if (Object.keys(evalData).length === 0) {
+            return '<tr><td colspan="2" style="padding: 10px; text-align: center; color: #94a3b8; font-style: italic;">No evaluation submitted yet</td></tr>';
+        }
+        return Object.entries(evalData).map(([key, val]) => {
+            const m = evalIconMap[val] || { icon: '•', color: '#64748b', label: val };
+            return `
+                <tr style="border-bottom: 1px solid #f1f5f9;">
+                    <td style="padding: 10px 12px; font-weight: 600; color: #475569; width: 50%; background: #fafafa;">${evalLabels[key] || key}</td>
+                    <td style="padding: 10px 12px; font-weight: 700; color: ${m.color};">
+                        <span style="font-size: 14px; margin-right: 6px;">${m.icon}</span>${m.label}
+                    </td>
+                </tr>
+            `;
+        }).join('');
     };
 
     const printWindow = window.open('', '_blank');
@@ -1399,26 +1443,33 @@ function exportSingleKamustahan() {
                     .header p { font-size: 14px; color: #64748b; margin: 8px 0 0 0; font-weight: 500; }
                     .header .date-gen { font-size: 11px; color: #94a3b8; margin-top: 15px; text-transform: uppercase; letter-spacing: 1px;}
                     
-                    .profile-section { display: flex; gap: 30px; margin-bottom: 40px; align-items: center; }
+                    .profile-section { display: flex; gap: 30px; margin-bottom: 30px; align-items: center; }
                     .pet-photo { width: 180px; height: 180px; border-radius: 16px; object-fit: cover; border: 4px solid #f8fafc; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
                     .pet-info { flex: 1; }
                     .label { font-size: 11px; text-transform: uppercase; font-weight: 700; color: #94a3b8; letter-spacing: 1px; margin-bottom: 4px; }
                     .pet-name { font-size: 32px; font-weight: 800; margin: 0 0 15px 0; color: #0f172a; line-height: 1; }
                     .adopter-name { font-size: 18px; font-weight: 600; color: #2563eb; margin-bottom: 15px; }
-                    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; font-size: 13px; }
+                    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; font-size: 13px; }
                     .meta-item strong { display: block; color: #64748b; font-size: 11px; text-transform: uppercase; margin-bottom: 2px;}
-                    .badge { display: inline-block; padding: 6px 14px; border-radius: 8px; color: white; font-weight: 700; font-size: 11px; background-color: ${riskColor}; letter-spacing: 0.5px;}
                     
-                    .section-title { font-size: 16px; font-weight: 700; color: #1e293b; margin: 0 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; display: flex; align-items: center; gap: 8px;}
+                    .section-title { font-size: 16px; font-weight: 700; color: #1e293b; margin: 0 0 15px 0; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; }
                     
-                    .checklist-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 40px; }
+                    .checklist-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
                     .table-box { border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; }
                     .table-header { background: #f8fafc; padding: 12px; font-weight: 700; font-size: 13px; color: #334155; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e2e8f0; }
                     table { width: 100%; border-collapse: collapse; font-size: 13px; }
                     
+                    .verdict-box { padding: 16px 20px; border-radius: 12px; margin-bottom: 30px; display: flex; align-items: center; gap: 15px; }
+                    .verdict-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; opacity: 0.8; }
+                    .verdict-value { font-size: 20px; font-weight: 800; }
+
+                    .note-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 16px; margin-bottom: 30px; }
+                    .note-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: #1e40af; margin-bottom: 6px; }
+                    .note-text { color: #1e293b; font-size: 13px; line-height: 1.6; }
+
                     .footer { margin-top: 60px; text-align: center; font-size: 11px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 20px; line-height: 1.6;}
                     
-                    @media print {
+                              @media print {
                         body { background: #ffffff; }
                         .page { box-shadow: none; margin: 0; padding: 0; max-width: 100%; }
                         .checklist-container { page-break-inside: avoid; }
@@ -1438,10 +1489,10 @@ function exportSingleKamustahan() {
                         <div class="pet-info">
                             <div class="label">Pet Name</div>
                             <h2 class="pet-name">${escapeHtml(item.pet_name)}</h2>
-                            
+
                             <div class="label">Adopter</div>
                             <div class="adopter-name">${escapeHtml(item.adopter_name || 'Unknown Adopter')}</div>
-                            
+
                             <div class="meta-grid">
                                 <div class="meta-item">
                                     <strong>Date Submitted</strong>
@@ -1452,28 +1503,41 @@ function exportSingleKamustahan() {
                                     ${escapeHtml(item.species || 'Pet')}
                                 </div>
                             </div>
-                            
-                            <div>
-                                <span class="badge">${riskText}</span>
-                            </div>
                         </div>
                     </div>
+
+                    ${verdictInfo ? `
+                        <div class="verdict-box" style="background: ${verdictInfo.bg}; border: 1px solid ${verdictInfo.border};">
+                            <div style="flex:1;">
+                                <div class="verdict-label" style="color: ${verdictInfo.color};">Overall Organization Verdict</div>
+                                <div class="verdict-value" style="color: ${verdictInfo.color};">${verdictInfo.label}</div>
+                                ${followUpDate ? `<div style="margin-top: 6px; font-size: 12px; color: ${verdictInfo.color};">Follow-up update due: <strong>${followUpDate}</strong></div>` : ''}
+                            </div>
+                        </div>
+                    ` : ''}
 
                     <div class="checklist-container">
                         <div class="table-box">
                             <div class="table-header" style="color: #059669;">Health Check</div>
-                            <table>
-                                <tbody>${renderTableRows(healthData, '#059669')}</tbody>
-                            </table>
+                            <table><tbody>${renderTableRows(healthData, '#059669')}</tbody></table>
                         </div>
-                        
                         <div class="table-box">
                             <div class="table-header" style="color: #4f46e5;">Behavior Check</div>
-                            <table>
-                                <tbody>${renderTableRows(behaviorData, '#4f46e5')}</tbody>
-                            </table>
+                            <table><tbody>${renderTableRows(behaviorData, '#4f46e5')}</tbody></table>
                         </div>
                     </div>
+
+                    <div class="table-box" style="margin-bottom: 30px;">
+                        <div class="table-header" style="color: #7c3aed;">Organization Evaluation</div>
+                        <table><tbody>${renderEvalRows()}</tbody></table>
+                    </div>
+
+                    ${item.org_response ? `
+                        <div class="note-box">
+                            <div class="note-label">Organization Note / Advice</div>
+                            <div class="note-text">${escapeHtml(item.org_response)}</div>
+                        </div>
+                    ` : ''}
 
                     ${item.vet_visit == 1 ? `
                         <div style="margin-bottom: 30px; page-break-inside: avoid;">
@@ -1510,5 +1574,5 @@ function exportSingleKamustahan() {
             </body>
         </html>
     `);
-    printWindow.document.close();
+      printWindow.document.close();
 }

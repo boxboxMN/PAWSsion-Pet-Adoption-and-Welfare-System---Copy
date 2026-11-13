@@ -40,6 +40,30 @@
 
                 <!-- ===== LIST VIEW ===== -->
                 <div id="list-view">
+                    <!-- ===== ADOPTION GUIDE CARD ===== -->
+                    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-6">
+                        <div class="flex items-center justify-between gap-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                                    <i class="fa-regular fa-compass text-lg"></i>
+                                </div>
+
+                                <div>
+                                    <h3 class="text-lg font-bold text-gray-800">
+                                        New to adoption?
+                                    </h3>
+                                    <p class="text-sm text-gray-500">
+                                        Learn how the adoption process works.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <button id="adoptionGuideTab" type="button" aria-label="View Adoption Guide" class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors shrink-0">
+                                View Guide
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
                     <!-- SEARCH & FILTER -->
                     <div class="bg-white rounded-2xl shadow-sm p-3 mb-6 -mt-4 flex flex-wrap gap-4">
                         <input type="text" id="search-input" placeholder="Search pet name or breed..." class="flex-1 min-w-0 basis-full sm:basis-auto sm:min-w-[200px] border border-gray-200 rounded-xl px-4 py-3 outline-none focus:ring-2 focus:ring-blue-400" />
@@ -105,7 +129,7 @@
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 mb-1">Full Name <span class="text-red-500">*</span></label>
-                                    <input type="text" id="app-fullname" name="full_name" placeholder="Type Full Name" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 border-gray-200" required minlength="2" maxlength="100" pattern="[A-Za-zñÑ\s.'-]+" title="Letters, spaces, periods, hyphens, and apostrophes only" autocomplete="name" />
+                                    <input type="text" id="app-fullname" name="full_name" placeholder="Type Full Name" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 border-gray-200" required minlength="2" maxlength="100" pattern="[A-Za-zñÑ\s.'\-]+" title="Letters, spaces, periods, hyphens, and apostrophes only" autocomplete="name" />
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 mb-1">Contact Number <span class="text-red-500">*</span></label>
@@ -118,31 +142,36 @@
                     
                                 <div class="md:col-span-3">
                                     <label class="block text-xs font-bold text-gray-700 mb-1">Street Address / House No. & Street <span class="text-red-500">*</span></label>
-                                    <input type="text" id="app-street" placeholder="House No. / Street" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 border-gray-200" required minlength="3" maxlength="150" pattern="[A-Za-z0-9ñÑ\s.,#\-\/()]+" title="Letters, numbers, spaces, and basic punctuation only" />
+                                    <input type="text" id="app-street" placeholder="House No. / Street" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 border-gray-200" required minlength="5" maxlength="150" pattern="[A-Za-z0-9\s.,#'\/\-]+" title="Enter a valid street address using letters, numbers, spaces, and . , # ' / - only"/>
+                                    <p id="app-street-error" class="hidden text-xs mt-1 text-red-500"></p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 mb-1">Region <span class="text-red-500">*</span></label>
                                     <select id="app-region" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 border-gray-200" required>
                                         <option value="">Select Region</option>
                                     </select>
+                                    <p id="app-region-error" class="hidden text-xs mt-1 text-red-500"></p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 mb-1">Province <span class="text-red-500">*</span></label>
                                     <select id="app-province" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 border-gray-200" required disabled>
                                         <option value="">Select Province</option>
                                     </select>
+                                    <p id="app-province-error" class="hidden text-xs mt-1 text-red-500"></p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 mb-1">City / Municipality <span class="text-red-500">*</span></label>
                                     <select id="app-city" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 border-gray-200" required disabled>
                                         <option value="">Select City / Municipality</option>
                                     </select>
+                                    <p id="app-city-error" class="hidden text-xs mt-1 text-red-500"></p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 mb-1">Barangay <span class="text-red-500">*</span></label>
                                     <select id="app-barangay" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 border-gray-200" required disabled>
                                         <option value="">Select Barangay</option>
                                     </select>
+                                    <p id="app-barangay-error" class="hidden text-xs mt-1 text-red-500"></p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 mb-1">Zip Code <span class="text-red-500">*</span></label>
@@ -168,7 +197,7 @@
                     
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 mb-1">Occupation / Source of Income <span class="text-red-500">*</span></label>
-                                    <input type="text" id="app-occupation" name="occupation" placeholder="e.g. Employee, Business" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 border-gray-200" required minlength="2" maxlength="100" pattern="[A-Za-z0-9ñÑ\s.,\-()\/]+" title="Letters, numbers, spaces, and basic punctuation only" />
+                                     <input type="text" id="app-occupation" name="occupation" placeholder="e.g. Employee, Business" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 border-gray-200" required minlength="2" maxlength="100" pattern="[\p{L}\p{N}\s.,\/\-\(\)]+" title="Letters, numbers, spaces, and basic punctuation only" />
                                 </div>
                             </div>
                         </div>
@@ -192,7 +221,7 @@
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 mb-1">Contact Person Name <span class="text-red-500">*</span></label>
-                                    <input type="text" id="app-emergency-name" name="emergency_name" placeholder="Full Name" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 border-gray-200" required minlength="2" maxlength="100" pattern="[A-Za-zñÑ\s.'-]+" title="Letters, spaces, periods, hyphens, and apostrophes only" />
+                                    <input type="text" id="app-emergency-name" name="emergency_name" placeholder="Full Name" class="w-full border rounded-xl p-3 text-sm outline-none focus:ring-2 focus:ring-blue-400 border-gray-200" required minlength="2" maxlength="100" pattern="[A-Za-zñÑ\s.'\-]+" title="Letters, spaces, periods, hyphens, and apostrophes only" />
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-gray-700 mb-1">Emergency Phone Number <span class="text-red-500">*</span></label>
@@ -447,5 +476,238 @@
             </div>
         </div>
     </main>
+    <!-- ===== ADOPTION GUIDE MODAL ===== -->
+    <div id="adoptionGuideModal"  style="z-index: 99999;"  class="fixed inset-0 hidden items-center justify-center bg-slate-950/60 backdrop-blur-sm p-4">
+
+        <div style="height: 88vh; max-height: 88vh; display: flex; flex-direction: column; overflow: hidden;" class="bg-white w-full max-w-4xl rounded-3xl shadow-2xl">
+
+            <!-- HEADER -->
+            <div  style="padding: 40px 28px 28px;" class="relative shrink-0 bg-blue-700 text-white overflow-hidden">
+
+                <div class="absolute -right-8 -top-12 opacity-10">
+                    <i class="fa-solid fa-paw text-[180px]"></i>
+                </div>
+
+                <div class="relative flex items-start justify-between gap-4">
+
+                    <div>
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="bg-white/20 px-3 py-1 rounded-full
+                                            text-xs font-semibold tracking-wide">
+                                YOUR ADOPTION JOURNEY
+                            </span>
+                        </div>
+
+                        <h2 class="text-2xl md:text-3xl font-extrabold">
+                            Find Your New Best Friend!
+                        </h2>
+
+                        <p class="text-blue-100 text-sm mt-2 max-w-xl">
+                            A little guide to help you understand the adoption
+                            process and prepare to welcome a new companion.
+                        </p>
+                    </div>
+
+                    <button id="closeAdoptionGuide"
+                            type="button"
+                            aria-label="Close adoption guide"
+                            class="shrink-0 w-10 h-10 rounded-full
+                                    bg-white/15 hover:bg-white/25
+                                    flex items-center justify-center
+                                    transition">
+                        <i class="fa-solid fa-xmark text-xl"></i>
+                    </button>
+
+                </div>
+            </div>
+
+            <!-- BODY -->
+            <div id="adoptionGuideBody" style="flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;"  class="p-6 md:p-8">
+
+                <div class="mb-7">
+                    <h3 class="text-lg font-bold text-gray-800">
+                        PAWSsion Adoption Process
+                    </h3>
+                    <p class="text-sm text-gray-500 mt-1">
+                        Follow the application stages and understand what happens at each step.
+                    </p>
+                </div>
+
+                <!-- ===== ADOPTION APPLICATION FLOWCHART ===== -->
+                <div class="space-y-5">
+
+                    <!-- STEP 01 -->
+                    <div class="flex gap-4 items-start">
+                        <div class="w-11 h-11 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-file-circle-plus text-lg"></i>
+                        </div>
+                        <div class="pt-1">
+                            <span class="text-xs font-bold text-blue-600">STEP 01</span>
+                            <h4 class="font-bold text-gray-800 mt-1">Submit Adoption Application</h4>
+                            <p class="text-sm text-gray-500 mt-1 leading-relaxed">
+                                Choose an available pet and submit your adoption application with the required information.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="ml-5 border-l-2 border-blue-200 h-5"></div>
+
+                    <!-- STEP 02 -->
+                    <div class="flex gap-4 items-start">
+                        <div class="w-11 h-11 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-magnifying-glass text-lg"></i>
+                        </div>
+                        <div class="pt-1">
+                            <span class="text-xs font-bold text-blue-600">STEP 02</span>
+                            <h4 class="font-bold text-gray-800 mt-1">Under Review</h4>
+                            <p class="text-sm text-gray-500 mt-1 leading-relaxed">
+                                The organization reviews your submitted application and evaluates your information.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- CANCELLATION BRANCH -->
+                    <div class="ml-14 rounded-xl border border-red-200 bg-red-50 p-4">
+                        <div class="flex items-center gap-2 text-red-600">
+                            <i class="fa-solid fa-circle-xmark"></i>
+                            <h4 class="font-bold text-sm">Cancelled by Adopter</h4>
+                        </div>
+                        <p class="text-sm text-red-700/80 mt-1">
+                            You may cancel your application while it is still Under Review.
+                        </p>
+                    </div>
+
+                    <div class="ml-5 border-l-2 border-blue-200 h-5"></div>
+
+                    <!-- STEP 03 -->
+                    <div class="flex gap-4 items-start">
+                        <div class="w-11 h-11 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-calendar-check text-lg"></i>
+                        </div>
+                        <div class="pt-1">
+                            <span class="text-xs font-bold text-orange-600">STEP 03</span>
+                            <h4 class="font-bold text-gray-800 mt-1">Interview Scheduled</h4>
+                            <p class="text-sm text-gray-500 mt-1 leading-relaxed">
+                                The organization schedules an interview. Check your application details for the interview schedule.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="ml-5 border-l-2 border-orange-200 h-5"></div>
+
+                    <!-- STEP 04 -->
+                    <div class="flex gap-4 items-start">
+                        <div class="w-11 h-11 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-comments text-lg"></i>
+                        </div>
+                        <div class="pt-1">
+                            <span class="text-xs font-bold text-orange-600">STEP 04</span>
+                            <h4 class="font-bold text-gray-800 mt-1">Attend the Interview</h4>
+                            <p class="text-sm text-gray-500 mt-1 leading-relaxed">
+                                Attend your scheduled interview. The interview must be completed before the organization can approve your application.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="ml-5 border-l-2 border-purple-200 h-5"></div>
+
+                    <!-- STEP 05 -->
+                    <div class="flex gap-4 items-start">
+                        <div class="w-11 h-11 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-clipboard-check text-lg"></i>
+                        </div>
+                        <div class="pt-1">
+                            <span class="text-xs font-bold text-purple-600">STEP 05</span>
+                            <h4 class="font-bold text-gray-800 mt-1">Post-Interview Review</h4>
+                            <p class="text-sm text-gray-500 mt-1 leading-relaxed">
+                                After the interview, the organization reviews your application before making a final decision.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="ml-5 border-l-2 border-green-200 h-5"></div>
+
+                    <!-- FINAL DECISION -->
+                    <div class="ml-2">
+                        <h4 class="text-sm font-bold text-gray-700 mb-3">FINAL APPLICATION DECISION</h4>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+                            <!-- APPROVED -->
+                            <div class="rounded-xl border border-green-200 bg-green-50 p-4">
+                                <div class="flex items-center gap-2 text-green-700">
+                                    <i class="fa-solid fa-circle-check text-lg"></i>
+                                    <h4 class="font-bold">Approved</h4>
+                                </div>
+                                <p class="text-sm text-green-700/80 mt-2">
+                                    Your application has been approved. Proceed with the adoption finalization process.
+                                </p>
+                            </div>
+
+                            <!-- DECLINED -->
+                            <div class="rounded-xl border border-red-200 bg-red-50 p-4">
+                                <div class="flex items-center gap-2 text-red-700">
+                                    <i class="fa-solid fa-circle-xmark text-lg"></i>
+                                    <h4 class="font-bold">Declined</h4>
+                                </div>
+                                <p class="text-sm text-red-700/80 mt-2">
+                                    Your application was not approved by the organization.
+                                </p>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- ORGANIZATION CANCELLATION -->
+                    <div class="ml-2 rounded-xl border border-red-200 bg-red-50 p-4">
+                        <div class="flex items-center gap-2 text-red-600">
+                            <i class="fa-solid fa-ban"></i>
+                            <h4 class="font-bold text-sm">Cancelled by Organization</h4>
+                        </div>
+                        <p class="text-sm text-red-700/80 mt-1">
+                            An organization may cancel an application while it is in Approved status.
+                        </p>
+                    </div>
+                    
+                    <!-- ===== POST-ADOPTION RETURN ===== -->
+                    <div class="mt-5 rounded-xl border border-orange-200 bg-orange-50 p-4">
+                        <div class="flex items-center gap-2 text-orange-700">
+                            <i class="fa-solid fa-house-circle-exclamation text-lg"></i>
+                            <h4 class="font-bold">Pet Return (Returned)</h4>
+                        </div>
+
+                        <p class="text-sm text-orange-800/80 mt-2 leading-relaxed">
+                            If your personal circumstances change and you can no longer care for your adopted pet, you may coordinate with the organization to request a pet return.
+                        </p>
+
+                        <p class="text-sm text-orange-800/80 mt-2 leading-relaxed">
+                            The organization will assist you with the return process to help ensure the pet's welfare and safety.
+                        </p>
+                    </div>
+
+                </div>
+
+                <!-- REMINDER -->
+                <div class="mt-8 rounded-2xl bg-blue-50 border border-blue-100
+                            p-5 flex gap-3">
+
+                    <div class="w-10 h-10 rounded-xl bg-white
+                                flex items-center justify-center
+                                text-blue-600 shrink-0">
+                        <i class="fa-solid fa-lightbulb text-lg"></i>
+                    </div>
+
+                    <div>
+                        <h4 class="font-bold text-blue-900 text-sm">
+                            A little reminder
+                        </h4>
+                        <p class="text-sm text-blue-800/80 mt-1 leading-relaxed">
+                            While the general adoption process is consistent across PAWSsion, individual organizations may have their own adoption requirements and evaluation criteria. Make sure to follow any additional instructions provided by the organization. You can monitor your application status through My Applications.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

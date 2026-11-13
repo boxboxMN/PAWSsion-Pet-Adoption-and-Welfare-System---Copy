@@ -4,6 +4,18 @@ const session = require('express-session');
 const helmet = require('helmet');
 const transporter = require("./config/email");
 
+transporter.verify()
+    .then(() => {
+        console.log("EMAIL SMTP STATUS: READY");
+    })
+    .catch((error) => {
+        console.error("EMAIL SMTP STATUS: FAILED", {
+            code: error.code,
+            command: error.command,
+            responseCode: error.responseCode
+        });
+    });
+
 const app = express();
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
@@ -211,6 +223,12 @@ app.get("/", redirectAuthenticated, (req, res) => {
 // STATIC FILES — serve FIRST (hindi kailangan ng session check)
 // ==========================================
 app.use(express.static(path.join(__dirname, "public")));
+// ==========================================
+// PROTECT PET PROOF IMAGES
+// ==========================================
+app.use("/uploads/pet-proof", (req, res) => {
+    return res.status(404).end();
+});
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ==========================================
@@ -1268,13 +1286,13 @@ app.get("/faqs", (req, res) => {
 
 app.get("/api/session-status", adminController.getSessionStatus);
 
-transporter.verify((error) => {
-    if (error) {
-        console.error("Email transporter connection failed:", error.message);
-    } else {
-        console.log("Email transporter is ready.");
-    }
-});
+// transporter.verify((error) => {
+//     if (error) {
+//         console.error("Email transporter connection failed:", error.message);
+//     } else {
+//         console.log("Email transporter is ready.");
+//     }
+// });
 
 const PORT = process.env.PORT || 3000;
 

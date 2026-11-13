@@ -3,6 +3,7 @@ const { generateEmbedding } = require("../services/embeddingService");
 const { logActivity } = require("./adminController");
 const { createNotification, notifyAllAdmins } = require("./adminController");
 const { ensureAnimalImagesTable } = require("../models/animalImageModel");
+const { uploadToCloudinary } = require("../services/cloudinaryUpload");
 
 // ==========================================
 // RECYCLE BIN: Auto-purge pets na sobra na sa 30 araw
@@ -3188,6 +3189,7 @@ exports.getKamustahanUpdates = async (req, res) => {
             `
             SELECT 
                 k.update_id,
+                k.animal_id,  
                 k.status AS update_status,
                 k.scheduled_date,
                 DATE_FORMAT(k.scheduled_date, '%b %d, %Y') AS formatted_scheduled_date,
@@ -3200,12 +3202,13 @@ exports.getKamustahanUpdates = async (req, res) => {
                 k.vet_visit,
                 k.vet_visit_date,
                 k.vet_diagnosis,
-                k.weight_kg,
                 k.concerns,
-                k.risk_level,
                 k.consultation_status,
                 k.org_response,
                 k.org_responded_at,
+                k.org_verdict,
+                k.org_evaluation_checklist,
+                k.follow_up_date,
                 p.name AS pet_name,
                 p.species,
                 p.image_path AS pet_image,
@@ -3414,5 +3417,516 @@ exports.submitKamustahanUpdate = async (req, res) => {
         res.json({ success: true, message: "Update successfully submitted!" });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
+    }
+};
+
+/* ==========================================
+   RETURN PET REQUESTS
+========================================== */
+
+// GET: View return requests for the logged-in organization
+exports.getPetReturnRequests = async (req, res) => {
+    const accountId = req.session?.accountId;
+
+    if (!accountId) {
+        return res.status(401).json({
+            success: false,
+            message: "Unauthorized."
+        });
+    }
+
+    try {
+        const [orgRows] = await pool.query(
+            `SELECT organization_id
+             FROM organizations
+             WHERE account_id = ?
+             LIMIT 1`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Organization not found."
+            });
+        }
+
+        const organizationId = orgRows[0].organization_id;
+
+        const [requests] = await pool.query(
+            `SELECT
+                r.return_request_id,
+                r.application_id,
+                r.adopter_id,
+                r.animal_id,
+                r.return_reason,
+                r.status,
+                r.organization_response,
+                r.adopter_return_photo,
+                r.organization_received_photo,
+                r.created_at,
+                r.updated_at,
+                a.name AS pet_name,
+                a.species,
+                a.image_path,
+                a.adoption_status
+             FROM pet_return_requests r
+             JOIN animals a ON a.animal_id = r.animal_id
+             WHERE r.organization_id = ?
+             ORDER BY
+                CASE WHEN r.status = 'Pending' THEN 0 ELSE 1 END,
+                r.created_at DESC`,
+            [organizationId]
+        );
+
+        return res.json({
+            success: true,
+            requests
+        });
+
+    } catch (error) {
+        console.error("Get Pet Return Requests Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to retrieve return requests."
+        });
+    }
+};
+
+// PATCH: Approve or reject a return request
+exports.updatePetReturnRequestStatus = async (req, res) => {
+    const accountId = req.session?.accountId;
+    const { id } = req.params;
+    const { status, organization_response } = req.body;
+
+    if (!accountId) {
+        return res.status(401).json({
+            success: false,
+            message: "Unauthorized."
+        });
+    }
+
+    if (!["Approved", "Rejected"].includes(status)) {
+        return res.status(400).json({
+            success: false,
+            message: "Status must be Approved or Rejected."
+        });
+    }
+
+    if (
+        organization_response != null &&
+        (typeof organization_response !== "string" ||
+         organization_response.length > 1000)
+    ) {
+        return res.status(400).json({
+            success: false,
+            message: "Organization response must not exceed 1000 characters."
+        });
+    }
+
+    const connection = await pool.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const [orgRows] = await connection.query(
+            `SELECT organization_id
+             FROM organizations
+             WHERE account_id = ?
+             LIMIT 1`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            await connection.rollback();
+
+            return res.status(404).json({
+                success: false,
+                message: "Organization not found."
+            });
+        }
+
+        const organizationId = orgRows[0].organization_id;
+
+        const [requestRows] = await connection.query(
+            `SELECT
+                r.return_request_id,
+                r.application_id,
+                r.animal_id,
+                r.status,
+                app.status AS application_status,
+                a.adoption_status
+             FROM pet_return_requests r
+             JOIN user_adoption_applications app
+                ON app.application_id = r.application_id
+             JOIN animals a ON a.animal_id = r.animal_id
+             WHERE r.return_request_id = ?
+               AND r.organization_id = ?
+               AND a.organization_id = ?
+             FOR UPDATE`,
+            [id, organizationId, organizationId]
+        );
+
+        if (!requestRows.length) {
+            await connection.rollback();
+
+            return res.status(404).json({
+                success: false,
+                message: "Return request not found or unauthorized."
+            });
+        }
+
+        const request = requestRows[0];
+
+        if (request.status !== "Pending") {
+            await connection.rollback();
+
+            return res.status(409).json({
+                success: false,
+                message: "This return request has already been processed."
+            });
+        }
+
+        if (status === "Approved" && !["Approved", "Received"].includes(request.application_status)) {
+            await connection.rollback();
+
+            return res.status(409).json({
+                success: false,
+                message: "The adoption application is no longer eligible for return approval."
+            });
+        }
+
+        if (
+            status === "Approved" &&
+            request.adoption_status !== "Adopted"
+        ) {
+            await connection.rollback();
+
+            return res.status(409).json({
+                success: false,
+                message: "The pet is not currently marked as Adopted."
+            });
+        }
+
+        await connection.query(
+            `UPDATE pet_return_requests
+             SET status = ?,
+                 organization_response = ?,
+                 updated_at = NOW()
+             WHERE return_request_id = ?
+               AND status = 'Pending'`,
+            [
+                status,
+                organization_response?.trim() || null,
+                id
+            ]
+        );
+
+        await connection.commit();
+
+        return res.json({
+            success: true,
+            message: `Return request ${status.toLowerCase()} successfully.`,
+            status
+        });
+
+    } catch (error) {
+        await connection.rollback();
+
+        console.error("Update Pet Return Request Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to process return request."
+        });
+
+    } finally {
+        connection.release();
+    }
+};
+
+exports.confirmPetReturnReceived = async (req, res) => {
+    const accountId = req.session?.accountId;
+    const { id } = req.params;
+
+    if (!accountId) {
+        return res.status(401).json({
+            success: false,
+            message: "Unauthorized."
+        });
+    }
+
+    if (!req.file) {
+        return res.status(400).json({
+            success: false,
+            message: "Please upload a photo confirming receipt of the pet."
+        });
+    }
+
+    const connection = await pool.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const [orgRows] = await connection.query(
+            `SELECT organization_id
+             FROM organizations
+             WHERE account_id = ?
+             LIMIT 1`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            await connection.rollback();
+
+            return res.status(404).json({
+                success: false,
+                message: "Organization not found."
+            });
+        }
+
+        const organizationId = orgRows[0].organization_id;
+
+        const [requestRows] = await connection.query(
+            `SELECT
+                r.return_request_id,
+                r.application_id,
+                r.status,
+                r.adopter_return_photo,
+                r.organization_received_photo,
+                app.status AS application_status,
+                a.adoption_status
+             FROM pet_return_requests r
+             JOIN user_adoption_applications app
+                ON app.application_id = r.application_id
+             JOIN animals a
+                ON a.animal_id = r.animal_id
+             WHERE r.return_request_id = ?
+               AND r.organization_id = ?
+               AND a.organization_id = ?
+             FOR UPDATE`,
+            [id, organizationId, organizationId]
+        );
+
+        if (!requestRows.length) {
+            await connection.rollback();
+
+            return res.status(404).json({
+                success: false,
+                message: "Return request not found or unauthorized."
+            });
+        }
+
+        const request = requestRows[0];
+
+        if (request.status !== "Approved") {
+            await connection.rollback();
+
+            return res.status(409).json({
+                success: false,
+                message: "Only approved return requests can be confirmed."
+            });
+        }
+
+        if (!request.adopter_return_photo) {
+            await connection.rollback();
+
+            return res.status(400).json({
+                success: false,
+                message: "The adopter's return proof photo is missing."
+            });
+        }
+
+        if (request.organization_received_photo) {
+            await connection.rollback();
+
+            return res.status(409).json({
+                success: false,
+                message: "Receipt has already been confirmed."
+            });
+        }
+
+        if (!["Approved", "Received"].includes(request.application_status)) {
+            await connection.rollback();
+
+            return res.status(409).json({
+                success: false,
+                message: "The adoption application is not eligible for return confirmation."
+            });
+        }
+
+        if (request.adoption_status !== "Adopted") {
+            await connection.rollback();
+
+            return res.status(409).json({
+                success: false,
+                message: "The pet is not currently marked as Adopted."
+            });
+        }
+
+        // const organizationReceivedPhoto =
+        //     `uploads/pet-proof/${req.file.filename}`;
+
+        const organizationReceivedPhoto = await uploadToCloudinary(
+            req.file,
+            "pawpon/pet-proof"
+        );
+
+        await connection.query(
+            `UPDATE pet_return_requests
+             SET status = 'Returned',
+                 organization_received_photo = ?,
+                 updated_at = NOW()
+             WHERE return_request_id = ?
+               AND status = 'Approved'`,
+            [organizationReceivedPhoto, id]
+        );
+
+        await connection.query(
+            `UPDATE user_adoption_applications
+             SET status = 'Returned',
+                 updated_at = NOW()
+             WHERE application_id = ?
+               AND status IN ('Approved', 'Received')`,
+            [request.application_id]
+        );
+
+        await connection.commit();
+
+        return res.json({
+            success: true,
+            message: "Pet receipt confirmed successfully. The return status is now Returned.",
+            status: "Returned"
+        });
+
+    } catch (error) {
+        await connection.rollback();
+
+        console.error("Confirm Pet Return Received Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to confirm pet receipt.",
+            details: error.message,
+            code: error.code,
+            sqlMessage: error.sqlMessage
+        });
+
+    } finally {
+        connection.release();
+    }
+};
+
+// PATCH: Mark an approved returned pet as available for adoption
+exports.markReturnedPetAsAvailable = async (req, res) => {
+    const accountId = req.session?.accountId;
+    const { id } = req.params;
+
+    if (!accountId) {
+        return res.status(401).json({
+            success: false,
+            message: "Unauthorized."
+        });
+    }
+
+    const connection = await pool.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const [orgRows] = await connection.query(
+            `SELECT organization_id
+             FROM organizations
+             WHERE account_id = ?
+             LIMIT 1`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            await connection.rollback();
+            return res.status(404).json({
+                success: false,
+                message: "Organization not found."
+            });
+        }
+
+        const organizationId = orgRows[0].organization_id;
+
+        const [requestRows] = await connection.query(
+            `SELECT
+                r.return_request_id,
+                r.status AS return_status,
+                app.status AS application_status,
+                a.animal_id,
+                a.adoption_status
+             FROM pet_return_requests r
+             JOIN user_adoption_applications app
+                ON app.application_id = r.application_id
+             JOIN animals a
+                ON a.animal_id = r.animal_id
+             WHERE r.return_request_id = ?
+               AND r.organization_id = ?
+               AND a.organization_id = ?
+             FOR UPDATE`,
+            [id, organizationId, organizationId]
+        );
+
+        if (!requestRows.length) {
+            await connection.rollback();
+            return res.status(404).json({
+                success: false,
+                message: "Return request not found or unauthorized."
+            });
+        }
+
+        const request = requestRows[0];
+
+        if (
+            request.return_status !== "Returned" ||
+            request.application_status !== "Returned"
+        ) {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "Only pets confirmed as received can be marked as available."
+            });
+        }
+
+        if (request.adoption_status !== "Adopted") {
+            await connection.rollback();
+            return res.status(409).json({
+                success: false,
+                message: "The pet is not currently marked as Adopted."
+            });
+        }
+
+        await connection.query(
+            `UPDATE animals
+             SET adoption_status = 'Available'
+             WHERE animal_id = ?
+               AND organization_id = ?
+               AND adoption_status = 'Adopted'`,
+            [request.animal_id, organizationId]
+        );
+
+        await connection.commit();
+    
+        return res.json({
+            success: true,
+            message: "The returned pet is now available for adoption."
+        });
+        
+    } catch (error) {
+        await connection.rollback();
+
+        console.error("Mark Returned Pet Available Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to mark the returned pet as available."
+        });
+    } finally {
+        connection.release();
     }
 };

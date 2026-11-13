@@ -185,7 +185,6 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
             }
 
             organizations.forEach(org => {
-                console.log("ORG PROFILE PIC:", org.organization_name, org.profile_pic);
                 
                 const profileImg = getValidImageUrl(org.profile_pic, "https://via.placeholder.com/64","/uploads/orgs");
 
@@ -1011,13 +1010,10 @@ if (fileNameEl) {
    ========================================================= */
 (function () {
     function initQrHandlers() {
-        console.log("[QR] Initializing global handlers...");
 
         // Global open function — callable via onclick="openQRCodeModal(event)"
         window.openQRCodeModal = function (e) {
             if (e) { e.preventDefault(); e.stopPropagation(); }
-
-            console.log("[QR] openQRCodeModal CALLED ✓");
 
             const modal    = document.getElementById("qrModal");
             const mainImg  = document.getElementById("qrImage");
@@ -1033,7 +1029,6 @@ if (fileNameEl) {
             }
 
             const src = mainImg ? String(mainImg.src || "").trim() : "";
-            console.log("[QR] src =", src);
 
             if (!src || src === "" || src.endsWith("#")) {
                 if (typeof window.showToast === "function") {
@@ -1072,7 +1067,6 @@ if (fileNameEl) {
                 padding: 1rem !important;
             `;
             document.body.style.overflow = "hidden";
-            console.log("[QR] ✅ MODAL SHOWN");
         };
 
         window.closeQRCodeModal = function () {
@@ -1081,7 +1075,6 @@ if (fileNameEl) {
             modal.classList.remove("active");
             modal.style.cssText = "";
             document.body.style.overflow = "";
-            console.log("[QR] Modal closed");
         };
 
         // Delegated click — works even if button is re-rendered
@@ -1105,8 +1098,6 @@ if (fileNameEl) {
         document.addEventListener("keydown", function (e) {
             if (e.key === "Escape") window.closeQRCodeModal();
         });
-
-        console.log("[QR] ✅ Global handlers installed");
     }
 
     if (document.readyState === "loading") {

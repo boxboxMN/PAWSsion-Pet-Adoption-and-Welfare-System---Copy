@@ -29,6 +29,19 @@ const listView = document.getElementById("list-view");
 const detailsView = document.getElementById("details-view");
 const tableBody = document.getElementById("table-body");
 const tabBtns = document.querySelectorAll(".tab-btn");
+const cancelledFilter = document.getElementById("cancelledFilter");
+
+let cancelledFilterValue = "All";
+
+if (cancelledFilter) {
+    cancelledFilter.addEventListener("change", function () {
+        cancelledFilterValue = this.value;
+        renderTable();
+    });
+}
+
+const cancelledFilterContainer = document.getElementById("cancelledFilterContainer");
+
 const backBtn = document.getElementById("back-btn");
 const detailsActions = document.getElementById("details-actions");
 const detailStatusBadge = document.getElementById("detail-status-badge");
@@ -85,11 +98,18 @@ function getStatusClass(status) {
             return "active";
         case "Interview Scheduled":
             return "scheduled";
+        case "Post-Interview Review":
+            return "scheduled";
         case "Approved":
             return "success";
+        case "Received":
+            return "success";
+        case "Returned":
+            return "cancelled";
         case "Declined":
             return "declined";
-        case "Cancelled":
+        case "Cancelled by Adopter":
+        case "Cancelled by Organization":
             return "cancelled";
         default:
             return "active";
@@ -157,8 +177,6 @@ async function loadApplications() {
         // ---------------------------------------------
         const data = await response.json();
 
-        console.log("User applications:", data);
-
         // ---------------------------------------------
         // CHECK SUCCESS
         // ---------------------------------------------
@@ -194,6 +212,7 @@ async function loadApplications() {
             organization: app.organization_name || "Unknown Organization",
             organizationId: app.organization_id || app.org_id || null, 
             status: app.status === "Pending" ? "Under Review" : (app.status || "Under Review"),
+            returnRequestStatus: app.return_request_status || null,
             date: formatDate(app.created_at),
             rawDate: app.created_at,
 
@@ -215,7 +234,9 @@ async function loadApplications() {
                 relation: app.emergency_relation
             },
             documentPath: app.document_path,
+            handoverPhotoPath: app.handover_photo_path,
             declineReason: app.decline_reason,
+            cancellationReason: app.cancellation_reason,
             meetupLocation: app.meetup_location,
             interview: {
                 date: app.interview_date,
@@ -255,7 +276,24 @@ function renderTable() {
     // ---------------------------------------------
     // FILTER BY STATUS
     // ---------------------------------------------
-    const filtered = applications.filter(app => app.status === currentTab);
+    const filtered = applications.filter(app => {
+        if (currentTab === "Approved") {
+            return ["Approved", "Received"].includes(app.status);
+        }
+
+        if (currentTab === "Cancelled") {
+            if (cancelledFilterValue === "All") {
+                return [
+                    "Cancelled by Adopter",
+                    "Cancelled by Organization"
+                ].includes(app.status);
+            }
+        
+            return app.status === cancelledFilterValue;
+        }
+        
+        return app.status === currentTab;
+    });
 
     // ---------------------------------------------
     // NO RESULTS
@@ -368,7 +406,7 @@ function updateStepper(status) {
         currentStep = 1;
     } 
     // 2. Interview Scheduled
-    else if (status === "Interview Scheduled") {
+    else if (status === "Interview Scheduled" ||   status === "Post-Interview Review") {
         currentStep = 2;
     } 
     // 3. Approved
@@ -410,28 +448,31 @@ function showDetails(app) {
     detailStatusBadge.innerHTML = `<span class="dot"></span> ${app.status}`;
 
     // 1. TINGNAN KUNG TAPOS NA ANG INTERVIEW DATE/TIME
-    const now = new Date();
-    let isPastInterview = false;
+    // const now = new Date();
+    // let isPastInterview = false;
 
-    if (app.interview && app.interview.date) {
-        const interviewDateTime = new Date(app.interview.date);
-        if (app.interview.time) {
-            const [hours, minutes] = app.interview.time.split(':');
-            interviewDateTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-        } else {
-            interviewDateTime.setHours(23, 59, 59, 999);
-        }
+    // if (app.interview && app.interview.date) {
+    //     const interviewDateTime = new Date(app.interview.date);
+    //     if (app.interview.time) {
+    //         const [hours, minutes] = app.interview.time.split(':');
+    //         interviewDateTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
+    //     } else {
+    //         interviewDateTime.setHours(23, 59, 59, 999);
+    //     }
         
-        if (now > interviewDateTime && app.status === "Interview Scheduled") {
-            isPastInterview = true;
-        }
-    }
+    //     if (now > interviewDateTime && app.status === "Interview Scheduled") {
+    //         isPastInterview = true;
+    //     }
+    // }
+    // Check if the organization has confirmed that the interview is done
+    const isPostInterviewReview = app.status === "Post-Interview Review";
+    
 
     // 2. KUNG LUMAGPAS NA ANG PETSA, I-UPDATE ANG HEADER & STATUS BANNER
-    if (isPastInterview) {
-        detailStatusBadge.className = "badge-status scheduled";
-        detailStatusBadge.innerHTML = `<span class="dot"></span> Post-Interview Review`;
-    }
+    // if (isPastInterview) {
+    //     detailStatusBadge.className = "badge-status scheduled";
+    //     detailStatusBadge.innerHTML = `<span class="dot"></span> Post-Interview Review`;
+    // }
 
     // Maglagay ng Cancel Application Button sa Header kapag "Under Review" ang status
     if (detailsActions) {
@@ -461,6 +502,40 @@ function showDetails(app) {
                 detailsActions.innerHTML = `
                     <button onclick="handleReapply(${app.petId})" class="px-4 py-2 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition inline-flex items-center gap-1.5 shadow-sm cursor-pointer">
                         <i class="fas fa-rotate-right"></i> Re-apply for Adoption
+                    </button>
+                `;
+            }
+         } else if (app.status === "Received") {
+             const returnStatus = (app.returnRequestStatus || "").toLowerCase();
+
+            if (returnStatus === "pending") {
+                detailsActions.innerHTML = `
+                    <button
+                        type="button"
+                        disabled
+                        class="px-4 py-2 text-xs font-semibold bg-amber-100 text-amber-700 rounded-lg inline-flex items-center gap-1.5 cursor-not-allowed"
+                    >
+                        <i class="fas fa-clock"></i> Pending Return
+                    </button>
+                `;
+            } else if (returnStatus === "approved") {
+                detailsActions.innerHTML = `
+                    <button
+                        type="button"
+                        disabled
+                        class="px-4 py-2 text-xs font-semibold bg-green-100 text-green-700 rounded-lg inline-flex items-center gap-1.5 cursor-not-allowed"
+                    >
+                        <i class="fas fa-check-circle"></i> Returned
+                    </button>
+                `;
+            } else {
+                detailsActions.innerHTML = `
+                    <button
+                        type="button"
+                        onclick="openReturnPetModal(${app.id})"
+                        class="px-4 py-2 text-xs font-semibold bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition inline-flex items-center gap-1.5 shadow-sm cursor-pointer"
+                    >
+                        <i class="fas fa-rotate-left"></i> Return Pet
                     </button>
                 `;
             }
@@ -530,14 +605,14 @@ function showDetails(app) {
     const interviewCard = document.getElementById("detail-interview-card");
     const interviewContent = document.getElementById("detail-interview-content");
     
-    if (app.status === "Interview Scheduled") {
+    if (app.status === "Interview Scheduled" ||  app.status === "Post-Interview Review") {
         interviewCard.classList.remove("hidden");
 
         // I-update ang Card Header para sa Reschedule Button / Pending Badge
         const cardHeader = interviewCard.querySelector(".section-title");
         if (cardHeader) {
             cardHeader.className = "section-title flex flex-wrap items-center justify-between gap-2 mb-4";
-            if (isPastInterview) {
+            if (isPostInterviewReview) {
                 // TANGGALIN ANG REQUEST RESCHEDULE BUTTON AT PALITAN NG NOTIFICATION BANNER
                 cardHeader.innerHTML = `
                     <span class="flex items-center gap-2">
@@ -580,25 +655,34 @@ function showDetails(app) {
         interviewCard.classList.add("hidden");
     }
 
-    // 6. DECLINE REASON CARD (Gaya ng ibang Card)
+    // 6. DECLINE / ORGANIZATION CANCELLATION REASON CARD
     const declineCard = document.getElementById("detail-decline-card");
     const declineContent = document.getElementById("detail-decline-content");
-    if (app.status === "Declined") {
+    const isDeclined = app.status === "Declined";
+    const isOrgCancelled = app.status === "Cancelled by Organization";
+
+    if (isDeclined || isOrgCancelled) {
         declineCard.classList.remove("hidden");
 
         const declineHeader = declineCard.querySelector(".section-title");
         if (declineHeader) {
             declineHeader.className = "section-title flex items-center gap-2 mb-4";
-            declineHeader.innerHTML = `
-                <i class="fas fa-circle-xmark text-red-600"></i> Reason for Decline
-            `;
+            declineHeader.innerHTML = isOrgCancelled
+                ? `<i class="fas fa-ban text-orange-600"></i> Reason for Cancellation`
+                : `<i class="fas fa-circle-xmark text-red-600"></i> Reason for Decline`;
         }
+        const reason = isOrgCancelled
+            ? app.cancellationReason
+            : app.declineReason;
+        
+        declineContent.innerHTML = `<p class="italic text-gray-800 leading-relaxed break-words whitespace-pre-line"></p>`;
 
-        declineContent.innerHTML = `
-            <p class="italic text-gray-800 leading-relaxed break-words whitespace-pre-line">
-                ${app.declineReason ? app.declineReason : 'No specific reason provided by the organization.'}
-            </p>
-        `;
+        declineContent.querySelector("p").textContent =
+            reason || (
+                isOrgCancelled
+                    ? "No cancellation reason provided by the organization."
+                    : "No specific reason provided by the organization."
+            );
     } else {
         declineCard.classList.add("hidden");
     }
@@ -618,30 +702,235 @@ function showDetails(app) {
         meetupCard.classList.add("hidden");
     }
 
+    // 6c. HANDOVER PROOF CARD (Lalabas lang kapag Received)
+    const handoverCard = document.getElementById("detail-handover-card");
+    const handoverPhoto = document.getElementById("detail-handover-photo");
 
+    if (handoverCard && handoverPhoto) {
+        if (app.status === "Received" && app.handoverPhotoPath) {
+            handoverCard.classList.remove("hidden");
+
+            // Load photo through the protected adopter endpoint
+            handoverPhoto.src = `/api/user/applications/${app.id}/handover-proof`;
+
+            handoverPhoto.onerror = () => {
+                handoverPhoto.onerror = null;
+                handoverPhoto.alt = "Handover proof image is unavailable.";
+            };
+        } else {
+            handoverCard.classList.add("hidden");
+            handoverPhoto.removeAttribute("src");
+            handoverPhoto.onerror = null;
+        }
+    }
+    
     // 7. UPLOADED DOCUMENT (Ipakita ang totoong PDF/Image link na in-upload)
     const docContainer = document.querySelector('#details-view .border-dashed');
+    
     if (docContainer) {
         if (app.documentPath) {
-            let docUrl = app.documentPath.startsWith('/') ? app.documentPath : `/uploads/documents/${app.documentPath}`;
+            // let docUrl = app.documentPath.startsWith('/') ? app.documentPath : `/uploads/documents/${app.documentPath}`;
+            // docContainer.innerHTML = `
+            //     <i class="fas fa-file-alt text-3xl text-blue-500 mb-2 block"></i>
+            //     <span class="font-semibold text-gray-800 text-sm block break-all">${app.documentPath}</span>
+            //     <p class="text-xs text-gray-400 mt-1 mb-3">Submitted Requirement Proof (Uploaded on ${app.date})</p>
+            //     <a href="${docUrl}" target="_blank" class="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition">
+            //         <i class="fas fa-external-link-alt"></i> View Uploaded File
+            //     </a>
+            // `;
+
+            let docUrl;
+
+            if (app.documentPath.startsWith('https://') || app.documentPath.startsWith('http://')) {
+                docUrl = app.documentPath;
+            } else if (app.documentPath.startsWith('/')) {
+                docUrl = app.documentPath;
+            } else {
+                docUrl = `/uploads/documents/${app.documentPath}`;
+            }
+    
+            // Display only the filename instead of the entire URL
+            const docFileName = app.documentPath.split('/').pop();
+    
             docContainer.innerHTML = `
                 <i class="fas fa-file-alt text-3xl text-blue-500 mb-2 block"></i>
-                <span class="font-semibold text-gray-800 text-sm block break-all">${app.documentPath}</span>
-                <p class="text-xs text-gray-400 mt-1 mb-3">Submitted Requirement Proof (Uploaded on ${app.date})</p>
-                <a href="${docUrl}" target="_blank" class="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition">
+                <span class="font-semibold text-gray-800 text-sm block break-all">${docFileName}</span>
+                <p class="text-xs text-gray-400 mt-1 mb-3">
+                    Submitted Requirement Proof (Uploaded on ${app.date})
+                </p>
+                <a href="${docUrl}" target="_blank" rel="noopener noreferrer"
+                    class="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition">
                     <i class="fas fa-external-link-alt"></i> View Uploaded File
                 </a>
             `;
         } else {
+            // docContainer.innerHTML = `
+            //     <i class="fas fa-exclamation-triangle text-2xl text-amber-500 mb-2 block"></i>
+            //     <span class="font-medium text-gray-500 text-sm">No requirement document attached.</span>
+            // `;
             docContainer.innerHTML = `
                 <i class="fas fa-exclamation-triangle text-2xl text-amber-500 mb-2 block"></i>
-                <span class="font-medium text-gray-500 text-sm">No requirement document attached.</span>
+                <span class="font-medium text-gray-500 text-sm">
+                    No requirement document attached.
+                </span>
             `;
         }
     }
 
     document.getElementById("app").scrollTo({ top: 0, behavior: "smooth" });
 }
+
+function openReturnPetModal(applicationId) {
+    const modal = document.getElementById("returnPetModal");
+    const applicationIdInput = document.getElementById("returnApplicationId");
+    const reasonInput = document.getElementById("returnReason");
+
+    if (!modal || !applicationIdInput || !reasonInput) {
+        console.error("Return Pet modal elements not found.");
+        return;
+    }
+
+    applicationIdInput.value = applicationId;
+    reasonInput.value = "";
+
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+}
+
+function closeReturnPetModal() {
+    const modal = document.getElementById("returnPetModal");
+
+    if (!modal) return;
+
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+}
+
+document.getElementById("returnPetForm")?.addEventListener("submit", async function (event) {
+    event.preventDefault();
+
+    const photoInput = document.getElementById("adopterReturnPhoto");
+    const photoFile = photoInput?.files[0];
+    const applicationId = document.getElementById("returnApplicationId")?.value;
+    const reasonInput = document.getElementById("returnReason");
+    const submitBtn = document.getElementById("submitReturnPetBtn");
+    const reason = reasonInput?.value.trim();
+
+    if (!applicationId || !reason) {
+        if (typeof Swal !== "undefined") {
+            Swal.fire({
+                icon: "warning",
+                title: "Required Information",
+                text: "Please provide a reason for returning the pet."
+            });
+        } else {
+            alert("Please provide a reason for returning the pet.");
+        }
+        return;
+    }
+
+    if (reason.length > 2000) {
+        alert("The return reason must not exceed 2,000 characters.");
+        return;
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    if (!allowedTypes.includes(photoFile.type)) {
+        Swal.fire("Invalid File", "Only JPG, PNG, and WEBP images are allowed.", "warning");
+        return;
+    }
+    
+    if (!photoFile.type.startsWith("image/")) {
+        Swal.fire("Invalid File", "Please upload a valid image.", "warning");
+        return;
+    }
+
+    const originalButtonHTML = submitBtn?.innerHTML;
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Submitting...`;
+    }
+
+    try {
+        const csrfResponse = await fetch("/auth/csrf-token");
+        const csrfData = await csrfResponse.json();
+    
+        if (!csrfResponse.ok || !csrfData.token) {
+            throw new Error(
+                "Unable to get security token. Please refresh and try again."
+            );
+        }
+
+        const formData = new FormData();
+
+        formData.append("return_reason", reason);
+        formData.append("adopterReturnPhoto", photoFile);
+    
+        const response = await fetch(
+            `/api/user/applications/${encodeURIComponent(applicationId)}/return-request`,
+            {
+                method: "POST",
+                headers: {
+                    // "Content-Type": "application/json",
+                    "x-csrf-token": csrfData.token
+                },
+                // body: JSON.stringify({
+                //     return_reason: reason
+                // })
+                body: formData
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Failed to submit return request.");
+        }
+
+        closeReturnPetModal();
+
+        if (typeof Swal !== "undefined") {
+            await Swal.fire({
+                icon: "success",
+                title: "Return Request Submitted",
+                text: data.message || "Your request has been sent to the organization for review.",
+                confirmButtonColor: "#F97316",
+                customClass: {
+                    popup: "rounded-2xl"
+                }
+            });
+        } else {
+            alert(data.message || "Return request submitted successfully.");
+        }
+
+        await loadApplications();
+        goBack();
+
+    } catch (error) {
+        console.error("Error submitting pet return request:", error);
+
+        if (typeof Swal !== "undefined") {
+            Swal.fire({
+                icon: "error",
+                title: "Submission Failed",
+                text: error.message || "Unable to submit your return request. Please try again.",
+                confirmButtonColor: "#EF4444",
+                customClass: {
+                    popup: "rounded-2xl"
+                }
+            });
+        } else {
+            alert(error.message || "Unable to submit your return request.");
+        }
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalButtonHTML || "Submit Request";
+        }
+    }
+});
 
 // =====================================================
 // RE-APPLY BUTTON HANDLER
@@ -839,6 +1128,11 @@ function setActiveTab(tab) {
         }
     });
 
+    // Show Cancelled filter only when Cancelled tab is active
+    if (cancelledFilterContainer) {
+        cancelledFilterContainer.classList.toggle("hidden", tab !== "Cancelled");
+    }
+    
     renderTable();
 }
 

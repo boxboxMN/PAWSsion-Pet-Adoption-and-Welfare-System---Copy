@@ -167,7 +167,6 @@ async function __checkAdminSession() {
 
             if (__adminTabAccountId === null) {
                 __adminTabAccountId = currentId;
-                console.log("[Admin Tab] Initial account_id:", currentId);
                 return;
             }
 

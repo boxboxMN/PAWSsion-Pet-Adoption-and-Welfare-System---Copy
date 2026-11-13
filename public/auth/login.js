@@ -293,11 +293,9 @@ window.addEventListener("load", async () => {
         return;
     }
     
-    console.log("GIS initialize reached");
     google.accounts.id.initialize({
       client_id: googleConfig.clientId,
       callback: async (response) => {
-        console.log("Google callback fired");
         try {
             const csrfResponse = await fetch("/auth/csrf-token", {
                 method: "GET",
@@ -348,8 +346,7 @@ window.addEventListener("load", async () => {
     console.error("Google Sign-In button container not found.");
     return;
     }
-
-    console.log("renderButton reached");
+    
     google.accounts.id.renderButton(googleButton, {
         theme: "outline",
         size: "large",
