@@ -855,19 +855,61 @@ exports.updateAvatar = async (req, res) => {
         });
     }
 
-    // Cloudinary returns the hosted image URL here.
-    const profilePictureUrl = req.file?.path;
-    if (
-        typeof profilePictureUrl !== "string" ||
-        !/^https?:\/\//i.test(profilePictureUrl)
-    ) {
-        return res.status(500).json({
-            success: false,
-            error: "Cloudinary did not return a valid avatar URL."
-        });
-    }
-
     try {
+        // Cloudinary returns the hosted image URL here.
+        // const profilePictureUrl = req.file?.path;
+        // if (
+        //     typeof profilePictureUrl !== "string" ||
+        //     !/^https?:\/\//i.test(profilePictureUrl)
+        // ) {
+        //     return res.status(500).json({
+        //         success: false,
+        //         error: "Cloudinary did not return a valid avatar URL."
+        //     });
+        // }
+    
+        // try {
+        //     const queryText = `
+        //         UPDATE adopters
+        //         SET profile_picture = ?
+        //         WHERE account_id = ?
+        //     `;
+    
+        //     const [result] = await pool.query(queryText, [
+        //         profilePictureUrl,
+        //         accountId
+        //     ]);
+    
+        //     if (result.affectedRows === 0) {
+        //         return res.status(404).json({
+        //             success: false,
+        //             error: "Adopter profile record not found."
+        //         });
+        //     }
+    
+        //     return res.json({
+        //         success: true,
+        //         message: "Profile picture saved successfully!",
+        //         avatarUrl: profilePictureUrl
+        //     });
+    
+        // } catch (error) {
+        //     console.error("Avatar update error:", error);
+    
+        //     return res.status(500).json({
+        //         success: false,
+        //         error: "Failed to save profile picture."
+        //     });
+        // }
+        const profilePictureUrl = await uploadToCloudinary(
+            req.file,
+            "pawpon/avatars"
+        );
+
+         if (!profilePictureUrl) {
+            throw new Error("Cloudinary did not return an avatar URL.");
+        }
+
         const queryText = `
             UPDATE adopters
             SET profile_picture = ?
@@ -897,7 +939,7 @@ exports.updateAvatar = async (req, res) => {
 
         return res.status(500).json({
             success: false,
-            error: "Failed to save profile picture."
+            error: "Failed to upload and save profile picture."
         });
     }
 };
@@ -1737,7 +1779,7 @@ exports.submitAdoptionApplication = async (req, res) => {
             ? (existingApp[0].status || '').trim().toLowerCase()
             : '';
 
-        if (existingApp.length > 0 && ['declined', 'rejected', 'cancelled'].includes(currentStatus)) {
+        if (existingApp.length > 0 && ['declined', 'rejected', 'cancelled by adopter', 'cancelled by organization'].includes(currentStatus)) {
 
             const [oldAppRows] = await pool.query(
                 `SELECT document_path FROM user_adoption_applications WHERE application_id = ?`,
@@ -1896,10 +1938,18 @@ exports.checkAppliedStatus = async (req, res) => {
 
         // Query application with decline_reason included
         const [rows] = await pool.query(
-            `SELECT application_id, status, decline_reason 
-             FROM user_adoption_applications 
-             WHERE adopter_id = ? AND animal_id = ? 
-             ORDER BY created_at DESC LIMIT 1`,
+             `SELECT
+                app.application_id,
+                app.status,
+                app.decline_reason,
+                animal.adoption_status AS pet_adoption_status
+             FROM user_adoption_applications app
+             INNER JOIN animals animal
+                ON app.animal_id = animal.animal_id
+             WHERE app.adopter_id = ?
+               AND app.animal_id = ?
+             ORDER BY app.created_at DESC
+             LIMIT 1`,
             [adopterId, petId]
         );
 
@@ -1907,6 +1957,7 @@ exports.checkAppliedStatus = async (req, res) => {
             return res.json({ 
                 hasApplied: true, 
                 status: rows[0].status,
+                petAdoptionStatus: rows[0].pet_adoption_status,
                 declineReason: rows[0].decline_reason || "No specific reason provided."
             });
         }
@@ -1960,8 +2011,11 @@ exports.getUserApplications = async (req, res) => {
                 app.emergency_phone,
                 app.emergency_relation,
                 app.document_path,
+                app.handover_photo_path,
                 app.status,
                 app.decline_reason,
+                app.cancellation_reason,
+                pr.status AS return_request_status,
                 COALESCE(app.updated_at, app.created_at) AS created_at,
                 app.updated_at,
                 i.interview_date,
@@ -1989,6 +2043,7 @@ exports.getUserApplications = async (req, res) => {
             INNER JOIN animals animal ON app.animal_id = animal.animal_id
             LEFT JOIN organizations org ON animal.organization_id = org.organization_id
             LEFT JOIN application_interviews i ON app.application_id = i.application_id
+            LEFT JOIN pet_return_requests pr ON app.application_id = pr.application_id
             WHERE app.adopter_id = ?
             ORDER BY COALESCE(app.updated_at, app.created_at) DESC
             `,
@@ -2062,7 +2117,7 @@ exports.cancelAdoptionApplication = async (req, res) => {
         // 2. I-update lamang kapag ang application ay naka-'Under Review' pa at pagmamay-ari ng user
         const [result] = await pool.query(
             `UPDATE user_adoption_applications 
-             SET status = 'Cancelled', updated_at = NOW() 
+             SET status = 'Cancelled by Adopter', updated_at = NOW()
              WHERE application_id = ? AND adopter_id = ? AND status = 'Under Review'`,
             [applicationId, adopterId]
         );
@@ -2123,12 +2178,12 @@ exports.getApprovedAdoptedPets = async (req, res) => {
             JOIN animals a ON app.animal_id = a.animal_id
             WHERE app.adopter_id = ? 
               AND UPPER(app.status) IN ('APPROVED', 'RECEIVED')
+              AND a.adoption_status = 'Adopted'
               AND NOT EXISTS (
-                  SELECT 1 
-                  FROM pet_returns pr
-                  WHERE pr.animal_id = a.animal_id
-                    AND pr.adopter_id = app.adopter_id
-                    AND UPPER(pr.status) = 'COMPLETED'
+                SELECT 1
+                FROM pet_return_requests r
+                WHERE r.application_id = app.application_id
+                    AND r.status = 'Approved'
               )
         `, [adopterId]);
 
@@ -2174,14 +2229,14 @@ exports.submitKamustahanUpdate = async (req, res) => {
             vet_visit, vet_visit_date, vet_diagnosis,
             weight_kg, concerns
         } = req.body;
+     
+// let photoPaths = [];
+// if (req.files && req.files.length > 0) {
 
-       
-let photoPaths = [];
-if (req.files && req.files.length > 0) {
-
-    photoPaths = req.files.map(file => `/uploads/kamustahan/${file.filename}`);
-}
-const photoPath = JSON.stringify(photoPaths); 
+//     photoPaths = req.files.map(file => `/uploads/kamustahan/${file.filename}`);
+// }
+// const photoPath = JSON.stringify(photoPaths); 
+        let photoPath = JSON.stringify([]);
 
         if (!animal_id || !organization_id || !update_text) {
             return res.status(400).json({ success: false, error: "Please fill in all required fields." });
@@ -2291,6 +2346,19 @@ const photoPath = JSON.stringify(photoPaths);
         const cleanVetDiagnosis = vet_diagnosis ? String(vet_diagnosis).trim().slice(0, 500) : null;
         const cleanConcerns     = concerns     ? String(concerns).trim().slice(0, 1000) : null;
 
+        // Upload Kamustahan photos to Cloudinary
+        let photoPaths = [];
+        
+        if (req.files && req.files.length > 0) {
+            photoPaths = await Promise.all(
+                req.files.map(file =>
+                    uploadToCloudinary(file, "pawpon/kamustahan")
+                )
+            );
+        }
+        
+        photoPath = JSON.stringify(photoPaths);
+        
         // ==========================================
         // 6. UPDATE RECORD
         // ==========================================
@@ -2502,6 +2570,169 @@ async function checkKamustahanRemindersDue(accountId) {
 }
 exports.checkKamustahanRemindersDue = checkKamustahanRemindersDue;
 
+exports.submitPetReturnRequest = async (req, res) => {
+    const accountId = req.session?.accountId;
+    const applicationId = Number(req.params.applicationId);
+    const reason = typeof req.body?.return_reason === "string"
+        ? req.body.return_reason.trim()
+        : "";
+
+    if (!accountId) {
+        return res.status(401).json({
+            success: false,
+            message: "Unauthorized."
+        });
+    }
+
+    if (!Number.isSafeInteger(applicationId) || applicationId <= 0) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid adoption application."
+        });
+    }
+
+    if (!reason || reason.length > 2000) {
+        return res.status(400).json({
+            success: false,
+            message: "Please provide a return reason of up to 2000 characters."
+        });
+    }
+
+    if (!req.file) {
+        return res.status(400).json({
+            success: false,
+            message: "Please upload a photo of the pet being returned."
+        });
+    }
+    
+    // const adopterReturnPhoto = `uploads/pet-proof/${req.file.filename}`;
+    
+    const connection = await pool.getConnection();
+
+    try {
+        await connection.beginTransaction();
+
+        const [rows] = await connection.query(
+            `SELECT
+                app.application_id,
+                app.adopter_id,
+                app.animal_id,
+                app.organization_id,
+                app.status AS application_status,
+                a.adoption_status
+             FROM user_adoption_applications app
+             JOIN adopters ad ON ad.adopter_id = app.adopter_id
+             JOIN animals a ON a.animal_id = app.animal_id
+             WHERE app.application_id = ?
+               AND ad.account_id = ?
+             FOR UPDATE`,
+            [applicationId, accountId]
+        );
+
+        if (!rows.length) {
+            await connection.rollback();
+
+            return res.status(404).json({
+                success: false,
+                message: "Adoption application not found."
+            });
+        }
+
+        const application = rows[0];
+
+        if (!application.organization_id) {
+            await connection.rollback();
+        
+            return res.status(400).json({
+                success: false,
+                message: "This adoption is not linked to an organization and cannot be returned."
+            });
+        }
+
+        if (!["Approved", "Received"].includes(application.application_status)) {
+            await connection.rollback();
+
+            return res.status(400).json({
+                success: false,
+                message: "Only approved or received adoptions can be returned."
+            });
+        }
+
+        if (application.adoption_status !== "Adopted") {
+            await connection.rollback();
+
+            return res.status(400).json({
+                success: false,
+                message: "This pet is not currently marked as Adopted."
+            });
+        }
+
+        // One request per adoption application, even if previously rejected.
+        const [existing] = await connection.query(
+            `SELECT return_request_id
+             FROM pet_return_requests
+             WHERE application_id = ?
+             LIMIT 1`,
+            [applicationId]
+        );
+
+        if (existing.length) {
+            await connection.rollback();
+
+            return res.status(409).json({
+                success: false,
+                message: "A return request has already been submitted for this adoption."
+            });
+        }
+
+       const adopterReturnPhoto = await uploadToCloudinary(
+            req.file,
+            "pawpon/pet-proof"
+        );
+
+        await connection.query(
+            `INSERT INTO pet_return_requests
+                (application_id, adopter_id, animal_id, organization_id, return_reason, adopter_return_photo, status)
+             VALUES (?, ?, ?, ?, ?, ?, 'Pending')`,
+            [
+                application.application_id,
+                application.adopter_id,
+                application.animal_id,
+                application.organization_id,
+                reason,
+                adopterReturnPhoto
+            ]
+        );
+
+        await connection.commit();
+
+        return res.status(201).json({
+            success: true,
+            message: "Return request submitted successfully. The pet will remain Adopted while the request is pending."
+        });
+
+    } catch (error) {
+        await connection.rollback();
+
+        // Also handle the UNIQUE application_id constraint if two requests arrive together.
+        if (error.code === "ER_DUP_ENTRY") {
+            return res.status(409).json({
+                success: false,
+                message: "A return request has already been submitted for this adoption."
+            });
+        }
+
+        console.error("Submit Pet Return Request Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to submit return request."
+        });
+
+    } finally {
+        connection.release();
+    }
+};
 
 //functions for recent activities in user dashboard
 exports.getUserRecentActivities = async (req, res) => {

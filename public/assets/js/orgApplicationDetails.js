@@ -115,6 +115,28 @@ function populateDetailsUI(app) {
 
     const lowerStatus = status.toLowerCase();
 
+    // DISPLAY HANDOVER PROOF WHEN STATUS IS RECEIVED
+    const handoverProofCard = document.getElementById("org-handover-proof-card");
+    const handoverProofPhoto = document.getElementById("org-handover-proof-photo");
+
+    if (handoverProofCard && handoverProofPhoto) {
+        if (lowerStatus === "received" && app.handover_photo_path) {
+            handoverProofCard.classList.remove("hidden");
+
+            handoverProofPhoto.src =
+                `/org/applications/${app.application_id}/handover-proof`;
+
+            handoverProofPhoto.onerror = () => {
+                handoverProofPhoto.onerror = null;
+                handoverProofPhoto.alt = "Handover proof image is unavailable.";
+            };
+        } else {
+            handoverProofCard.classList.add("hidden");
+            handoverProofPhoto.removeAttribute("src");
+            handoverProofPhoto.onerror = null;
+        }
+    }
+    
     // FIX: Kung Under Review ang status, huwag hayaang maging "Post-Interview Review" 
     // kahit may naiwan pang lumang interview date sa database.
     const isUnderReview = lowerStatus.includes("under review") || lowerStatus.includes("pending");
@@ -169,8 +191,11 @@ function populateDetailsUI(app) {
                 statusBadge.className = "inline-flex px-4 py-1.5 rounded-full text-sm font-medium bg-red-100 text-red-600";
             } else if (isInterviewScheduled) {
                 statusBadge.className = "inline-flex px-4 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-600";
-            } else if (lowerStatus.includes("cancelled")) {
-                // Kulay ng badge kapag kinansela ng adopter
+            } else if (lowerStatus.includes("cancelled by organization")) {
+                statusBadge.textContent = "Cancelled by Organization";
+                statusBadge.className = "inline-flex px-4 py-1.5 rounded-full text-sm font-medium bg-gray-200 text-gray-700";
+            } else if (lowerStatus.includes("cancelled by adopter")) {
+                statusBadge.textContent = "Cancelled by Adopter";
                 statusBadge.className = "inline-flex px-4 py-1.5 rounded-full text-sm font-medium bg-gray-200 text-gray-700";
             } else {
                 statusBadge.className = "inline-flex px-4 py-1.5 rounded-full text-sm font-medium bg-amber-100 text-amber-600";
@@ -192,11 +217,23 @@ function populateDetailsUI(app) {
         confirmPetHandoverBtn.classList.toggle("hidden", !canConfirmHandover);
     }
 
+    const cancelApprovedApplicationBtn = document.getElementById(
+        "cancelApprovedApplicationBtn"
+    );
+    
+    if (cancelApprovedApplicationBtn) {
+        cancelApprovedApplicationBtn.classList.toggle(
+            "hidden",
+            lowerStatus !== "approved"
+        );
+    }
+
     const isDeclined = ["declined", "rejected"].includes(lowerStatus);
     const isApproved = lowerStatus === "approved";
     const isReceived = lowerStatus === "received";
+    const isReturned = lowerStatus === "returned";
     const isCancelled = lowerStatus.includes("cancelled"); // Check kung kinansela ng adopter
-    const isFinalized = isApproved || isReceived || isDeclined || isCancelled;
+    const isFinalized = isApproved || isReceived || isDeclined || isReturned || isCancelled;
 
     // Disable checklist only for declined or cancelled applications
     const qualificationChecklistBtn = document.getElementById("qualificationChecklistBtn");
@@ -233,6 +270,8 @@ function populateDetailsUI(app) {
             scheduleBtn.textContent = "Schedule Interview";
             scheduleBtn.className = "px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-100 text-sm font-semibold transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent";
         }
+        
+        scheduleBtn.classList.toggle("hidden", isApproved);
     }
 
     // DYNAMIC INTERVIEW BUTTON BASED ON APPLICATION STATUS
@@ -268,6 +307,8 @@ function populateDetailsUI(app) {
             reviewDecisionBtn.className = "px-5 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold cursor-not-allowed opacity-50";
             reviewDecisionBtn.onclick = null;
         }
+
+        reviewDecisionBtn.classList.toggle("hidden", isApproved);
     }
 
 
@@ -1028,7 +1069,7 @@ function renderApplicationStatusDetails(app, isPastInterview = false) {
     }
 
     const isInterviewScheduledForCardCheck = lowerStatusForCardCheck.includes("interview") || lowerStatusForCardCheck.includes("scheduled");
-    const isFinalizedForCardCheck = ["approved", "declined", "rejected"].includes(lowerStatusForCardCheck) || lowerStatusForCardCheck.includes("cancelled");
+    const isFinalizedForCardCheck = ["approved", "declined", "rejected", "returned"].includes(lowerStatusForCardCheck) || lowerStatusForCardCheck.includes("cancelled");
     const isPostInterviewReviewForCardCheck = isPastInterview && !isFinalizedForCardCheck;
     const isApprovedForCardCheck = lowerStatusForCardCheck === "approved";
 
@@ -2086,6 +2127,55 @@ function closePetHandoverModal() {
         ?.classList.add('hidden');
 }
 
+// ==========================================
+// HANDOVER PHOTO PREVIEW
+// ==========================================
+document.getElementById('handoverProofInput') ?.addEventListener('change', function () {
+
+    const file = this.files[0];
+    const previewContainer = document.getElementById('handoverProofPreviewContainer');
+    const previewImage = document.getElementById('handoverProofPreview');
+
+    if (!file) {
+        previewContainer.classList.add('hidden');
+        previewImage.src = '';
+        return;
+    }
+
+    // Validate image type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+    if (!allowedTypes.includes(file.type)) {
+        this.value = '';
+
+        previewContainer.classList.add('hidden');
+        previewImage.src = '';
+
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Invalid File',
+            text: 'Please select a JPG, PNG, or WEBP image.'
+        });
+    }
+
+    // Validate file size (5 MB)
+    if (file.size > 5 * 1024 * 1024) {
+        this.value = '';
+
+        previewContainer.classList.add('hidden');
+        previewImage.src = '';
+
+        return Swal.fire({
+            icon: 'warning',
+            title: 'File Too Large',
+            text: 'The maximum allowed photo size is 5 MB.'
+        });
+    }
+
+    previewImage.src = URL.createObjectURL(file);
+    previewContainer.classList.remove('hidden');
+});
+
 async function submitPetHandover() {
     if (!currentAppId) {
         return Swal.fire({
@@ -2097,6 +2187,39 @@ async function submitPetHandover() {
     }
 
     const confirmBtn = document.getElementById('confirmPetHandoverSubmitBtn');
+    const photoInput = document.getElementById('handoverProofInput');
+    const photo = photoInput?.files?.[0];
+
+    // Require photo proof
+    if (!photo) {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Photo Required',
+            text: 'Please upload a handover proof photo first.',
+            confirmButtonColor: '#2563EB'
+        });
+    }
+
+    // Validate image type
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+    if (!allowedTypes.includes(photo.type)) {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'Invalid File',
+            text: 'Please select a JPG, PNG, or WEBP image.'
+        });
+    }
+
+    // Validate file size
+    if (photo.size > 5 * 1024 * 1024) {
+        return Swal.fire({
+            icon: 'warning',
+            title: 'File Too Large',
+            text: 'The maximum allowed photo size is 5 MB.'
+        });
+    }
+    
 
     if (confirmBtn) {
         confirmBtn.disabled = true;
@@ -2105,13 +2228,17 @@ async function submitPetHandover() {
     }
 
     try {
+        const formData = new FormData();
+        formData.append('handoverProof', photo);
+        
         const response = await fetch(
             `/org/applications/${currentAppId}/confirm-handover`,
             {
                 method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                // headers: {
+                //     'Content-Type': 'application/json'
+                // },
+                body: formData,
                 credentials: 'include'
             }
         );
@@ -2129,6 +2256,13 @@ async function submitPetHandover() {
         }
 
         closePetHandoverModal();
+
+        photoInput.value = '';
+
+        document.getElementById('handoverProofPreviewContainer')
+            ?.classList.add('hidden');
+
+        document.getElementById('handoverProofPreview').src = '';
 
         await Swal.fire({
             icon: 'success',
@@ -2153,6 +2287,140 @@ async function submitPetHandover() {
         if (confirmBtn) {
             confirmBtn.disabled = false;
             confirmBtn.innerHTML = 'Confirm Handover';
+        }
+    }
+}
+
+function openCancelApprovedApplicationModal() {
+    const modal = document.getElementById("cancelApprovedApplicationModal");
+    const reasonInput = document.getElementById("cancellationReasonInput");
+
+    if (!modal) return;
+
+    if (reasonInput) {
+        reasonInput.value = "";
+    }
+
+    modal.classList.remove("hidden");
+
+    if (reasonInput) {
+        reasonInput.focus();
+    }
+}
+
+function closeCancelApprovedApplicationModal() {
+    const modal = document.getElementById("cancelApprovedApplicationModal");
+
+    if (modal) {
+        modal.classList.add("hidden");
+    }
+}
+
+async function submitApprovedApplicationCancellation() {
+    const applicationId =
+        currentAppDetails?.application_id ??
+        currentAppDetails?.id;
+
+    const reasonInput = document.getElementById("cancellationReasonInput");
+    const submitBtn = document.getElementById("submitCancellationBtn");
+    const reason = reasonInput?.value.trim();
+
+    if (!applicationId) {
+        alert("Unable to identify the application. Please refresh and try again.");
+        return;
+    }
+
+    if (!reason) {
+        alert("Please provide a reason for cancellation.");
+        reasonInput?.focus();
+        return;
+    }
+
+    if (reason.length > 1000) {
+        alert("The cancellation reason must not exceed 1,000 characters.");
+        reasonInput?.focus();
+        return;
+    }
+
+    if (currentAppDetails?.status?.toLowerCase() !== "approved") {
+        alert("Only approved applications can be cancelled using this action.");
+        return;
+    }
+
+    const originalButtonHTML = submitBtn?.innerHTML;
+
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML =
+            '<i class="fa-solid fa-spinner fa-spin"></i> Cancelling...';
+    }
+
+    try {
+        const csrfResponse = await fetch("/auth/csrf-token");
+        const csrfData = await csrfResponse.json();
+
+        if (!csrfResponse.ok || !csrfData.token) {
+            throw new Error(
+                "Unable to get security token. Please refresh and try again."
+            );
+        }
+
+        const response = await fetch(
+            `/org/applications/${encodeURIComponent(applicationId)}/cancel`,
+            {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-csrf-token": csrfData.token
+                },
+                body: JSON.stringify({
+                    cancellation_reason: reason
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(
+                data.message || "Failed to cancel the adoption application."
+            );
+        }
+
+        closeCancelApprovedApplicationModal();
+
+        if (typeof Swal !== "undefined") {
+            await Swal.fire({
+                icon: "success",
+                title: "Application Cancelled",
+                text: data.message || "The adoption application has been cancelled.",
+                confirmButtonColor: "#F97316"
+            });
+        } else {
+            alert(data.message || "The adoption application has been cancelled.");
+        }
+
+        // Refresh the application details using the existing project function.
+        window.location.href = "/org/adoption";
+
+    } catch (error) {
+        console.error("Error cancelling adoption application:", error);
+
+        if (typeof Swal !== "undefined") {
+            Swal.fire({
+                icon: "error",
+                title: "Cancellation Failed",
+                text: error.message || "Unable to cancel the application. Please try again.",
+                confirmButtonColor: "#EF4444"
+            });
+        } else {
+            alert(error.message || "Unable to cancel the application.");
+        }
+    } finally {
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML =
+                originalButtonHTML || "Confirm Cancellation";
         }
     }
 }

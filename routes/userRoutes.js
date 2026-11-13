@@ -2,15 +2,19 @@ const express = require("express");
 const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
-const { fileTypeFromFile } = require("file-type");
+// const { fileTypeFromFile } = require("file-type");
+const FileType = require("file-type");
 const router = express.Router();
 const userController = require("../controllers/userController");
 const matchmakerController = require("../controllers/matchmakerController");
 const { matchPets } = require("../controllers/matchmakerController");
 const { csrfSynchronisedProtection } = require("../middleware/csrf");
 const pool = require('../config/database');
-const {uploadAdoptionDocument,  uploadAvatar} = require("../config/upload");
+const { uploadReturnProof } = require("../config/upload");
+// const {uploadAdoptionDocument,  uploadAvatar} = require("../config/upload");
+const {uploadAdoptionDocument} = require("../config/upload");
 const { logActivity, createNotification } = require("../controllers/adminController"); 
+const { uploadToCloudinary } = require("../services/cloudinaryUpload");
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -30,8 +34,13 @@ const upload = multer({
     storage: storage,
     limits: { fileSize: 2 * 1024 * 1024 }, 
     fileFilter: function (req, file, cb) {
-        if (!file.mimetype.startsWith("image/")) {
-            return cb(new Error("Only image files are allowed!"), false);
+        // if (!file.mimetype.startsWith("image/")) {
+        //     return cb(new Error("Only image files are allowed!"), false);
+        // }
+        const allowedTypes = ["image/jpeg", "image/png"];
+
+        if (!allowedTypes.includes(file.mimetype)) {
+            return cb(new Error("Avatar must be a JPG or PNG image."), false);
         }
         cb(null, true);
     }
@@ -42,7 +51,8 @@ async function validateAvatarFile(file) {
       return false;
   }
 
-  const detectedType = await fileTypeFromFile(file.path);
+  // const detectedType = await fileTypeFromFile(file.path);
+  const detectedType = await FileType.fromFile(file.path);
 
   if (!detectedType) {
       return false;
@@ -210,6 +220,84 @@ router.get("/profile", checkUserSession, (req, res) => {
 }); 
 
 router.get("/api/user/applications", checkUserSession, userController.getUserApplications);
+
+// GET: View handover proof (Adopter only)
+router.get("/api/user/applications/:id/handover-proof", checkUserSession,
+    async (req, res) => {
+        try {
+            const { id } = req.params;
+            const accountId = req.session?.accountId;
+
+            const [rows] = await pool.query(
+                `SELECT app.handover_photo_path
+                 FROM user_adoption_applications app
+                 JOIN adopters ad ON app.adopter_id = ad.adopter_id
+                 WHERE app.application_id = ?
+                   AND ad.account_id = ?
+                   AND app.handover_photo_path IS NOT NULL`,
+                [id, accountId]
+            );
+
+            if (!rows.length) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Handover proof not found."
+                });
+            }
+
+            const photoUrl = rows[0].handover_photo_path;
+
+            // Cloudinary image URL
+            if (
+                typeof photoUrl === "string" &&
+                /^https:\/\/res\.cloudinary\.com\//i.test(photoUrl)
+            ) {
+                return res.redirect(photoUrl);
+            }
+
+            const filename = path.basename(photoUrl);
+
+            const newPath = path.join(
+                __dirname,
+                '..',
+                'uploads',
+                'pet-proof',
+                filename
+            );
+            
+            const oldPath = path.join(
+                __dirname,
+                '..',
+                'private-uploads',
+                'handover-proof',
+                filename
+            );
+            
+            // Support both newly uploaded and previously saved handover photos.
+            const photoPath = fs.existsSync(newPath) ? newPath : oldPath;
+
+            return res.sendFile(photoPath, (err) => {
+                if (err && !res.headersSent) {
+                    console.error("Adopter handover proof file error:", err);
+
+                    res.status(404).json({
+                        success: false,
+                        message: "Handover proof image is unavailable."
+                    });
+                }
+            });
+
+        } catch (err) {
+            console.error("Adopter handover proof error:", err);
+
+            return res.status(500).json({
+                success: false,
+                message: "Unable to retrieve handover proof."
+            });
+        }
+    }
+);
+
 router.get("/api/user/donations", checkUserSession, userController.getUserDonations);
 router.get("/api/user/profile", checkUserSession, userController.getProfile);
 
@@ -234,7 +322,8 @@ router.post(
   "/api/user/profile/avatar",
   checkUserSession,
   (req, res, next) => {
-      uploadAvatar.single("avatar")(req, res, async (err) => {
+      // uploadAvatar.single("avatar")(req, res, async (err) => {
+      upload.single("avatar")(req, res, async (err) => {
 
           if (err instanceof multer.MulterError) {
               return res.status(400).json({
@@ -275,7 +364,8 @@ router.post(
 
               return res.status(400).json({
                   success: false,
-                  error: "Unable to validate the uploaded file."
+                  error: "Unable to validate the uploaded file.",
+                  details: error.message
               });
           }
       });
@@ -287,6 +377,7 @@ router.get("/api/organizations", checkUserSession, userController.getOrganizatio
 router.post( "/api/user/donation/cash", checkUserSession, uploadReceipt.single("receipt"), userController.submitCashDonation);
 router.post('/api/user/donation/in-kind', checkUserSession, userController.submitInKindDonation);
 router.get("/api/user/approved-pets", checkUserSession, userController.getApprovedAdoptedPets);
+router.post( "/api/user/applications/:applicationId/return-request", checkUserSession, uploadReturnProof.single("adopterReturnPhoto"), userController.submitPetReturnRequest);
 router.get("/api/user/kamustahan-history", checkUserSession, userController.getKamustahanHistory);
 router.post("/api/user/kamustahan", checkUserSession, uploadKamustahan.array("photos", 5), userController.submitKamustahanUpdate);
 
@@ -328,7 +419,12 @@ router.put('/api/user/kamustahan/:id', checkUserSession, uploadKamustahan.array(
         
         // Gamitin ang pool na naka-export sa itaas
         if (req.files && req.files.length > 0) {
-            const photoPaths = req.files.map(file => `/uploads/kamustahan/${file.filename}`);
+            // const photoPaths = req.files.map(file => `/uploads/kamustahan/${file.filename}`);
+             const photoPaths = await Promise.all(
+                req.files.map(file =>
+                    uploadToCloudinary(file, "pawpon/kamustahan")
+                )
+             );
             await pool.query(
                 'UPDATE kamustahan_updates SET update_text = ?, photos = ? WHERE update_id = ?', 
                 [update_text, JSON.stringify(photoPaths), updateId]

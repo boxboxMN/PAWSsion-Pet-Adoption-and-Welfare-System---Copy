@@ -432,7 +432,20 @@ async function checkPetApplicationStatus(petId) {
 
         if (data.hasApplied) {
             const statusUpper = (data.status || '').toUpperCase();
+            const petStatusUpper = (data.petAdoptionStatus || '').toUpperCase();
 
+            // If the pet is available again, allow the user to apply
+            if (statusUpper === 'RETURNED' && petStatusUpper === 'AVAILABLE') {
+                applyBtn.disabled = false;
+                applyBtn.onclick = null;
+                applyBtn.className = "w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 transition-all duration-200 text-white py-3 rounded-xl font-bold text-xs shadow-md shadow-indigo-100 hover:shadow-indigo-200 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer";
+                applyBtn.innerHTML = `
+                    <i class="fa-regular fa-heart text-sm"></i>
+                    <span>Apply for Adoption</span>
+                `;
+                return;
+            }
+            
             // KAPAG DECLINED: Clickable Button na nagpapakita ng reason
             if (statusUpper === 'DECLINED' || statusUpper === 'REJECTED') {
                 applyBtn.disabled = false;
@@ -450,7 +463,7 @@ async function checkPetApplicationStatus(petId) {
                 window.location.href = "/application";
             };
             // KAPAG CANCELLED: Gawing ACTIVE at PWEDENG MAG-APPLY ULI (Normal Apply Button)
-            } else if (statusUpper === 'CANCELLED') {
+             } else if (statusUpper === 'CANCELLED BY ADOPTER' || statusUpper === 'CANCELLED BY ORGANIZATION') {
                 applyBtn.disabled = false;
                 applyBtn.onclick = null; // Gagamitin ang default form-opening listener
                 applyBtn.className = "w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 transition-all duration-200 text-white py-3 rounded-xl font-bold text-xs shadow-md shadow-indigo-100 hover:shadow-indigo-200 active:scale-[0.99] flex items-center justify-center gap-2 cursor-pointer";
@@ -849,6 +862,136 @@ document.addEventListener("DOMContentLoaded", async () => {
     let appCitiesData = [];
     let appBarangaysData = [];
 
+    async function updateApplicationZipCodeFromLocation() {
+        const province = provinceSelect?.value.trim();
+        const city = citySelect?.value.trim();
+
+        if (!province || !city) {
+            zipInput.value = '';
+            zipInput.readOnly = true;
+
+            if (zipHelper) {
+                zipHelper.textContent = '';
+                zipHelper.className = 'text-xs mt-1';
+            }
+
+            return;
+        }
+
+        // Lock the ZIP input while retrieving the correct value.
+        zipInput.readOnly = true;
+
+        try {
+            const response = await fetch(
+                `/api/address/zip?province=${encodeURIComponent(province)}&city=${encodeURIComponent(city)}`,
+                { credentials: 'same-origin' }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok && response.status !== 404) {
+                throw new Error(
+                    data.message || 'Unable to retrieve ZIP code.'
+                );
+            }
+
+            if (data.found && data.zip_code) {
+                zipInput.value = String(data.zip_code);
+
+                zipInput.readOnly = true;
+
+                if (zipHelper) {
+                    zipHelper.textContent = 'ZIP code automatically filled.';
+                    zipHelper.className = 'text-xs mt-1 text-green-600';
+                }
+
+                clearZipError();
+            } else {
+                zipInput.value = '';
+                zipInput.readOnly = false;
+
+                if (zipHelper) {
+                    zipHelper.textContent =
+                        'No ZIP code found. Please enter it manually.';
+                    zipHelper.className = 'text-xs mt-1 text-gray-500';
+                }
+            }
+        } catch (error) {
+            console.error('Application ZIP lookup error:', error);
+
+            zipInput.value = '';
+            zipInput.readOnly = false;
+
+            if (zipHelper) {
+                zipHelper.textContent =
+                    'Unable to retrieve ZIP code. Please enter it manually.';
+                zipHelper.className = 'text-xs mt-1 text-gray-500';
+            }
+        }
+    }
+
+    const streetError = document.getElementById('app-street-error');
+
+    function showStreetError(message) {
+        if (streetError) {
+            streetError.textContent = message;
+            streetError.classList.remove('hidden');
+        }
+    if (streetInput) {
+            streetInput.classList.add('border-red-500');
+            streetInput.setAttribute('aria-invalid', 'true');
+    
+            streetInput.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+    
+            streetInput.focus({ preventScroll: true });
+        }
+    }
+
+    function clearStreetError() {
+        if (streetError) {
+            streetError.textContent = '';
+            streetError.classList.add('hidden');
+        }
+
+        if (streetInput) {
+            streetInput.classList.remove('border-red-500');
+            streetInput.removeAttribute('aria-invalid');
+        }
+    }
+    
+    function showZipError(message) {
+        if (zipHelper) {
+            zipHelper.textContent = message;
+            zipHelper.className = 'text-xs mt-1 text-red-500';
+        }
+
+        if (zipInput) {
+            zipInput.classList.add('border-red-500');
+            zipInput.setAttribute('aria-invalid', 'true');
+
+            zipInput.scrollIntoView({
+                behavior: 'smooth',
+                block: 'center'
+            });
+
+            zipInput.focus({ preventScroll: true });
+        }
+    }
+
+    function clearZipError() {
+        if (zipInput) {
+            zipInput.classList.remove('border-red-500');
+            zipInput.removeAttribute('aria-invalid');
+        }
+    }
+
+    if (streetInput) {
+        streetInput.addEventListener('input', clearStreetError);
+    }
+
     async function loadAppRegions() {
         try {
             regionSelect.innerHTML = '<option value="">Loading regions...</option>';
@@ -929,7 +1072,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 appCitiesData = await res.json();
             }
 
-            const filteredCities = appCitiesData.filter(c => c.province_code === provCode || c.region_desc === regCode);
+            const filteredCities = appCitiesData.filter(c => c.province_code === provCode);
             filteredCities.sort((a, b) => a.city_name.localeCompare(b.city_name));
 
             citySelect.innerHTML = '<option value="">Select City / Municipality</option>';
@@ -949,6 +1092,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function loadBarangaysForCity(cityCode) {
         if (!barangaySelect) return;
+        
         barangaySelect.innerHTML = '<option value="">Loading barangays...</option>';
         barangaySelect.disabled = true;
 
@@ -982,6 +1126,27 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (regionSelect) {
         regionSelect.addEventListener('change', async function () {
+            const regionError = document.getElementById('app-region-error');
+    
+            if (regionError) {
+                regionError.textContent = '';
+                regionError.classList.add('hidden');
+            }
+    
+            this.classList.remove('border-red-500');
+            this.removeAttribute('aria-invalid');
+
+            // Reset ZIP code because the Region changed
+            zipInput.value = '';
+            zipInput.readOnly = true;
+
+            if (zipHelper) {
+                zipHelper.textContent = '';
+                zipHelper.className = 'text-xs mt-1';
+            }
+
+            clearZipError();
+    
             const selectedOption = this.options[this.selectedIndex];
             const regCode = selectedOption ? selectedOption.dataset.code : null;
             await loadProvincesForRegion(regCode, selectedOption ? selectedOption.value : '');
@@ -990,6 +1155,27 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (provinceSelect) {
         provinceSelect.addEventListener('change', async function () {
+            const provinceError = document.getElementById('app-province-error');
+
+            if (provinceError) {
+                provinceError.textContent = '';
+                provinceError.classList.add('hidden');
+            }
+    
+            this.classList.remove('border-red-500');
+            this.removeAttribute('aria-invalid');
+
+            // Reset ZIP code because the Province changed
+            zipInput.value = '';
+            zipInput.readOnly = true;
+
+            if (zipHelper) {
+                zipHelper.textContent = '';
+                zipHelper.className = 'text-xs mt-1';
+            }
+
+            clearZipError();
+            
             const selectedOption = this.options[this.selectedIndex];
             const provCode = selectedOption ? selectedOption.dataset.code : null;
             const regCode = regionSelect.options[regionSelect.selectedIndex]?.dataset.code;
@@ -999,9 +1185,28 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     if (citySelect) {
         citySelect.addEventListener('change', async function () {
+            const cityError = document.getElementById('app-city-error');
+
+            if (cityError) {
+                cityError.textContent = '';
+                cityError.classList.add('hidden');
+            }
+
+            this.classList.remove('border-red-500');
+            this.removeAttribute('aria-invalid');
+
+            // Clear Barangay error because changing the City resets Barangay
+            const barangayError = document.getElementById('app-barangay-error');
+
+            if (barangayError) {
+                barangayError.textContent = '';
+                barangayError.classList.add('hidden');
+            }
+            
             const selectedOption = this.options[this.selectedIndex];
             const cityCode = selectedOption ? selectedOption.dataset.code : null;
             await loadBarangaysForCity(cityCode);
+            await updateApplicationZipCodeFromLocation();
         });
     }
 
@@ -1072,7 +1277,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const res = await fetch(`/check-applied/${petId}`, { credentials: 'include' });
             const data = await res.json();
 
-            const inactiveStatuses = ['DECLINED', 'REJECTED', 'CANCELLED'];
+            const inactiveStatuses = ['DECLINED', 'REJECTED', 'CANCELLED BY ADOPTER', 'CANCELLED BY ORGANIZATION'];
             const isInactive = inactiveStatuses.includes((data.status || '').toUpperCase());
 
             // Kapag galing sa Re-apply button (Declined status) O bago pa lang ang application
@@ -1291,11 +1496,13 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (zipInput) {
         zipInput.addEventListener('input', function () {
             this.value = this.value.replace(/[^0-9]/g, '').slice(0, 4);
+            
+            clearZipError();
 
             if (!zipHelper) return;
             if (this.value.length === 0) {
                 zipHelper.className = 'text-xs mt-1';
-                zipHelper.innerHTML = '';
+                zipHelper.textContent = '';
             } else if (zipRegex.test(this.value)) {
                 zipHelper.className = 'text-xs mt-1 text-green-600';
                 zipHelper.innerHTML = '<i class="fa-solid fa-circle-check"></i> Valid ZIP code.';
@@ -1463,12 +1670,150 @@ document.addEventListener("DOMContentLoaded", async () => {
                 return;
             }
 
-            // I-build muna ang full_address bago i-collect ang FormData
-            if (!buildFullAddress()) {
-                alert("Please complete your address (Street, Region, Province, City, Barangay, Zip Code).");
+            // =====================================================
+            // STREET ADDRESS VALIDATION
+            // =====================================================
+            const streetAddress = streetInput?.value.trim() || '';
+            const streetAddressRegex = /^[a-zA-Z0-9\s.,#'/-]+$/;
+
+             if (streetAddress.length < 5) {
+                showStreetError('Street address must be at least 5 characters.');
                 return;
             }
 
+             if (streetAddress.length > 150) {
+                showStreetError('Street address must not exceed 150 characters.');
+                return;
+            }
+
+            const hasVowel = /[aeiouáéíóúàèìòù]/i.test(streetAddress);
+
+            if (!hasVowel || !/[A-Za-zÀ-ÖØ-öø-ÿ]/.test(streetAddress)) {
+                showStreetError('Please enter a valid street address containing letters and at least one vowel.');
+                return;
+            }
+
+             if (!streetAddressRegex.test(streetAddress)) {
+                showStreetError(
+                    "Street address contains invalid characters. Use letters, numbers, spaces, and . , # ' / - only."
+                );
+                return;
+            }
+
+            if (/(.)\1{4,}/i.test(streetAddress)) {
+                showStreetError(
+                    'Street address contains repeated characters. Please check your input.'
+                );
+                return;
+            }
+
+            const normalizedStreetAddress = streetAddress.toLowerCase().replace(/\s+/g, '');
+            const obviousGibberishPatterns = [
+                'asdf', 'asdfgh', 'qwer', 'qwerty',
+                'zxcv', 'zxcvb', 'poiuy', 'lkjh', 'mnbv'
+            ];
+
+            if (obviousGibberishPatterns.some(pattern => normalizedStreetAddress.includes(pattern))) {
+                showStreetError(
+                    'Street address looks invalid. Please enter a real address.'
+                );
+                return;
+            }
+
+            const compactLetters = streetAddress.toLowerCase().replace(/[^a-zà-öø-ÿñ]/gi, '');
+
+            if (/(.{2,3})\1{2,}/i.test(compactLetters)) {
+                showStreetError(
+                    'Street address looks invalid. Please check your input.'
+                );
+                return;
+            }
+
+            if (!zipInput || !zipRegex.test(zipInput.value.trim())) {
+                showZipError('ZIP Code must be exactly 4 digits.');
+                return;
+            }
+
+            if (!regionSelect?.value) {
+                const regionError = document.getElementById('app-region-error');
+
+                if (regionError) {
+                    regionError.textContent = 'Please select a Region.';
+                    regionError.classList.remove('hidden');
+                }
+            
+                regionSelect?.classList.add('border-red-500');
+                regionSelect?.setAttribute('aria-invalid', 'true');
+            
+                regionSelect?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+                regionSelect?.focus({ preventScroll: true });
+                return;
+            }
+
+            if (!provinceSelect?.value) {
+                const provinceError = document.getElementById('app-province-error');
+
+                if (provinceError) {
+                    provinceError.textContent = 'Please select a Province.';
+                    provinceError.classList.remove('hidden');
+                }
+            
+                provinceSelect?.classList.add('border-red-500');
+                provinceSelect?.setAttribute('aria-invalid', 'true');
+            
+                provinceSelect?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+                provinceSelect?.focus({ preventScroll: true });
+                return;
+            }
+
+            if (!citySelect?.value) {
+                const cityError = document.getElementById('app-city-error');
+
+                if (cityError) {
+                    cityError.textContent = 'Please select a City / Municipality.';
+                    cityError.classList.remove('hidden');
+                }
+
+                citySelect?.classList.add('border-red-500');
+                citySelect?.setAttribute('aria-invalid', 'true');
+
+                citySelect?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+                citySelect?.focus({ preventScroll: true });
+                return;
+            }
+
+            if (!barangaySelect?.value) {
+                const barangayError = document.getElementById('app-barangay-error');
+
+                if (barangayError) {
+                    barangayError.textContent = 'Please select a Barangay.';
+                    barangayError.classList.remove('hidden');
+                }
+
+                barangaySelect?.classList.add('border-red-500');
+                barangaySelect?.setAttribute('aria-invalid', 'true');
+
+                barangaySelect?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+                barangaySelect?.focus({ preventScroll: true });
+                return;
+            }
+
+            if (!buildFullAddress()) {
+                alert('Please complete your address.');
+                return;
+            }
 
             // Kukuha ng lahat ng inputs pati na ang in-upload na file
             const formData = new FormData(this);
@@ -1560,4 +1905,49 @@ function closeModal() {
         modal.classList.add('hidden');
         if (modalCallback) modalCallback();
     }, 150);
+}
+
+// ==========================================
+// ADOPTION GUIDE MODAL
+// ==========================================
+
+const adoptionGuideTab = document.getElementById("adoptionGuideTab");
+const adoptionGuideModal = document.getElementById("adoptionGuideModal");
+const closeAdoptionGuide = document.getElementById("closeAdoptionGuide");
+
+if (adoptionGuideTab && adoptionGuideModal && closeAdoptionGuide) {
+
+    // Open modal
+    const adoptionGuideBody = document.getElementById("adoptionGuideBody");
+
+    adoptionGuideTab.addEventListener("click", () => {
+        if (adoptionGuideBody) {
+            adoptionGuideBody.scrollTop = 0;
+        }
+
+        adoptionGuideModal.classList.remove("hidden");
+        adoptionGuideModal.classList.add("flex");
+    });
+
+    // Close modal
+    closeAdoptionGuide.addEventListener("click", () => {
+        adoptionGuideModal.classList.add("hidden");
+        adoptionGuideModal.classList.remove("flex");
+    });
+
+    // Close when clicking outside the modal
+    adoptionGuideModal.addEventListener("click", (event) => {
+        if (event.target === adoptionGuideModal) {
+            adoptionGuideModal.classList.add("hidden");
+            adoptionGuideModal.classList.remove("flex");
+        }
+    });
+
+    // Close using Escape key
+    document.addEventListener("keydown", (event) => {
+        if (event.key === "Escape" && !adoptionGuideModal.classList.contains("hidden")) {
+            adoptionGuideModal.classList.add("hidden");
+            adoptionGuideModal.classList.remove("flex");
+        }
+    });
 }
