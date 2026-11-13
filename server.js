@@ -4,17 +4,17 @@ const session = require('express-session');
 const helmet = require('helmet');
 // const transporter = require("./config/email");
 
-transporter.verify()
-    .then(() => {
-        console.log("EMAIL SMTP STATUS: READY");
-    })
-    .catch((error) => {
-        console.error("EMAIL SMTP STATUS: FAILED", {
-            code: error.code,
-            command: error.command,
-            responseCode: error.responseCode
-        });
-    });
+// transporter.verify()
+//     .then(() => {
+//         console.log("EMAIL SMTP STATUS: READY");
+//     })
+//     .catch((error) => {
+//         console.error("EMAIL SMTP STATUS: FAILED", {
+//             code: error.code,
+//             command: error.command,
+//             responseCode: error.responseCode
+//         });
+//     });
 
 const app = express();
 app.set("trust proxy", 1);
