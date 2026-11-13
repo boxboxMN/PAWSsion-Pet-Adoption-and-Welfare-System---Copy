@@ -41,7 +41,7 @@ router.get("/gmail/oauth/setup", (req, res) => {
             <h2>PAWPON Gmail Authorization</h2>
             <p>Enter your temporary setup secret.</p>
 
-            <form method="POST" action="/auth/gmail/oauth/start">
+            <form method="POST" action="https://pawpon.up.railway.app/auth/gmail/oauth/start">
                 <input
                     type="password"
                     name="setupSecret"
