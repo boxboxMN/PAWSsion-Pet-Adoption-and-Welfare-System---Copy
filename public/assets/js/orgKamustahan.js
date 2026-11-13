@@ -362,7 +362,7 @@ function renderTable() {
     const todayKey = getTodayLocalKey();
 
     paginatedData.forEach((item) => {
-        let displayPhoto = "https://images.unsplash.com/photo-1543466835-00a7907e9de1";
+        let displayPhoto = "https://via.placeholder.com/150?text=No+Image";
         
         if (item.update_photos) {
             try {
@@ -416,24 +416,24 @@ function renderTable() {
 
         const dateDisplay = item.formatted_date || item.formatted_scheduled_date || (item.scheduled_date ? formatReadableDate(item.scheduled_date) : 'N/A');
 
-        const row = document.createElement("tr");
+               const row = document.createElement("tr");
         row.className = "hover:bg-slate-50/60 transition-colors";
         
         row.innerHTML = `
-            <td class="py-4 px-3 align-middle">
+            <td class="py-4 px-3 align-middle min-w-[150px]">
                 <div class="flex items-center gap-3">
                     <img src="${displayPhoto}" alt="${escapeHtml(item.pet_name)}" class="w-10 h-10 rounded-full object-cover border border-slate-200 shadow-sm shrink-0" />
-                    <div>
+                    <div class="whitespace-nowrap">
                         <span class="font-semibold text-slate-900 block text-sm">${escapeHtml(item.pet_name || 'Unnamed Pet')}</span>
                         <span class="text-xs text-slate-400 font-medium block mt-0.5">${escapeHtml(item.species || 'Pet')}</span>
                     </div>
                 </div>
             </td>
-            <td class="py-4 px-3 align-middle">
-                <span class="font-semibold text-slate-900 block text-sm">${escapeHtml(item.adopter_name || 'Adopter')}</span>
-                <span class="text-xs text-slate-400 block mt-0.5">${escapeHtml(item.adopter_email || '')}</span>
+            <td class="py-4 px-3 align-middle min-w-[150px]">
+                <span class="font-semibold text-slate-900 block text-sm whitespace-nowrap">${escapeHtml(item.adopter_name || 'Adopter')}</span>
+                <span class="text-xs text-slate-400 block mt-0.5 whitespace-nowrap">${escapeHtml(item.adopter_email || '')}</span>
             </td>
-            <td class="py-4 px-3 align-middle">
+            <td class="py-4 px-3 align-middle whitespace-nowrap">
                 <span class="font-medium text-slate-800 block text-sm">${dateDisplay}</span>
                 <span class="text-xs text-slate-400 block mt-0.5">${item.formatted_date ? 'Submitted Update' : 'Scheduled Date'}</span>
             </td>
@@ -555,7 +555,7 @@ async function openUpdateModal(item) {
         }
     }
     
-    if (orgModalPhotos.length === 0) orgModalPhotos = ["https://images.unsplash.com/photo-1543466835-00a7907e9de1"];
+    if (orgModalPhotos.length === 0) orgModalPhotos = ["https://via.placeholder.com/300?text=No+Image"];
 
     orgModalPhotos = orgModalPhotos.map(p => {
         if (!p.startsWith('http') && !p.startsWith('/')) return `/uploads/${p}`;
@@ -1374,7 +1374,8 @@ function exportSingleKamustahan() {
         unsatisfied: { icon: '✗', color: '#dc2626', label: 'Unsatisfied' }
     };
 
-    let photoUrl = "https://images.unsplash.com/photo-1543466835-00a7907e9de1";
+    let photoUrl = "https://via.placeholder.com/300?text=No+Image";
+
     if (item.update_photos) {
         try {
             let parsed = JSON.parse(item.update_photos);
