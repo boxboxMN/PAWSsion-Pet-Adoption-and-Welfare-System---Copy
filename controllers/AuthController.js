@@ -18,6 +18,7 @@ const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#]).{8,}$/;
 const phoneRegex = /^(09\d{9}|\+639\d{9})$/;
 const zipRegex = /^\d{4}$/; //for zip code
 const crypto = require("crypto");
+
 const transporter = require("../config/email");
 // const { logActivity } = require("./adminController");
 const { logActivity, createNotification, notifyAllAdmins } = require("./adminController");
