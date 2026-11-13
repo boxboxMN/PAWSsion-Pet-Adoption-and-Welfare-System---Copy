@@ -24,9 +24,6 @@ const gmailOAuthClient = new google.auth.OAuth2(
     process.env.GMAIL_OAUTH_REDIRECT_URI
 );
 
-// Temporary one-time OAuth state storage
-const gmailOAuthStates = new Map();
-
 // Setup page
 router.get("/gmail/oauth/setup", (req, res) => {
     res.set("Cache-Control", "no-store");
@@ -75,9 +72,18 @@ router.post("/gmail/oauth/start", (req, res) => {
         return res.status(403).send("Invalid setup secret.");
     }
 
-    const state = crypto.randomBytes(32).toString("hex");
+    const statePayload = `${Date.now()}.${crypto.randomBytes(32).toString("hex")}`;
 
-    gmailOAuthStates.set(state, Date.now() + 5 * 60 * 1000);
+    const encodedPayload = Buffer
+        .from(statePayload)
+        .toString("base64url");
+    
+    const signature = crypto
+        .createHmac("sha256", expectedSecret)
+        .update(encodedPayload)
+        .digest("base64url");
+    
+    const state = `${encodedPayload}.${signature}`;
 
     const authUrl = gmailOAuthClient.generateAuthUrl({
         access_type: "offline",
@@ -116,14 +122,56 @@ router.get("/gmail/oauth/callback", async (req, res) => {
             return res.status(400).send("Google authorization was cancelled or denied.");
         }
 
-        const expiry = gmailOAuthStates.get(state);
+        // Verify signed OAuth state
+if (typeof state !== "string") {
+    return res.status(403).send("Invalid authorization state.");
+}
 
-        if (!state || !expiry || Date.now() > expiry) {
-            return res.status(403).send("Invalid or expired authorization state.");
-        }
+const stateParts = state.split(".");
 
-        // One-time state
-        gmailOAuthStates.delete(state);
+if (stateParts.length !== 2) {
+    return res.status(403).send("Invalid authorization state.");
+}
+
+const [encodedPayload, providedSignature] = stateParts;
+
+const expectedSecret = process.env.GMAIL_OAUTH_SETUP_SECRET;
+
+if (!expectedSecret) {
+    return res.status(500).send("OAuth setup secret is missing.");
+}
+
+const expectedSignature = crypto
+    .createHmac("sha256", expectedSecret)
+    .update(encodedPayload)
+    .digest("base64url");
+
+const providedBuffer = Buffer.from(providedSignature);
+const expectedBuffer = Buffer.from(expectedSignature);
+
+if (
+    providedBuffer.length !== expectedBuffer.length ||
+    !crypto.timingSafeEqual(providedBuffer, expectedBuffer)
+) {
+    return res.status(403).send("Invalid authorization signature.");
+}
+
+const payload = Buffer
+    .from(encodedPayload, "base64url")
+    .toString("utf8");
+
+const [timestampText, nonce] = payload.split(".");
+const issuedAt = Number(timestampText);
+
+if (
+    !Number.isFinite(issuedAt) ||
+    !nonce ||
+    Date.now() - issuedAt > 5 * 60 * 1000 ||
+    issuedAt > Date.now() + 60000
+) {
+    return res.status(403).send("Authorization state expired.");
+}
+        
 
         if (!code) {
             return res.status(400).send("Missing authorization code.");
