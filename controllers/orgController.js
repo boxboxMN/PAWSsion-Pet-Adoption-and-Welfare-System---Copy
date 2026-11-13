@@ -3381,48 +3381,156 @@ exports.archiveKamustahanUpdate = async (req, res) => {
         res.status(500).json({ success: false, message: err.message });
     }
 };
-
 exports.submitKamustahanUpdate = async (req, res) => {
     try {
         const { update_id, update_text } = req.body;
-        
-        // 1. Fetch the schedule details of the record
-        const [updateRecord] = await pool.query(
-            `SELECT scheduled_date, status FROM kamustahan_updates WHERE update_id = ?`,
-            [update_id]
-        );
+        let { photos } = req.body;
 
-        if (!updateRecord.length) {
-            return res.status(404).json({ success: false, message: "Update record not found." });
-        }
-
-        const scheduledDate = new Date(updateRecord[0].scheduled_date);
-        const currentDate = new Date();
-
-        // 2. Set the day limit (Example: 7 days limit from the scheduled date to submit an update)
-        const dayLimit = 7; 
-        const diffTime = currentDate - scheduledDate;
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-        if (diffDays > dayLimit) {
-            return res.status(400).json({ 
-                success: false, 
-                message: `The ${dayLimit}-day limit to submit this update has already passed.` 
+        // ==========================================
+        // 1. VALIDATE INPUT
+        // ==========================================
+        if (!update_id) {
+            return res.status(400).json({
+                success: false,
+                message: "Update ID is required."
             });
         }
 
-        // 3. Proceed to save if within the allowed limit
-        // ... Your database update query here ...
+        if (!update_text || !String(update_text).trim()) {
+            return res.status(400).json({
+                success: false,
+                message: "Update text is required."
+            });
+        }
 
-        res.json({ success: true, message: "Update successfully submitted!" });
+        if (photos != null) {
+            if (Array.isArray(photos)) {
+                photos = JSON.stringify(photos);
+            } else if (typeof photos !== 'string') {
+                return res.status(400).json({
+                    success: false,
+                    message: "Photos must be a string or an array."
+                });
+            }
+        }
+
+        // ==========================================
+        // 2. FETCH THE RECORD
+        // ==========================================
+        const [updateRecords] = await pool.query(
+            `SELECT update_id, adopter_id, scheduled_date, status, update_date
+             FROM kamustahan_updates
+             WHERE update_id = ?`,
+            [update_id]
+        );
+
+        if (!updateRecords.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Update record not found."
+            });
+        }
+
+        const record = updateRecords[0];
+
+        // ==========================================
+        // 3. VERIFY OWNERSHIP (kung may adopter session)
+        // ==========================================
+        if (req.session?.accountId) {
+            const [[owner]] = await pool.query(
+                `SELECT 1 AS ok
+                 FROM adopters
+                 WHERE adopter_id = ? AND account_id = ?`,
+                [record.adopter_id, req.session.accountId]
+            );
+            if (!owner) {
+                return res.status(403).json({
+                    success: false,
+                    message: "You are not authorized to submit this update."
+                });
+            }
+        }
+
+        // ==========================================
+        // 4. GUARD AGAINST DOUBLE SUBMISSION
+        // ==========================================
+        if (record.status !== 'For Update') {
+            return res.status(409).json({
+                success: false,
+                message: "This update has already been submitted or is no longer pending."
+            });
+        }
+
+        if (record.update_date) {
+            return res.status(409).json({
+                success: false,
+                message: "This update has already been submitted."
+            });
+        }
+
+        if (!record.scheduled_date) {
+            return res.status(409).json({
+                success: false,
+                message: "This record has no scheduled date and cannot be submitted."
+            });
+        }
+
+        // ==========================================
+        // 5. ENFORCE 7-DAY LIMIT (zeroed timestamps)
+        // ==========================================
+        const scheduledDate = new Date(record.scheduled_date);
+        scheduledDate.setHours(0, 0, 0, 0);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const dayLimit = 7;
+        const diffDays = Math.floor((today - scheduledDate) / (1000 * 60 * 60 * 24));
+
+        if (diffDays > dayLimit) {
+            return res.status(400).json({
+                success: false,
+                message: `The ${dayLimit}-day limit to submit this update has already passed.`
+            });
+        }
+
+        // ==========================================
+        // 6. SAVE THE SUBMISSION
+        // ==========================================
+        const [result] = await pool.query(
+            `UPDATE kamustahan_updates
+             SET update_date         = CURDATE(),
+                 update_text         = ?,
+                 photos              = COALESCE(?, photos),
+                 status              = 'Pending',
+                 consultation_status = 'awaiting_org'
+             WHERE update_id = ?
+               AND status = 'For Update'
+               AND update_date IS NULL`,
+            [String(update_text).trim(), photos ?? null, update_id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(409).json({
+                success: false,
+                message: "Submission failed. The record may have already been submitted."
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: "Update successfully submitted!",
+            update_id
+        });
+
     } catch (err) {
-        res.status(500).json({ success: false, message: err.message });
+        console.error("Submit Kamustahan Update Error:", err);
+        return res.status(500).json({
+            success: false,
+            message: err.message
+        });
     }
 };
-
-/* ==========================================
-   RETURN PET REQUESTS
-========================================== */
 
 // GET: View return requests for the logged-in organization
 exports.getPetReturnRequests = async (req, res) => {
