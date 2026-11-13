@@ -203,11 +203,20 @@ if (
         `);
 
     } catch (error) {
-        console.error("Gmail OAuth callback failed:", error.message);
+        console.error("Gmail OAuth callback failed:", {
+        message: error.message,
+        code: error.code,
+        status: error.response?.status,
+        googleError: error.response?.data?.error
+    });
 
-        return res.status(500).send(
-            "Gmail authorization failed. Check Railway logs for the error."
-        );
+    return res.status(500).send(
+        `Gmail authorization failed: ${
+            error.response?.data?.error ||
+            error.code ||
+            "INTERNAL_ERROR"
+        }`
+    );
     }
 });
 
