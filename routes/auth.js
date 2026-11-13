@@ -88,7 +88,21 @@ router.post("/gmail/oauth/start", (req, res) => {
         state
     });
 
-    return res.redirect(authUrl);
+    return res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>PAWPON Gmail Authorization</title>
+    </head>
+    <body style="font-family: Arial; padding: 40px;">
+        <h2>Setup Secret Verified!</h2>
+        <p>Click below to continue to Google authorization.</p>
+        <a href="${authUrl}">
+            Continue to Google
+        </a>
+    </body>
+    </html>
+`);
 });
 
 // Google OAuth callback
