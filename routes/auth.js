@@ -13,6 +13,142 @@ const authController = require("../controllers/AuthController");
 const pool = require("../config/database");
 const redirectAuthenticated = require("../middleware/redirectAuthenticated");
 
+
+// ==========================================
+// TEMPORARY GMAIL OAUTH SETUP
+// ==========================================
+
+const gmailOAuthClient = new google.auth.OAuth2(
+    process.env.GMAIL_OAUTH_CLIENT_ID,
+    process.env.GMAIL_OAUTH_CLIENT_SECRET,
+    process.env.GMAIL_OAUTH_REDIRECT_URI
+);
+
+// Temporary one-time OAuth state storage
+const gmailOAuthStates = new Map();
+
+// Setup page
+router.get("/gmail/oauth/setup", (req, res) => {
+    res.set("Cache-Control", "no-store");
+
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>PAWPON Gmail Authorization</title>
+        </head>
+        <body style="font-family: Arial; padding: 40px;">
+            <h2>PAWPON Gmail Authorization</h2>
+            <p>Enter your temporary setup secret.</p>
+
+            <form method="POST" action="/auth/gmail/oauth/start">
+                <input
+                    type="password"
+                    name="setupSecret"
+                    placeholder="Setup secret"
+                    required
+                    style="padding: 10px; width: 280px;"
+                >
+                <button type="submit" style="padding: 10px;">
+                    Continue with Google
+                </button>
+            </form>
+        </body>
+        </html>
+    `);
+});
+
+// Start Google authorization
+router.post("/gmail/oauth/start", (req, res) => {
+    const suppliedSecret = req.body.setupSecret || "";
+    const expectedSecret = process.env.GMAIL_OAUTH_SETUP_SECRET || "";
+
+    if (
+        !expectedSecret ||
+        !suppliedSecret ||
+        suppliedSecret.length !== expectedSecret.length ||
+        !crypto.timingSafeEqual(
+            Buffer.from(suppliedSecret),
+            Buffer.from(expectedSecret)
+        )
+    ) {
+        return res.status(403).send("Invalid setup secret.");
+    }
+
+    const state = crypto.randomBytes(32).toString("hex");
+
+    gmailOAuthStates.set(state, Date.now() + 5 * 60 * 1000);
+
+    const authUrl = gmailOAuthClient.generateAuthUrl({
+        access_type: "offline",
+        prompt: "consent",
+        scope: [
+            "https://www.googleapis.com/auth/gmail.send"
+        ],
+        state
+    });
+
+    return res.redirect(authUrl);
+});
+
+// Google OAuth callback
+router.get("/gmail/oauth/callback", async (req, res) => {
+    res.set("Cache-Control", "no-store");
+
+    try {
+        const { code, state, error } = req.query;
+
+        if (error) {
+            return res.status(400).send("Google authorization was cancelled or denied.");
+        }
+
+        const expiry = gmailOAuthStates.get(state);
+
+        if (!state || !expiry || Date.now() > expiry) {
+            return res.status(403).send("Invalid or expired authorization state.");
+        }
+
+        // One-time state
+        gmailOAuthStates.delete(state);
+
+        if (!code) {
+            return res.status(400).send("Missing authorization code.");
+        }
+
+        const { tokens } = await gmailOAuthClient.getToken(code);
+
+        if (!tokens.refresh_token) {
+            return res.status(400).send(
+                "No refresh token received. Please restart authorization."
+            );
+        }
+
+        // Do not log or expose other OAuth tokens.
+        return res.send(`
+            <!DOCTYPE html>
+            <html>
+            <head><title>PAWPON Gmail Authorization</title></head>
+            <body style="font-family: Arial; padding: 40px;">
+                <h2>Authorization Successful!</h2>
+                <p>Copy this Refresh Token and save it securely.</p>
+                <textarea
+                    readonly
+                    style="width: 100%; height: 120px;"
+                >${tokens.refresh_token}</textarea>
+                <p>Do not share this token with anyone.</p>
+            </body>
+            </html>
+        `);
+
+    } catch (error) {
+        console.error("Gmail OAuth callback failed:", error.message);
+
+        return res.status(500).send(
+            "Gmail authorization failed. Check Railway logs for the error."
+        );
+    }
+});
+
 const {
     csrfSynchronisedProtection,
     generateToken
