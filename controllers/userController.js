@@ -9,7 +9,7 @@ const { createNotification, notifyAllAdmins } = require("./adminController");
 const { uploadToCloudinary } = require("../services/cloudinaryUpload");
 
 const crypto = require("crypto");
-const transporter = require("../config/email");
+const { sendMail } = require("../config/email");
 
 const regions = require("../public/data/regions.json");
 const provinces = require("../public/data/provinces.json");
@@ -522,7 +522,7 @@ exports.updateProfile = async (req, res) => {
         );
 
         try {
-            await transporter.sendMail({
+            await sendMail({
                 from: process.env.EMAIL_USER,
                 to: email,
                 subject: "PAWSsion Email Change Verification",

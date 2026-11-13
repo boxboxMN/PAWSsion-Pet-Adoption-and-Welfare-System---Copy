@@ -18,7 +18,7 @@ const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#]).{8,}$/;
 const phoneRegex = /^(09\d{9}|\+639\d{9})$/;
 const zipRegex = /^\d{4}$/; //for zip code
 const crypto = require("crypto");
-const transporter = require("../config/email");
+const { sendMail } = require("../config/email");
 // const { logActivity } = require("./adminController");
 const { logActivity, createNotification, notifyAllAdmins } = require("./adminController");
 const loginAttempts = new Map(); // Map<accountId, { attempts: number, lockedUntil: number|null }>
@@ -83,7 +83,7 @@ exports.sendRegistrationOtp = async (req, res) => {
         );
 
         try {
-            await transporter.sendMail({
+            await sendMail({
                 from: process.env.EMAIL_USER,
                 to: email,
                 subject: "PAWSsion Email Verification Code",
@@ -961,7 +961,7 @@ exports.forgotPassword = async (req, res) => {
         const resetLink =
             `${process.env.APP_URL}/auth/reset-password.html?token=${rawToken}`;
 
-        await transporter.sendMail({
+        await sendMail({
             from: `"Pawpon Support" <${process.env.EMAIL_USER}>`,
             to: account.email,
             subject: "Pawpon Password Reset",

@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require('express');
 const session = require('express-session');
 const helmet = require('helmet');
-const transporter = require("./config/email");
+// const transporter = require("./config/email");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -1268,13 +1268,13 @@ app.get("/faqs", (req, res) => {
 
 app.get("/api/session-status", adminController.getSessionStatus);
 
-transporter.verify((error) => {
-    if (error) {
-        console.error("Email transporter connection failed:", error.message);
-    } else {
-        console.log("Email transporter is ready.");
-    }
-});
+// transporter.verify((error) => {
+//     if (error) {
+//         console.error("Email transporter connection failed:", error.message);
+//     } else {
+//         console.log("Email transporter is ready.");
+//     }
+// });
 
 const PORT = process.env.PORT || 3000;
 

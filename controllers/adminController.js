@@ -1,7 +1,7 @@
 
 const pool = require("../config/database");
 const bcrypt = require("bcrypt");
-const transporter = require("../config/email");
+const { sendMail } = require("../config/email");
 //for email validation
 const validator = require('validator');
 
@@ -774,7 +774,7 @@ exports.updateContactMessageStatus = async (req, res) => {
         // dahil ang email address ay direktang galing sa contact form mismo
         if (action === "resolve" && messageRow.email) {
             try {
-                await transporter.sendMail({
+                await sendMail({
                     from: `"Pawpon Support" <${process.env.EMAIL_USER}>`,
                     to: messageRow.email,
                     subject: "Your Pawpon Message Has Been Resolved",
