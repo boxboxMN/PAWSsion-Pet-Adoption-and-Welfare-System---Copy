@@ -8,7 +8,7 @@ const multer = require("multer");
 const path = require("path");
 const crypto = require("crypto");
 const fs = require("fs");
-const { fileTypeFromFile } = require("file-type");
+const { fromFile } = require("file-type");
 const authController = require("../controllers/AuthController");
 const pool = require("../config/database");
 const redirectAuthenticated = require("../middleware/redirectAuthenticated");
@@ -278,7 +278,7 @@ async function validateUploadedFile(file) {
         return false;
     }
 
-    const detectedType = await fileTypeFromFile(file.path);
+    const detectedType = await fromFile(file.path);
 
     if (!detectedType) {
         return false;
