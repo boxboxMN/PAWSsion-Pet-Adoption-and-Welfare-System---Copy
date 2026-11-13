@@ -80,9 +80,6 @@ try {
     }
 
     const data = await response.json();
-    console.log("API Response:", data);
-    console.log("account_status:", data.account_status);
-    console.log("verification_status:", data.verification_status);
 
     const orgNameEl = document.getElementById("organizationName");
     const statusEl = document.getElementById("status");
