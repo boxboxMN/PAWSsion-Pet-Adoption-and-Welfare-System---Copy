@@ -580,23 +580,49 @@ async function sendOrgEmailOtp() {
 
         const result = await response.json();
 
-        orgEmailOtpMessage.textContent = result.message || (
-            response.ok
-                ? "Verification code sent."
-                : "Unable to send verification code."
-        );
+        if (!response.ok) {
+            // If the OTP modal is still closed, show the error in Edit Profile.
+            if (orgEmailOtpModal.classList.contains("hidden")) {
+                editModalMessage.textContent =
+                    result.message || "Unable to send verification code.";
 
-        orgEmailOtpMessage.className = response.ok
-            ? "mt-3 text-sm text-green-600"
-            : "mt-3 text-sm text-red-600";
+                editModalMessage.className =
+                    "text-xs font-semibold text-red-500 mt-2 block";
+            } else {
+                // If this is a resend request, show the error inside the OTP modal.
+                orgEmailOtpMessage.textContent =
+                    result.message || "Unable to resend verification code.";
+
+                orgEmailOtpMessage.className =
+                    "mt-3 text-sm text-red-600";
+            }
+
+            return;
+        }
+
+        // Open the OTP modal only after successful sending.
+        orgEmailOtpTarget.textContent = pendingOrgEmail;
+        orgEmailOtpMessage.textContent = result.message;
+        orgEmailOtpMessage.className = "mt-3 text-sm text-green-600";
+
+        orgEmailOtpModal.classList.remove("hidden");
 
     } catch (error) {
         console.error("Organization email OTP send error:", error);
 
-        orgEmailOtpMessage.textContent =
-            "An error occurred while sending the verification code.";
+        if (orgEmailOtpModal.classList.contains("hidden")) {
+            editModalMessage.textContent =
+                "An error occurred while sending the verification code.";
 
-        orgEmailOtpMessage.className = "mt-3 text-sm text-red-600";
+            editModalMessage.className =
+                "text-xs font-semibold text-red-500 mt-2 block";
+        } else {
+            orgEmailOtpMessage.textContent =
+                "An error occurred while sending the verification code.";
+
+            orgEmailOtpMessage.className =
+                "mt-3 text-sm text-red-600";
+        }
 
     } finally {
         orgEmailOtpResendBtn.disabled = false;
@@ -715,9 +741,9 @@ editProfileForm?.addEventListener("submit", async (e) => {
 
         orgEmailOtpTarget.textContent = newEmail;
         orgEmailOtpInput.value = "";
-        orgEmailOtpMessage.textContent = "Sending verification code...";
-        orgEmailOtpMessage.className = "mt-3 text-sm text-slate-600";
-        orgEmailOtpModal.classList.remove("hidden");
+        // orgEmailOtpMessage.textContent = "Sending verification code...";
+        // orgEmailOtpMessage.className = "mt-3 text-sm text-slate-600";
+        // orgEmailOtpModal.classList.remove("hidden");
 
         await sendOrgEmailOtp();
         return;
