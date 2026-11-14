@@ -167,7 +167,7 @@ const Organization = {
             query += ` WHERE account_id = ?`;
             params.push(accountId);
 
-            const [result] = await pool.query(query, params);
+            const [result] = await connection.query(query, params);
             // return result.affectedRows > 0;
 
             await connection.commit();
