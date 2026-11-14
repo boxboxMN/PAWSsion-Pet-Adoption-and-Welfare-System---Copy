@@ -1138,79 +1138,72 @@ app.post("/api/organization/email-change/verify-otp", async (req, res) => {
         });
     }
 });
-
 //org edit profile
 app.put("/api/organization/update-profile", uploadOrgPic.single('profile_pic'), async (req, res) => {
     res.set("Cache-Control", "no-store");
     
-    // 1. Siguraduhing naka-login ang user via session
-  if (!req.session.accountId) {
-      return res.status(401).json({ message: "Unauthorized" });
-  }
-
-  try {
-    // Kunin ang text fields na pinadala ng FormData mula sa frontend
-    const { organization_name, email, contact_number, contact_person, address, region, province, city, barangay, zip_code, description } = req.body;
-    
-    const sanitizedEmail = sanitize(email).toLowerCase();
-
-    if (!validator.isEmail(sanitizedEmail)) {
-        return res.status(400).json({
-            success: false,
-            message: "Please enter a valid email address."
-        });
+    if (!req.session.accountId) {
+        return res.status(401).json({ message: "Unauthorized" });
     }
 
-    // Guard against the literal strings "undefined"/"null" that FormData.append()
-    // silently produces if a field's value was ever a real JS undefined/null.
     const sanitize = (value) => {
         if (value === undefined || value === null) return "";
         const trimmed = String(value).trim();
         return (trimmed === "undefined" || trimmed === "null") ? "" : trimmed;
     };
 
-    const sanitizedContactNumber = sanitize(contact_number);
+    try {
+        const { organization_name, email, contact_number, contact_person, address, region, province, city, barangay, zip_code, description } = req.body;
+        
+        const sanitizedEmail = sanitize(email).toLowerCase();
 
-    if (sanitizedContactNumber) {
-        const phoneRegex = /^09\d{9}$/;
-        if (!phoneRegex.test(sanitizedContactNumber)) {
-            return res.status(400).json({ message: "Contact number must be 11 digits starting with 09." });
+        if (!validator.isEmail(sanitizedEmail)) {
+            return res.status(400).json({
+                success: false,
+                message: "Please enter a valid email address."
+            });
         }
-    }
 
-      const profileData = {
-        organization_name: sanitize(organization_name),
-        email: sanitizedEmail,
-        contact_number: sanitizedContactNumber,
-        contact_person: sanitize(contact_person),
-        address: sanitize(address),
-        region: sanitize(region),
-        province: sanitize(province),
-        city: sanitize(city),
-        barangay: sanitize(barangay),
-        zip_code: sanitize(zip_code),
-        description: sanitize(description),
-        profile_pic: req.file ? req.file.path : null
-      };
+        const sanitizedContactNumber = sanitize(contact_number);
 
-      // 2. Save the Cloudinary URL when a new profile picture is uploaded
+        if (sanitizedContactNumber) {
+            const phoneRegex = /^09\d{9}$/;
+            if (!phoneRegex.test(sanitizedContactNumber)) {
+                return res.status(400).json({ message: "Contact number must be 11 digits starting with 09." });
+            }
+        }
+
+        const profileData = {
+            organization_name: sanitize(organization_name),
+            email: sanitizedEmail,
+            contact_number: sanitizedContactNumber,
+            contact_person: sanitize(contact_person),
+            address: sanitize(address),
+            region: sanitize(region),
+            province: sanitize(province),
+            city: sanitize(city),
+            barangay: sanitize(barangay),
+            zip_code: sanitize(zip_code),
+            description: sanitize(description),
+            profile_pic: req.file ? req.file.path : null
+        };
+
         if (req.file) {
             profileData.profile_pic = req.file.path;
         }
 
-      // 3. Tawagin ang model function natin para mag-execute ng UPDATE query sa DB
-      const success = await Organization.updateProfile(req.session.accountId, profileData);
+        const success = await Organization.updateProfile(req.session.accountId, profileData);
 
-      if (success) {
-          res.status(200).json({ message: "Profile updated successfully!", 
-          profile_pic: profileData.profile_pic
-          });
-      } else {
-          // Pwedeng pumasok dito kung pinindot ang save pero wala namang binagong text or image ang user
-          res.status(400).json({ message: "No changes were made or update failed." });
-      }
+        if (success) {
+            res.status(200).json({ 
+                message: "Profile updated successfully!", 
+                profile_pic: profileData.profile_pic
+            });
+        } else {
+            res.status(400).json({ message: "No changes were made or update failed." });
+        }
 
-  } catch (err) {
+    } catch (err) {
         if (err.message === "EMAIL_VERIFICATION_REQUIRED") {
             return res.status(403).json({
                 success: false,
@@ -1228,9 +1221,8 @@ app.put("/api/organization/update-profile", uploadOrgPic.single('profile_pic'), 
 
         console.error("Error updating profile:", err);
         res.status(500).json({ message: "Server error while updating profile." });
-  }
+    }
 });
-
 // Endpoint para makuha ang active session profile pic
 app.get("/api/organization/session-data", async (req, res) => {
   // 1. Siguraduhing naka-login
