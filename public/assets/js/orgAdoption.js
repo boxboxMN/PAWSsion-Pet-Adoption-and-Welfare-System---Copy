@@ -786,10 +786,21 @@ function viewReturnRequestDetails(requestId) {
             showConfirmButton: false,
             confirmButtonColor: "#2563eb",
             customClass: {
-                popup: "rounded-2xl !max-h-[90vh] !overflow-hidden",
-                htmlContainer: "!m-0 !p-0 !text-left !overflow-y-auto !max-h-[75vh]",
+                popup: "rounded-2xl",
+                htmlContainer: "!m-0 !p-0 !text-left",
                 actions: "!mt-4",
                 confirmButton: "!rounded-lg !px-6 !py-2 !text-sm !font-semibold"
+            },
+
+            didOpen: (popup) => {
+                popup.style.maxHeight = "85vh";
+                popup.style.overflow = "hidden";
+
+                const content = popup.querySelector(".swal2-html-container");
+
+                content.style.maxHeight = "65vh";
+                content.style.overflowY = "auto";
+                content.style.overscrollBehavior = "contain";
             },
             title: "",
             html: `
