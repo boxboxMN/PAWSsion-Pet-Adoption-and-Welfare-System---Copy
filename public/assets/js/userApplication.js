@@ -1092,7 +1092,7 @@ async function openOrgProfileModal(id) {
 
             // Show default icon first.
             logoContainer.innerHTML = `
-                <i id="modalOrgLogo" class="fa-solid fa-building-user"></i>
+                <i id="modalOrgLogo" class="fa-regular fa-user text-3xl text-blue-900"></i>
             `;
 
             if (logoPath) {
