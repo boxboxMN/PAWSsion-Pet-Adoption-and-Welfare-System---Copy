@@ -1081,8 +1081,37 @@ async function openOrgProfileModal(id) {
         if (orgMission) orgMission.textContent = org.description || org.mission || "No description available.";
 
         const logoPath = org.logo || org.avatar || org.image || org.profile_pic;
-        if (logoEl && logoPath) {
-            logoEl.outerHTML = `<img id="modalOrgLogo" src="${logoPath}" alt="Org Logo" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null; this.src='https://via.placeholder.com/64';">`;
+        // if (logoEl && logoPath) {
+        //     logoEl.outerHTML = `<img id="modalOrgLogo" src="${logoPath}" alt="Org Logo" class="w-full h-full object-cover rounded-full" onerror="this.onerror=null; this.src='https://via.placeholder.com/64';">`;
+        // }
+        const logoContainer = document.getElementById("modalOrgLogoContainer");
+
+        if (logoContainer) {
+            // Remove previous image, if any.
+            logoContainer.querySelector("img")?.remove();
+
+            // Show default icon first.
+            logoContainer.innerHTML = `
+                <i id="modalOrgLogo" class="fa-solid fa-building-user"></i>
+            `;
+
+            if (logoPath) {
+                const logoImage = document.createElement("img");
+
+                logoImage.src = logoPath;
+                logoImage.alt = "Organization Logo";
+                logoImage.className = "w-full h-full object-cover rounded-full";
+
+                logoImage.onload = () => {
+                    logoContainer.querySelector("#modalOrgLogo")?.remove();
+                };
+
+                logoImage.onerror = () => {
+                    logoImage.remove();
+                };
+
+                logoContainer.appendChild(logoImage);
+            }
         }
     } catch (err) {
         console.error("Error fetching organization profile:", err);
