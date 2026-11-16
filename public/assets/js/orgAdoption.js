@@ -786,9 +786,9 @@ function viewReturnRequestDetails(requestId) {
             showConfirmButton: false,
             confirmButtonColor: "#2563eb",
             customClass: {
-                popup: "rounded-2xl",
-                htmlContainer: "!m-0 !p-0 !text-left",
-                actions: "!mt-6",
+                popup: "rounded-2xl !max-h-[90vh] !overflow-hidden",
+                htmlContainer: "!m-0 !p-0 !text-left !overflow-y-auto !max-h-[75vh]",
+                actions: "!mt-4",
                 confirmButton: "!rounded-lg !px-6 !py-2 !text-sm !font-semibold"
             },
             title: "",
