@@ -153,6 +153,9 @@ try {
         const imageUrl = getOrgProfileImageUrl(data.profile_pic);
 
         if (imageUrl && orgLogo) {
+            // Hide the default icon immediately.
+            defaultIcon?.classList.add("hidden");
+
             orgLogo.onerror = () => {
                 orgLogo.classList.add("hidden");
                 defaultIcon?.classList.remove("hidden");
