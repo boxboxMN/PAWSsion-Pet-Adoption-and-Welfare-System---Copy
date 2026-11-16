@@ -270,60 +270,39 @@ async function fetchReturnPetRequests() {
                                 View Details
                             </button>
 
-                            ${
-                                request.status === "Pending"
+                            ${  request.status === "Approved" &&
+                                request.adoption_status === "Adopted"
                                     ? `
                                         <button
                                             type="button"
-                                            onclick="updateReturnRequestStatus(${Number(request.return_request_id)}, 'Approved')"
-                                            class="text-emerald-600 hover:text-emerald-700 transition-colors p-2 rounded-lg hover:bg-emerald-50 cursor-pointer"
-                                            title="Approve Return Request"
+                                            onclick="confirmPetReturnReceived(${Number(request.return_request_id)})"
+                                            class="text-blue-600 hover:text-blue-700 text-xs font-semibold border border-blue-200 rounded-lg px-3 py-2 hover:bg-blue-50 transition cursor-pointer"
                                         >
-                                            <i class="fa-solid fa-check text-lg"></i>
-                                        </button>
-        
-                                        <button
-                                            type="button"
-                                            onclick="updateReturnRequestStatus(${Number(request.return_request_id)}, 'Rejected')"
-                                            class="text-rose-500 hover:text-rose-600 transition-colors p-2 rounded-lg hover:bg-rose-50 cursor-pointer"
-                                            title="Reject Return Request"
-                                        >
-                                            <i class="fa-solid fa-xmark text-lg"></i>
+                                            <i class="fa-solid fa-camera mr-1"></i>
+                                            Confirm Pet Received
                                         </button>
                                     `
-                                    : request.status === "Approved" &&
-                                    request.adoption_status === "Adopted"
+                                    : request.status === "Returned" &&
+                                      request.adoption_status === "Adopted"
                                         ? `
                                             <button
                                                 type="button"
-                                                onclick="confirmPetReturnReceived(${Number(request.return_request_id)})"
-                                                class="text-blue-600 hover:text-blue-700 text-xs font-semibold border border-blue-200 rounded-lg px-3 py-2 hover:bg-blue-50 transition cursor-pointer"
+                                                onclick="markReturnedPetAsAvailable(${Number(request.return_request_id)})"
+                                                class="text-emerald-600 hover:text-emerald-700 text-xs font-semibold border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 transition cursor-pointer"
                                             >
-                                                <i class="fa-solid fa-camera mr-1"></i>
-                                                Confirm Pet Received
+                                                <i class="fa-solid fa-check-circle mr-1"></i>
+                                                Mark as Available
                                             </button>
                                         `
                                         : request.status === "Returned" &&
-                                        request.adoption_status === "Adopted"
+                                        request.adoption_status === "Available"
                                             ? `
-                                                <button
-                                                    type="button"
-                                                    onclick="markReturnedPetAsAvailable(${Number(request.return_request_id)})"
-                                                    class="text-emerald-600 hover:text-emerald-700 text-xs font-semibold border border-emerald-200 rounded-lg px-3 py-2 hover:bg-emerald-50 transition cursor-pointer"
-                                                >
+                                                <span class="text-xs text-emerald-600 font-semibold">
                                                     <i class="fa-solid fa-check-circle mr-1"></i>
-                                                    Mark as Available
-                                                </button>
+                                                    Available
+                                                </span>
                                             `
-                                            : request.status === "Returned" &&
-                                            request.adoption_status === "Available"
-                                                ? `
-                                                    <span class="text-xs text-emerald-600 font-semibold">
-                                                        <i class="fa-solid fa-check-circle mr-1"></i>
-                                                        Available
-                                                    </span>
-                                                `
-                                                : ""
+                                            : ""
                             }
                         </div>
                     </td>
@@ -776,7 +755,31 @@ function viewReturnRequestDetails(requestId) {
         const reasonHTML = reason
             ? `<p class="text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(reason)}</p>`
             : `<p class="text-sm text-gray-400 italic">No reason provided</p>`;
-    
+        
+        const decisionButtonsHTML = request.status === "Pending"
+            ? `
+                <div class="flex gap-3 pt-2">
+                    <button
+                        type="button"
+                        onclick="Swal.close(); updateReturnRequestStatus(${Number(request.return_request_id)}, 'Approved')"
+                        class="flex-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold py-2.5 transition"
+                    >
+                        <i class="fa-solid fa-check mr-1"></i>
+                        Approve
+                    </button>
+
+                    <button
+                        type="button"
+                        onclick="Swal.close(); updateReturnRequestStatus(${Number(request.return_request_id)}, 'Rejected')"
+                        class="flex-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold py-2.5 transition"
+                    >
+                        <i class="fa-solid fa-xmark mr-1"></i>
+                        Reject
+                    </button>
+                </div>
+            `
+        : "";
+
         Swal.fire({
             width: 480,
             showCloseButton: true,
@@ -838,6 +841,8 @@ function viewReturnRequestDetails(requestId) {
                             <i class="fa-regular fa-calendar"></i>
                             <span>Requested on <span class="font-medium text-gray-700">${formattedDate}</span></span>
                         </div>
+
+                        ${decisionButtonsHTML}
                     </div>
                 </div>
             `
