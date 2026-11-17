@@ -1,15 +1,13 @@
-// Stores all donation records fetched from the server
 let rawDonationsData = [];
-// Stores the currently selected receipt path for zoom/view actions
 let currentActiveReceiptPath = "";
 
-// ⭐ Pagination state
-const ROWS_PER_PAGE = 5;             // ilang rows kada page
+
+const ROWS_PER_PAGE = 5;             
 let currentPage = 1;
-let currentFilteredData = [];        // filtered list para sa pagination
+let currentFilteredData = [];        
     document.addEventListener("DOMContentLoaded", async () => {
     await loadSidebar();
-    // Wait one tick so the header HTML exists
+    
     requestAnimationFrame(() => {
         // Set page title
         loadTopbar({
@@ -19,7 +17,6 @@ let currentFilteredData = [];        // filtered list para sa pagination
         document.body.style.visibility = "visible";
     });
 
-    // 2. I-load ang Profile at Donations Data
     await fetchAndRenderUserProfile();
     await fetchUserDonations();
 });
@@ -58,7 +55,7 @@ async function fetchUserDonations() {
 
         if (result.success) {
             rawDonationsData = result.donations;
-            currentPage = 1;                   // ⭐ reset
+            currentPage = 1;                  
             renderDonations(rawDonationsData);
             calculateStats(rawDonationsData);
         } else {
@@ -81,7 +78,6 @@ function renderDonations(data) {
         return;
     }
 
-    // ⭐ Compute slice for current page
     const totalPages = Math.max(1, Math.ceil(currentFilteredData.length / ROWS_PER_PAGE));
     if (currentPage > totalPages) currentPage = totalPages;
     if (currentPage < 1) currentPage = 1;
@@ -164,7 +160,6 @@ function updatePaginationUI() {
 
     const total = currentFilteredData.length;
 
-    // Kung walang laman, itago ang footer
     if (total === 0) {
         footerEl.classList.add("hidden");
         return;
@@ -177,7 +172,6 @@ function updatePaginationUI() {
 
     infoEl.textContent = `Showing ${endIdx - startIdx + 1} of ${total} results`;
 
-    // Build page buttons
     controlsEl.innerHTML = "";
 
     const makeBtn = (label, page, { disabled = false, active = false, isIcon = false } = {}) => {
@@ -204,14 +198,12 @@ function updatePaginationUI() {
         return btn;
     };
 
-    // Prev
     controlsEl.appendChild(makeBtn(
         '<i class="fa-solid fa-chevron-left text-xs"></i>',
         currentPage - 1,
         { disabled: currentPage === 1, isIcon: true }
     ));
 
-    // Page numbers with ellipsis logic
     const pages = getPaginationRange(currentPage, totalPages);
     pages.forEach(p => {
         if (p === "...") {
@@ -224,7 +216,6 @@ function updatePaginationUI() {
         }
     });
 
-    // Next
     controlsEl.appendChild(makeBtn(
         '<i class="fa-solid fa-chevron-right text-xs"></i>',
         currentPage + 1,
@@ -233,7 +224,7 @@ function updatePaginationUI() {
 }
 
 function getPaginationRange(current, total) {
-    const delta = 1; // ilang pages sa bawat tabi ng current
+    const delta = 1; 
     const range = [];
     const rangeWithDots = [];
     let last;
@@ -380,7 +371,6 @@ function viewDetails(type, id) {
         }
     }else {
         // ============ IN-KIND ============
-        // Ipakita ang org's uploaded photo kapag Approved o Rejected na
         if (isFinalized && donation.proof_image_path) {
             proofSection.classList.remove("hidden");
             proofSection.style.display = "";
@@ -491,9 +481,7 @@ function triggerZoomReceipt() {
     }
 }
 
-/**
- * Fetches user profile data to populate the header (name, avatar).
- */
+
 async function fetchAndRenderUserProfile() {
     try {
         const response = await fetch('/api/user/profile', {

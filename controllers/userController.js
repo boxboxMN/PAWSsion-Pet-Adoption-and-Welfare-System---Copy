@@ -48,9 +48,7 @@ function normalizeImagePath(imagePath, legacyFolder, fallback = "") {
     return `${legacyFolder.replace(/\/+$/, "")}/${encodeURIComponent(localPath)}`;
 }
 
-// =====================================================
-// SEUSR-03: ADOPTION APPLICATION VALIDATION HELPERS
-// =====================================================
+// ADOPTION APPLICATION VALIDATION HELPERS
 const ADOPTION_NAME_REGEX       = /^[a-zA-ZñÑáéíóúÁÉÍÓÚàèìòùÀÈÌÒÙ\s.'-]{2,100}$/;
 const ADOPTION_PHONE_REGEX      = /^(09\d{9}|\+639\d{9})$/;
 const ADOPTION_ADDRESS_REGEX    = /^[a-zA-Z0-9ñÑáéíóúÁÉÍÓÚ\s.,#\-\/()]{5,255}$/;
@@ -1148,7 +1146,7 @@ exports.submitCashDonation = async (req, res) => {
         gcash_account_name,
         reference_number,
         amount,
-        payment_method // Sinasalo ang piniling payment method mula sa frontend (GCash o Maya)
+        payment_method 
     } = req.body;
 
     if (!organization_id || !donor_name || !donor_email || !reference_number || !amount) {
@@ -1189,7 +1187,6 @@ exports.submitCashDonation = async (req, res) => {
             [organization_id]
         );
 
-        // Tukuyin kung GCash o Maya ang ginamit (default sa GCash kung walang pumasok)
         const selectedMethod = payment_method ? payment_method.trim() : 'GCash';
 
         if (selectedMethod.toLowerCase() === 'maya') {
@@ -1220,7 +1217,6 @@ exports.submitCashDonation = async (req, res) => {
 
         const adopter_id = adopterRows.length > 0 ? adopterRows[0].adopter_id : null;
 
-        // --- INSERT SA DATABASE (Kasama ang payment_method kung mayroon ka ring kolum nito) ---
         const [result] = await pool.query(
             `INSERT INTO cash_donations 
             (adopter_id, organization_id, donor_name, donor_email, gcash_account_name, reference_number, amount, receipt_path, payment_method, status, created_at)
@@ -1262,7 +1258,7 @@ exports.submitCashDonation = async (req, res) => {
             donationId: result.insertId
         });
 
-        await notifyOrgOfNewDonation(organization_id, "cash"); // or "in-kind"
+        await notifyOrgOfNewDonation(organization_id, "cash"); 
 
     } catch (error) {
         console.error("Submit Cash Donation Error:", error);
@@ -1292,7 +1288,6 @@ exports.getUserDonations = async (req, res) => {
         const adopterId = adopterRows.length > 0 ? adopterRows[0].adopter_id : null;
         const userEmail = adopterRows.length > 0 ? adopterRows[0].email : null;
 
-        // 1. Fetch Cash Donations
         const [cashRows] = await pool.query(`
             SELECT 
                 c.cash_donation_id AS id,
@@ -1311,7 +1306,7 @@ exports.getUserDonations = async (req, res) => {
             ORDER BY c.created_at DESC
         `, [adopterId, userEmail]);
 
-        // 2. Fetch In-Kind Donations (Direkta mula sa inkind_donations table)
+        //  Fetch In-Kind Donations 
         const [inkindRows] = await pool.query(`
             SELECT 
                 i.inkind_donation_id AS id,
@@ -1330,7 +1325,6 @@ exports.getUserDonations = async (req, res) => {
             ORDER BY i.created_at DESC
         `, [adopterId, userEmail]);
 
-        // 3. Pagsamahin at i-sort ayon sa petsa
         const allDonations = [...cashRows, ...inkindRows].sort(
             (a, b) => new Date(b.date) - new Date(a.date)
         );
@@ -1353,7 +1347,7 @@ exports.submitInKindDonation = async (req, res) => {
 
     const { organization_id, item_name, quantity, unit, category } = req.body;
 
-    // ⭐ Required fields check
+    //  Required fields check
     if (!organization_id || !category || !item_name || quantity === undefined || quantity === null || quantity === "") {
         return res.status(400).json({ success: false, error: "Please fill in all required fields." });
     }
@@ -1363,7 +1357,6 @@ exports.submitInKindDonation = async (req, res) => {
     const cleanUnit     = (unit && String(unit).trim()) ? String(unit).trim() : "";
     const cleanCategory = String(category).trim();
 
-    // ⭐ Category → allowed units map (must match frontend)
     const CATEGORY_UNITS = {
         "Food & Treats":          ["kg", "sacks", "packs", "boxes", "cans", "pcs"],
         "Toys":                   ["pcs", "packs", "boxes", "sets"],
@@ -1374,12 +1367,12 @@ exports.submitInKindDonation = async (req, res) => {
         "Other":                  ["pcs", "kg", "packs", "boxes", "sacks", "bottles", "liters"]
     };
 
-    // ⭐ Category validation
+    //  Category validation
     if (!CATEGORY_UNITS[cleanCategory]) {
         return res.status(400).json({ success: false, error: "Invalid donation category." });
     }
 
-    // ⭐ Item name validation
+    //  Item name validation
     const gibberishPattern = /(.)\1{3,}/;
     const validItemPattern = /^[a-zA-Z0-9\sñÑ\-',.()\/&+]{3,}$/;
     const hasVowel         = /[aeiouAEIOU]/.test(cleanItemName);
@@ -1395,13 +1388,13 @@ exports.submitInKindDonation = async (req, res) => {
         return res.status(400).json({ success: false, error: "Invalid item name format. Please enter a real item description." });
     }
 
-    // ⭐ Quantity validation
+    //  Quantity validation
     const strictQuantityPattern = /^[1-9]\d*$/;
     if (!strictQuantityPattern.test(cleanQuantity)) {
         return res.status(400).json({ success: false, error: "Invalid quantity. Please enter a whole number greater than zero (e.g., 5)." });
     }
 
-    // ⭐ Unit must belong to the selected category
+    //  Unit must belong to the selected category
     if (!cleanUnit || !CATEGORY_UNITS[cleanCategory].includes(cleanUnit)) {
         return res.status(400).json({ success: false, error: "Invalid unit for the selected category." });
     }
@@ -1434,8 +1427,7 @@ exports.submitInKindDonation = async (req, res) => {
         const adopter   = adopterRows[0];
         const donorName = `${adopter.first_name} ${adopter.last_name}`.trim();
 
-        // ⭐ INSERT — kasama na ang `category`
-        //    NOTE: Ensure `inkind_donations.category` column exists (VARCHAR(50)).
+        //  INSERT — kasama na ang `category`
         const [result] = await pool.query(
             `INSERT INTO inkind_donations
             (adopter_id, organization_id, donor_name, donor_email, category, item_name, quantity, unit, status, created_at)
@@ -1489,7 +1481,6 @@ exports.submitInKindDonation = async (req, res) => {
         });
     }
 };
-// Idagdag ito sa userController.js kung wala pa:
 exports.getOrgDropoffDetails = async (req, res) => {
     try {
         const { org_id } = req.params;
@@ -1516,7 +1507,6 @@ exports.getOrgDropoffDetails = async (req, res) => {
         res.status(500).json({ success: false, message: "Server Error" });
     }
 };
-// user application pet id
 exports.getPetById = async (req, res) => {
     try {
         const petId = req.params.id;
@@ -2150,7 +2140,6 @@ exports.getApprovedAdoptedPets = async (req, res) => {
     }
 
     try {
-        // I-log natin ang accountId para ma-check sa console
         console.log("Fetching pets for accountId:", accountId);
 
         const [adopterRows] = await pool.query(
@@ -2229,22 +2218,14 @@ exports.submitKamustahanUpdate = async (req, res) => {
             vet_visit, vet_visit_date, vet_diagnosis,
             weight_kg, concerns
         } = req.body;
-     
-// let photoPaths = [];
-// if (req.files && req.files.length > 0) {
-
-//     photoPaths = req.files.map(file => `/uploads/kamustahan/${file.filename}`);
-// }
-// const photoPath = JSON.stringify(photoPaths); 
+      
         let photoPath = JSON.stringify([]);
 
         if (!animal_id || !organization_id || !update_text) {
             return res.status(400).json({ success: false, error: "Please fill in all required fields." });
         }
 
-        // ==========================================
-        // 3. FIND ACTIVE 'For Update' SCHEDULE
-        // ==========================================
+    
         const [scheduleRows] = await pool.query(`
             SELECT update_id, status, scheduled_date as target_schedule 
             FROM kamustahan_updates 
@@ -2263,7 +2244,7 @@ exports.submitKamustahanUpdate = async (req, res) => {
         const updateId = currentSchedule.update_id;
 
         // ==========================================
-        // 4. VALIDATE SCHEDULE DATE
+        //  VALIDATE SCHEDULE DATE
         // ==========================================
         if (!currentSchedule.target_schedule) {
             return res.status(400).json({ 
@@ -2443,7 +2424,6 @@ exports.getKamustahanHistory = async (req, res) => {
 
         const adopterId = adopterRows[0].adopter_id;
 
-        // IDINAGDAG: org_response at org_responded_at
         const [updates] = await pool.query(`
             SELECT 
                 k.update_id,
@@ -2605,7 +2585,6 @@ exports.submitPetReturnRequest = async (req, res) => {
         });
     }
     
-    // const adopterReturnPhoto = `uploads/pet-proof/${req.file.filename}`;
     
     const connection = await pool.getConnection();
 

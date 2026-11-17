@@ -5,11 +5,8 @@ const { createNotification, notifyAllAdmins } = require("./adminController");
 const { ensureAnimalImagesTable } = require("../models/animalImageModel");
 const { uploadToCloudinary } = require("../services/cloudinaryUpload");
 
-// ==========================================
-// RECYCLE BIN: Auto-purge pets na sobra na sa 30 araw
-// ==========================================
+
 async function purgeExpiredTrash(organizationId) {
-    // Kunin muna ang mga animal_id na lalampas na sa 30-day window para malinis din ang kanilang medical history
     const [expired] = await pool.query(
         `SELECT animal_id FROM animals 
          WHERE organization_id = ? 
@@ -169,7 +166,6 @@ exports.addPet = async (req, res) => {
             }
 
 
-            // Built snapshot object para sa direct admin entry
             const snapshotData = {
                 full_name: req.body.adopter_full_name || null,
                 contact_number: req.body.adopter_contact_number || null,
@@ -1761,10 +1757,6 @@ exports.updatePaymentInfo = async (req, res) => {
                 dropoffImageFile;
         }
 
-         // =====================================================
-        // Kung may laman ang alinman sa In-Kind fields,
-        // dapat kumpleto lahat maliban sa Notes
-        // =====================================================
 
         const anyInkindProvided =
             !!finalDropoffLocationName ||
@@ -1936,7 +1928,6 @@ exports.getDonations = async (req, res) => {
 
         const organization_id = org[0].organization_id;
 
-        // 2. Fetch all cash donations for this organization (Idinagdag ang payment_method)
         const [donations] = await pool.query(
             `
             SELECT 
@@ -1998,7 +1989,7 @@ exports.updateDonationStatus = async (req, res) => {
         const donationId = req.params.id;
         const { status, reason } = req.body;
 
-        // 1. Fetch organization ID using the logged-in session account_id
+        //  Fetch organization ID using the logged-in session account_id
         const [orgs] = await pool.query(
             `SELECT organization_id FROM organizations WHERE account_id = ?`,
             [req.session.accountId]
@@ -2014,7 +2005,7 @@ exports.updateDonationStatus = async (req, res) => {
 
         const organizationId = orgs[0].organization_id;
 
-        // 2. Perform the update on cash_donations
+        //  Perform the update on cash_donations
         const [result] = await pool.query(
             `
             UPDATE cash_donations
@@ -2030,7 +2021,7 @@ exports.updateDonationStatus = async (req, res) => {
                 message: "Donation record not found or does not belong to your organization."
             });
         }
-        // 3. Fetch donor's account_id for notification
+        //  Fetch donor's account_id for notification
         const [[donorInfo]] = await pool.query(
             `SELECT adopter_id FROM cash_donations WHERE cash_donation_id = ?`,
             [donationId]
@@ -2077,7 +2068,7 @@ exports.addInKindDonation = async (req, res) => {
 
         const { donor_name, donor_email, item_type, item_description, quantity, estimated_value } = req.body;
 
-        // 1. Kunin ang organization_id gamit ang logged-in account
+        //  Kunin ang organization_id gamit ang logged-in account
         const [org] = await pool.query(
             `SELECT organization_id FROM organizations WHERE account_id = ?`,
             [req.session.accountId]
@@ -2092,10 +2083,8 @@ exports.addInKindDonation = async (req, res) => {
 
         const organization_id = org[0].organization_id;
 
-        // 2. Kunin ang proof of donation / receipt image kung may file upload
         let proof_path = req.file ? req.file.path : null;
 
-        // 3. I-save sa database
         const [result] = await pool.query(
             `
             INSERT INTO inkind_donations 
@@ -2161,7 +2150,6 @@ exports.getInKindDonations = async (req, res) => {
 
         const organization_id = org[0].organization_id;
 
-        // 1. Fetch lahat ng in-kind donations para lumabas pa rin sa management table
         const [donations] = await pool.query(
             `
             SELECT * FROM inkind_donations
@@ -2171,7 +2159,6 @@ exports.getInKindDonations = async (req, res) => {
             [organization_id]
         );
 
-        // 2. APPROVED lang ang bibilangin (Hindi na kasama ang Pending at Rejected)
         const [countMetric] = await pool.query(
             `
             SELECT COUNT(*) AS total_inkind 
@@ -2298,7 +2285,7 @@ exports.updateInKindDonationStatus = async (req, res) => {
     }
 };
 // ==========================================
-// DROPOFF DETAILS CONTROLLERS
+// DROPOFF DETAILS 
 // ==========================================
 
 exports.getDropoffInfo = async (req, res) => {
@@ -2331,7 +2318,6 @@ exports.getDropoffInfo = async (req, res) => {
 
         const dropoffData = rows[0] || {};
 
-        // Format Dropoff Image URL kung mayroon
         if (dropoffData.dropoff_image && !dropoffData.dropoff_image.startsWith('/') && !dropoffData.dropoff_image.startsWith('http')) {
             dropoffData.dropoff_image = `/uploads/dropoff/${dropoffData.dropoff_image}`;
         }
@@ -2373,7 +2359,6 @@ exports.updateDropoffInfo = async (req, res) => {
         const organization_id = org[0].organization_id;
         const dropoff_image = req.file ? req.file.filename : null;
 
-        // Upsert sa organization_dropoff_details table
         await pool.query(
             `
             INSERT INTO organization_dropoff_details 
@@ -3010,9 +2995,9 @@ exports.getAnalyticsData = async (req, res) => {
 exports.archivePet = async (req, res) => {
     try {
         const id = req.params.id;
-        const { status, prevStatus} = req.body; // 'Archived' o 'Restore' / 'Available'[cite: 70]
+        const { status, prevStatus} = req.body; 
 
-        // 1. Check organization ownership
+        //  Check organization ownership
         const [org] = await pool.query(
             `SELECT organization_id FROM organizations WHERE account_id = ?`,
             [req.session.accountId]
@@ -3051,7 +3036,6 @@ exports.archivePet = async (req, res) => {
         }
         
         if (status === 'Archived') {
-            // KAPAG I-AARCHIVE
             await pool.query(
                 `UPDATE animals SET adoption_status = 'Archived' WHERE animal_id = ? AND organization_id = ?`,
                 [id, organizationId]
@@ -3064,7 +3048,6 @@ exports.archivePet = async (req, res) => {
                 message: "Pet has been archived successfully."
             });
         } else {
-            // KAPAG I-UUNARCHIVE: Aalamin ang dating status mula sa applications table
             const [applications] = await pool.query(
                 `SELECT status FROM user_adoption_applications 
                  WHERE animal_id = ? 
@@ -3074,7 +3057,6 @@ exports.archivePet = async (req, res) => {
 
             let restoredStatus = prevStatus || 'Available';
 
-            // Kung hindi naipasa o 'Archived' ang naipasa, tingnan sa applications table
             if (!prevStatus || prevStatus === 'Archived') {
                 const [applications] = await pool.query(
                     `SELECT status FROM user_adoption_applications 
@@ -3086,7 +3068,6 @@ exports.archivePet = async (req, res) => {
                 if (applications.length > 0) {
                     const appStatus = (applications[0].status || '').toLowerCase();
 
-                    // Kung may active application pa -> PENDING
                     if (appStatus.includes('review') || appStatus.includes('interview') || appStatus.includes('scheduled')) {
                         restoredStatus = 'Pending';
                     } else if (appStatus.includes('approved')) {
@@ -3095,7 +3076,6 @@ exports.archivePet = async (req, res) => {
                 }
             }
 
-            // I-UPDATE SA TOTOONG DATING STATUS (Pending o Available)
             await pool.query(
                 `UPDATE animals SET adoption_status = ? WHERE animal_id = ? AND organization_id = ?`,
                 [restoredStatus, id, organizationId]
@@ -3172,7 +3152,6 @@ exports.getApplicationByAnimalId = async (req, res) => {
 };
 exports.getKamustahanUpdates = async (req, res) => {
     try {
-        // IDINAGDAG: Kunin din ang organization_name
         const [org] = await pool.query(
             `SELECT organization_id, organization_name FROM organizations WHERE account_id = ?`,
             [req.session.accountId]
@@ -3183,7 +3162,7 @@ exports.getKamustahanUpdates = async (req, res) => {
         }
 
         const organization_id = org[0].organization_id;
-        const organization_name = org[0].organization_name; // <-- I-save sa variable
+        const organization_name = org[0].organization_name; 
 
         const [updates] = await pool.query(
             `
@@ -3224,7 +3203,6 @@ exports.getKamustahanUpdates = async (req, res) => {
             [organization_id]
         );
 
-        // IDINAGDAG: Isama ang organization_name sa response
         res.json({ success: true, updates, organization_name });
     } catch (err) {
         console.error("Get Kamustahan Updates Error:", err);
@@ -3287,9 +3265,7 @@ exports.schedulePetUpdate = async (req, res) => {
 
         const organizationId = org[0].organization_id;
 
-        // ==========================================
-        // 1. KUNIN ANG PET AT ADOPTER ID MULA SA PININDOT NA UPDATE
-        // ==========================================
+      
         const [[currentUpdate]] = await pool.query(
             `SELECT animal_id, adopter_id, status FROM kamustahan_updates WHERE update_id = ? AND organization_id = ?`,
             [update_id, organizationId]
@@ -3302,9 +3278,7 @@ exports.schedulePetUpdate = async (req, res) => {
             });
         }
 
-        // ==========================================
-        // 2. CHECK KUNG MAY PENDING NANG 'For Update' PARA SA PET NA ITO
-        // ==========================================
+  
         const [[existingPending]] = await pool.query(
             `SELECT update_id FROM kamustahan_updates 
              WHERE animal_id = ? AND adopter_id = ? AND organization_id = ? AND status = 'For Update'`,
@@ -3348,7 +3322,6 @@ exports.archiveKamustahanUpdate = async (req, res) => {
     try {
         const { update_id } = req.body;
 
-        // 1. Kunin ang current details ng update para masuri ang status[cite: 21]
         const [updateCheck] = await pool.query(
             `SELECT * FROM kamustahan_updates WHERE update_id = ?`,
             [update_id]
@@ -3360,7 +3333,6 @@ exports.archiveKamustahanUpdate = async (req, res) => {
 
         const currentUpdate = updateCheck[0];
 
-        // 2. I-check kung ang status ay 'For Update' pa o wala pang update_date (hindi pa na-update)[cite: 21]
         if (currentUpdate.status === 'For Update' || !currentUpdate.update_date) {
             return res.status(400).json({ 
                 success: false, 
@@ -3368,7 +3340,6 @@ exports.archiveKamustahanUpdate = async (req, res) => {
             });
         }
 
-        // 3. Kung na-update na, saka pa lamang i-archive[cite: 21]
         await pool.query(
             `UPDATE kamustahan_updates 
              SET is_archived = 1, status = 'Archived' 

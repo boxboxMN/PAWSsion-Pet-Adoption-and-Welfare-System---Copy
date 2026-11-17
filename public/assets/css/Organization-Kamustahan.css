@@ -1,0 +1,165 @@
+ @media print {
+        body * {
+            visibility: hidden;
+        }
+        #printableReport, #printableReport * {
+            visibility: visible;
+        }
+        #printableReport {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            margin: 0;
+            padding: 20px;
+            background: white !important;
+        }
+        .shadow-sm, .shadow-2xl, .border {
+            box-shadow: none !important;
+            border: none !important;
+        }
+        #printableReport th:nth-child(4),
+        #printableReport th:nth-child(5),
+        #printableReport td:nth-child(4),
+        #printableReport td:nth-child(5) {
+            display: none !important;
+        }
+    }
+
+    #printableReport th {
+        background-color: #f8fafc !important;
+        color: #334155 !important;
+        font-size: 13px !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 12px 16px !important;
+        border-bottom: 2px solid #e2e8f0 !important;
+    }
+
+    #printableReport td img,
+    #printableReport th img,
+    td img,
+    th img {
+        width: 70px !important;
+        height: 70px !important;
+        object-fit: cover !important;
+        border-radius: 10px !important;
+        display: block !important;
+        border: 1px solid #e2e8f0;
+    }
+
+    table {
+        table-layout: fixed;
+        width: 100%;
+    }
+
+    #updatesTableBody td {
+        word-break: break-word;
+        overflow: hidden;
+    }
+
+    #printableReport td,
+    td {
+        vertical-align: middle !important;
+        padding: 12px 16px !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+    }
+
+    #printableReport td .pet-info-container,
+    #printableReport td > div {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 14px;
+    }
+
+    #printableReport td .pet-info-container div,
+    #printableReport td > div > div {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    /* ===== INLINE-STYLE MODAL HELPERS ===== */
+    .custom-modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483646;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.45);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+    }
+    .custom-modal-backdrop.is-open {
+        display: flex;
+    }
+    .custom-modal-box {
+        background: #ffffff;
+        border-radius: 16px;
+        max-width: 380px;
+        width: 100%;
+        margin: 0 16px;
+        padding: 24px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        text-align: center;
+        transform: scale(0.95);
+        opacity: 0;
+        transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+    .custom-modal-box.is-visible {
+        transform: scale(1);
+        opacity: 1;
+    }
+    .custom-modal-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        font-size: 24px;
+    }
+    .custom-modal-title {
+        font-size: 18px;
+        font-weight: 700;
+        color: #111827;
+        margin: 0;
+    }
+    .custom-modal-message {
+        font-size: 14px;
+        color: #6b7280;
+        margin-top: 8px;
+        line-height: 1.5;
+    }
+    .custom-modal-btn-row {
+        margin-top: 24px;
+        display: flex;
+        gap: 12px;
+    }
+    .custom-modal-btn {
+        padding: 10px 16px;
+        font-size: 14px;
+        border-radius: 12px;
+        border: none;
+        cursor: pointer;
+        font-weight: 600;
+        transition: filter 0.15s ease;
+    }
+    .custom-modal-btn:hover {
+        filter: brightness(0.95);
+    }
+    .custom-modal-btn-full {
+        width: 100%;
+    }
+    .custom-modal-btn-primary {
+        background: #2563eb;
+        color: #ffffff;
+    }
+    .custom-modal-btn-secondary {
+        background: #f3f4f6;
+        color: #374151;
+        font-weight: 500;
+    }

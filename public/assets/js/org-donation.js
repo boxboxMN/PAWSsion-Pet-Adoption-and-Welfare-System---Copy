@@ -1,3 +1,4 @@
+//Fallback placeholder for QR code if none is available 
 const NO_QR_PLACEHOLDER = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="150" height="150" viewBox="0 0 150 150"><rect width="100%" height="100%" fill="%23f3f4f6"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="sans-serif" font-size="14" font-weight="bold" fill="%239ca3af">No QR Code</text></svg>';
 
 // Global state
@@ -8,7 +9,7 @@ let selectedDonationId = null;
 let selectedInKindId = null;
 let currentReceiptPath = null;
 
-// ⭐ PAGINATION STATE
+// Number of rows to display per page
 const ROWS_PER_PAGE = 5;
 let cashCurrentPage    = 1;
 let inkindCurrentPage  = 1;
@@ -19,48 +20,52 @@ let cashStatusFilter   = 'ALL';
 let inkindStatusFilter = 'ALL';
 
 let inkindProofFile = null;
-const MAX_INKIND_PROOF_SIZE = 5 * 1024 * 1024; // 5MB
+
+// Initial state of the payment form (used for reset)
+const MAX_INKIND_PROOF_SIZE = 5 * 1024 * 1024; 
+
+// Allowed file types for in-kind proof upload
 const ALLOWED_INKIND_PROOF_TYPES = [
     "image/jpeg",
     "image/jpg",
     "image/png",
     "image/webp"
 ];
+//Runs the page setup after the HtML document has been fully loaded and parsed
 document.addEventListener("DOMContentLoaded", async () => {
-    // Load Shared Layout Components
+
     await loadTopbar({
         title: "Donations Overview",
         subtitle: "Track funds and in-kind resources submitted by sponsors"
     });
     await loadSidebar("donation");
 
-    // Close dropdowns on outside click
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.action-dropdown-btn') && !e.target.closest('.action-dropdown-menu')) {
             document.querySelectorAll('.action-dropdown-menu').forEach(m => m.classList.add('hidden'));
         }
     });
 
-    // Add event listener for active payment method dropdown change
+    
     const methodSelect = document.getElementById('inputPaymentMethod');
     if (methodSelect) {
         methodSelect.addEventListener('change', togglePaymentMethodFields);
         togglePaymentMethodFields(); // trigger initially
     }
 
-    //restrict input fields to digits only
+  
     restrictToDigitsOnly("inputAccountNum", 11);
     restrictToDigitsOnly("inputMayaNum", 11);
 
     initInkindProofUpload();
 
-    // Load Initial Data
+    
     fetchPaymentDetails();
     fetchDonations();
     fetchInKindDonations();
 });
 
-// Toggle visibility of GCash vs Maya configuration inputs inside the modal
+// Show or hide the payment method fields based on the selected payment method
 function togglePaymentMethodFields() {
     const methodSelect = document.getElementById('inputPaymentMethod');
     const gcashGroup = document.getElementById('gcashFieldsGroup');
@@ -81,7 +86,7 @@ function togglePaymentMethodFields() {
     }
 }
 
-//restricts input to digits only and limits length
+// allows only numeric characters in the specified input and limits the number of digits to a maximum length (default is 11)
 function restrictToDigitsOnly(inputId, maxLength = 11) {
     const input = document.getElementById(inputId);
     if (!input) return;
@@ -93,7 +98,7 @@ function restrictToDigitsOnly(inputId, maxLength = 11) {
         }
     });
 
-    // Pinipigilan din ang pag-paste ng hindi-numeric na text
+ 
     input.addEventListener("paste", function (e) {
         const pastedText = (e.clipboardData || window.clipboardData).getData("text");
         if (/\D/.test(pastedText)) {
@@ -105,9 +110,7 @@ function restrictToDigitsOnly(inputId, maxLength = 11) {
     });
 }
 
-// =====================================================
-// ⭐ STATUS CATEGORY HELPERS
-// =====================================================
+// converts the database status into the status category used for filtering and counting
 function getStatusCategory(rawStatus) {
     const s = String(rawStatus || 'Pending').toLowerCase().trim();
     if (s === 'approved' || s === 'verified') return 'Confirmed';
@@ -115,6 +118,7 @@ function getStatusCategory(rawStatus) {
     return 'Pending';
 }
 
+//Counts the number of donations in each status category (ALL, Pending, Confirmed, Rejected) from the provided list of donations
 function countByStatus(list) {
     const counts = { ALL: 0, Pending: 0, Confirmed: 0, Rejected: 0 };
     (list || []).forEach(item => {
@@ -124,6 +128,7 @@ function countByStatus(list) {
     return counts;
 }
 
+// Updates the status pills in the UI with the counts and highlights the active filter
 function paintStatusPills(prefix, counts, activeFilter) {
     const labels = { ALL: 'All', Pending: 'Pending', Confirmed: 'Confirmed', Rejected: 'Rejected' };
     Object.keys(labels).forEach(key => {
@@ -135,14 +140,17 @@ function paintStatusPills(prefix, counts, activeFilter) {
     });
 }
 
+//refreshes the status pills for cash donations based on the current filter and counts
 function updateCashStatusPills() {
     paintStatusPills('cash', countByStatus(allDonations), cashStatusFilter);
 }
 
+//Refreshes the status pills for in-kind donations based on the current filter and counts
 function updateInkindStatusPills() {
     paintStatusPills('inkind', countByStatus(allInKindDonations), inkindStatusFilter);
 }
 
+//Changes the active cash donation filter and refreshes the table and pills accordingly
 function setCashStatusFilter(filter) {
     cashStatusFilter = filter;
     cashCurrentPage = 1;
@@ -150,6 +158,7 @@ function setCashStatusFilter(filter) {
     filterDonations();
 }
 
+//changes the active in-kind donation filter and refreshes the table and pills accordingly
 function setInkindStatusFilter(filter) {
     inkindStatusFilter = filter;
     inkindCurrentPage = 1;
@@ -157,9 +166,7 @@ function setInkindStatusFilter(filter) {
     filterDonations();
 }
 
-// =====================================================
-// ⭐ IN-KIND PROOF PHOTO HELPERS
-// =====================================================
+//clears the selected proof image and resets the upload preview and error message.
 function resetInkindProof() {
     inkindProofFile = null;
 
@@ -181,6 +188,7 @@ function resetInkindProof() {
     }
 }
 
+//displays an error message in the in-kind proof upload section and makes the error visible
 function showInkindProofError(msg) {
     const errorEl = document.getElementById("inkindProofError");
     if (!errorEl) return;
@@ -188,6 +196,7 @@ function showInkindProofError(msg) {
     errorEl.classList.remove("hidden");
 }
 
+//Hides and clears the in-kind proof upload error message, restoring the section to its default state 
 function clearInkindProofError() {
     const errorEl = document.getElementById("inkindProofError");
     if (!errorEl) return;
@@ -195,6 +204,7 @@ function clearInkindProofError() {
     errorEl.classList.add("hidden");
 }
 
+//checks whether the proof image exists, uses an allowed image type, and is within the maximum size limit. Returns an error message if invalid, or null if valid.
 function validateInkindProofFile(file) {
     if (!file) {
         return "Please upload a photo as proof that the item was received or used.";
@@ -207,6 +217,8 @@ function validateInkindProofFile(file) {
     }
     return null;
 }
+
+// Stores the selected proof image and displays its preview and filename.
 
 function setInkindProofFile(file) {
     inkindProofFile = file;
@@ -233,6 +245,8 @@ function setInkindProofFile(file) {
     };
     reader.readAsDataURL(file);
 }
+
+// Sets up the in-kind proof upload area, file selection, validation, and remove button.
 
 function initInkindProofUpload() {
     const dropZone    = document.getElementById("inkindProofDropZone");
@@ -271,12 +285,8 @@ function initInkindProofUpload() {
     }
 }
 
-/**
- * Switches between the Cash Donations and In-Kind Donations tabs.
- */
-/**
- * Switches between the Cash Donations and In-Kind Donations main tables.
- */
+// Switches between the cash and in-kind donation tables.
+
 function switchDonationTab(tab) {
     activeTab = tab;
     
@@ -298,22 +308,17 @@ function switchDonationTab(tab) {
         inkindContainer.classList.remove("hidden");
         cashContainer.classList.add("hidden");
     }
-     // Reset page para sa tab na pinasok
+     
     if (tab === 'cash') cashCurrentPage = 1;
     else inkindCurrentPage = 1;
 
-    // Optional: i-clear o i-retrigger ang filter para sumakto sa napiling tab
+    
     filterDonations();
 }
 
-/**
- * Switches between the Cash and In-Kind configuration
- * sections inside the settings modal.
- */
-/**
- * Switches between the Cash and In-Kind configuration
- * sections inside the settings modal.
- */
+
+// Switches between the cash payment settings and in-kind drop-off settings sections.
+
 function switchModalConfigTab(type) {
     const modalTabCash = document.getElementById("modalTabCash");
     const modalTabInKind = document.getElementById("modalTabInKind");
@@ -335,6 +340,8 @@ function switchModalConfigTab(type) {
         if (sectionInput) sectionInput.value = "inkind";
     }
 }
+
+// Requests the organization's payment and drop-off information and fills the settings form.
 
 async function fetchPaymentDetails() {
     try {
@@ -528,143 +535,146 @@ async function fetchPaymentDetails() {
         }
 
         // =====================================================
-// IN-KIND INFORMATION
-// =====================================================
+        // IN-KIND INFORMATION
+        // =====================================================
 
-const locationName =
-    document.getElementById(
-        "inputLocationName"
-    );
+        const locationName =
+            document.getElementById(
+                "inputLocationName"
+            );
 
-const locationAddress =
-    document.getElementById(
-        "inputLocationAddress"
-    );
+        const locationAddress =
+            document.getElementById(
+                "inputLocationAddress"
+            );
 
-const operatingHours =
-    document.getElementById(
-        "inputOperatingHours"
-    );
+        const operatingHours =
+            document.getElementById(
+                "inputOperatingHours"
+            );
 
-const importantNotes =
-    document.getElementById(
-        "inputImportantNotes"
-    );
-
-
-// =====================================================
-// LOCATION NAME
-// =====================================================
-
-if (locationName) {
-
-    locationName.value =
-        data.dropoff_location_name || "";
-}
+        const importantNotes =
+            document.getElementById(
+                "inputImportantNotes"
+            );
 
 
-// =====================================================
-// ADDRESS
-// =====================================================
+        // =====================================================
+        // LOCATION NAME
+        // =====================================================
 
-if (locationAddress) {
+        if (locationName) {
 
-    locationAddress.value =
-        data.dropoff_address || "";
-}
-
-
-// =====================================================
-// HOURS
-// =====================================================
-
-if (operatingHours) {
-
-    operatingHours.value =
-        data.dropoff_hours || "";
-}
+            locationName.value =
+                data.dropoff_location_name || "";
+        }
 
 
-// =====================================================
-// NOTES
-// =====================================================
+        // =====================================================
+        // ADDRESS
+        // =====================================================
 
-if (importantNotes) {
+        if (locationAddress) {
 
-    importantNotes.value =
-        data.dropoff_notes || "";
-}
+            locationAddress.value =
+                data.dropoff_address || "";
+        }
 
 
-// =====================================================
-// INITIAL STATE
-// =====================================================
+        // =====================================================
+        // HOURS
+        // =====================================================
 
-initialPaymentFormState = {
+        if (operatingHours) {
 
-    payment_method:
-        paymentMethod,
+            operatingHours.value =
+                data.dropoff_hours || "";
+        }
 
-    gcash_name:
-        data.gcash_name || "",
 
-    gcash_number:
-        data.gcash_number || "",
+        // =====================================================
+        // NOTES
+        // =====================================================
 
-    maya_name:
-        data.maya_name || "",
+        if (importantNotes) {
 
-    maya_number:
-        data.maya_number || "",
+            importantNotes.value =
+                data.dropoff_notes || "";
+        }
 
-    dropoff_location_name:
-        data.dropoff_location_name || "",
 
-    dropoff_address:
-        data.dropoff_address || "",
+        // =====================================================
+        // INITIAL STATE
+        // =====================================================
 
-    dropoff_hours:
-        data.dropoff_hours || "",
+        initialPaymentFormState = {
 
-    dropoff_notes:
-        data.dropoff_notes || ""
-};
-        
+            payment_method:
+                paymentMethod,
 
-        console.log(
-            "Payment details loaded:",
-            {
-                payment_method:
-                    paymentMethod,
+            gcash_name:
+                data.gcash_name || "",
 
-                gcash_name:
-                    data.gcash_name,
+            gcash_number:
+                data.gcash_number || "",
 
-                gcash_number:
-                    data.gcash_number,
+            maya_name:
+                data.maya_name || "",
 
-                maya_name:
-                    data.maya_name,
+            maya_number:
+                data.maya_number || "",
 
-                maya_number:
-                    data.maya_number,
+            dropoff_location_name:
+                data.dropoff_location_name || "",
 
-                maya_qr_code:
-                    data.maya_qr_code,
+            dropoff_address:
+                data.dropoff_address || "",
 
-                dropoff_address:
-                    data.dropoff_address
+            dropoff_hours:
+                data.dropoff_hours || "",
+
+            dropoff_notes:
+                data.dropoff_notes || ""
+        };
+                
+
+                console.log(
+                    "Payment details loaded:",
+                    {
+                        payment_method:
+                            paymentMethod,
+
+                        gcash_name:
+                            data.gcash_name,
+
+                        gcash_number:
+                            data.gcash_number,
+
+                        maya_name:
+                            data.maya_name,
+
+                        maya_number:
+                            data.maya_number,
+
+                        maya_qr_code:
+                            data.maya_qr_code,
+
+                        dropoff_address:
+                            data.dropoff_address
+                    }
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "fetchPaymentDetails error:",
+                    error
+                );
             }
-        );
+        }
 
-    } catch (error) {
-
-        console.error(
-            "fetchPaymentDetails error:",
-            error
-        );
-    }
-}
+// Loads cash donation records from the server and updates the total and donation table.
+    
 async function fetchDonations() {
     try {
         const res = await fetch("/org/donations");
@@ -694,6 +704,9 @@ async function fetchDonations() {
         }
     }
 }
+
+// Builds the cash donation table for the current page and adds pagination controls.
+
 function renderDonationsTable(donations) {
     const tbody = document.getElementById("donationsTableBody");
     if (!tbody) return;
@@ -713,7 +726,7 @@ function renderDonationsTable(donations) {
         return;
     }
 
-    // ⭐ Compute current page slice
+    //  Compute current page slice
     const totalPages = Math.max(1, Math.ceil(cashFilteredData.length / ROWS_PER_PAGE));
     if (cashCurrentPage > totalPages) cashCurrentPage = totalPages;
     if (cashCurrentPage < 1) cashCurrentPage = 1;
@@ -784,6 +797,8 @@ function renderDonationsTable(donations) {
     }, cashFilteredData.length);
 }
 
+// Loads in-kind donation records from the server and updates the total and table.
+
 async function fetchInKindDonations() {
     try {
         const res = await fetch("/org/donations/in-kind");
@@ -809,6 +824,9 @@ async function fetchInKindDonations() {
         }
     }
 }
+
+// Builds the in-kind donation table for the current page and adds pagination controls.
+
 function renderInKindTable(donations) {
     const tbody = document.getElementById("inkindTableBody");
     if (!tbody) return;
@@ -874,10 +892,9 @@ function renderInKindTable(donations) {
         renderInKindTable(inkindFilteredData);
     }, inkindFilteredData.length);
 }
-/**
- * Opens the in-kind donation review modal
- * and displays the selected donation details[cite: 5].
- */
+
+// Loads the selected in-kind donation into the review modal and adjusts the available actions based on its status.
+
 function openInKindModal(id) {
     selectedInKindId = id;
     const donation = allInKindDonations.find(item => (item.inkind_donation_id || item.id) == id);
@@ -896,7 +913,6 @@ function openInKindModal(id) {
         categoryInput.value = donation.category || "—";
     }
 
-    // Donor's submitted photo of the item
     const donorProofWrap = document.getElementById("inkindDonorProofSection");
     const donorProofImg  = document.getElementById("inkindDonorProofImg");
 
@@ -932,10 +948,8 @@ function openInKindModal(id) {
         approveBtn.className = "px-4 py-2 bg-gray-300 text-gray-500 text-xs font-semibold rounded-lg cursor-not-allowed";
         rejectBtn.classList.add("hidden");
 
-        // Walang action → itago ang proof upload section
         if (proofSection) proofSection.classList.add("hidden");
 
-        // Kung approved na at may org proof na, ipakita ito sa donor proof area na naman
         if (donation.org_proof_image_path && donorProofImg && donorProofWrap) {
             let orgProofPath = donation.org_proof_image_path;
             if (!orgProofPath.startsWith("/") && !orgProofPath.startsWith("http")) {
@@ -981,21 +995,16 @@ function openInKindModal(id) {
     modal.querySelector("div").classList.remove("scale-95");
 }
 
+// Closes the in-kind donation review modal and clears the selected donation ID.
 
-/**
- * Closes the in-kind donation review modal[cite: 5].
- */
 function closeInKindModal() {
     const modal = document.getElementById("reviewInKindModal");
     modal.classList.add("opacity-0", "pointer-events-none");
     modal.querySelector("div").classList.add("scale-95");
     selectedInKindId = null;
 }
+// Displays the in-kind rejection form and hides the initial action buttons.
 
-/**
- * Displays the rejection section
- * for an in-kind donation[cite: 5].
- */
 function showInKindRejectionFlow() {
     document.getElementById("inkindRejectionSection").classList.remove("hidden");
     document.getElementById("inkindInitialActionButtons").classList.add("hidden");
@@ -1003,20 +1012,15 @@ function showInKindRejectionFlow() {
     updateInKindRejectionText();
 }
 
-/**
- * Hides the in-kind rejection section
- * and restores the default action buttons[cite: 5].
- */
+// Hides the in-kind rejection form and restores the initial action buttons.
+
 function hideInKindRejectionFlow() {
     document.getElementById("inkindRejectionSection").classList.add("hidden");
     document.getElementById("inkindInitialActionButtons").classList.remove("hidden");
     document.getElementById("inkindRejectionActionButtons").classList.add("hidden");
 }
+// Sets the rejection explanation based on the selected in-kind rejection reason.
 
-/**
- * Updates the rejection reason message
- * based on the selected rejection option[cite: 5].
- */
 function updateInKindRejectionText() {
     const selectedRadio = document.querySelector('input[name="inkindRejectReason"]:checked');
     const reasonBox = document.getElementById("inkindRejectionReasonText");
@@ -1037,7 +1041,6 @@ function updateInKindRejectionText() {
 
 /**
  * Submits the rejection reason
- * for an in-kind donation[cite: 5].
  */
 async function submitInKindRejection() {
     const reasonText = document.getElementById("inkindRejectionReasonText").textContent;
@@ -1046,12 +1049,11 @@ async function submitInKindRejection() {
 
 /**
  * Updates the status of the selected
- * in-kind donation[cite: 5].
  */
 async function updateInKindStatus(newStatus, reason = null) {
     if (!selectedInKindId) return;
 
-    // ⭐ Require proof photo for BOTH approve & reject
+    // Require proof photo for BOTH approve & reject
     const proofErr = validateInkindProofFile(inkindProofFile);
     if (proofErr) {
         showInkindProofError(proofErr);
@@ -1064,12 +1066,11 @@ async function updateInKindStatus(newStatus, reason = null) {
         const formData = new FormData();
         formData.append("status", newStatus);
         if (reason) formData.append("reason", reason);
-        formData.append("proof_image", inkindProofFile);   // must match multer's field name
+        formData.append("proof_image", inkindProofFile);   
 
         const res = await fetch(`/org/donations/in-kind/${selectedInKindId}/status`, {
             method: "PUT",
             body: formData
-            // NOTE: DO NOT set Content-Type — browser sets multipart boundary automatically
         });
 
         const result = await res.json();
@@ -1087,9 +1088,8 @@ async function updateInKindStatus(newStatus, reason = null) {
     }
 }
 
-/**
- * Filters the current table based on search input + active status sub-tab.
- */
+// Filters the active donation table using the search text and selected status.
+
 function filterDonations() {
     const searchInput = document.getElementById("searchInput");
     const searchTerm  = searchInput ? searchInput.value.toLowerCase() : "";
@@ -1131,10 +1131,8 @@ function filterDonations() {
     }
 }
 
-/**
- * Shows or hides the action dropdown menu
- * for the selected cash donation[cite: 5].
- */
+// Opens the selected action dropdown and closes any other open dropdown menus.
+
 function toggleActionDropdown(e, id) {
     e.stopPropagation();
     document.querySelectorAll('.action-dropdown-menu').forEach(menu => {
@@ -1144,9 +1142,8 @@ function toggleActionDropdown(e, id) {
     if (targetMenu) targetMenu.classList.toggle('hidden');
 }
 
-/**
- * Updates the "Showing X to Y of Z results" text.
- */
+// Displays which records are currently shown and the total number of matching records.
+
 function updatePaginationInfo(elementId, start, end, total) {
     const pagInfo = document.getElementById(elementId);
     if (!pagInfo) return;
@@ -1158,16 +1155,14 @@ function updatePaginationInfo(elementId, start, end, total) {
     }
 }
 
-/**
- * Renders prev / page numbers / next inside the given container.
- */
+// Creates the Previous, page number, and Next buttons for a table.
+
 function renderPaginationButtons(containerId, currentPage, totalPages, onPageClick, total) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
     container.innerHTML = "";
 
-    // Kung 1 page lang o walang laman, itago ang lahat ng buttons
     if (total === 0 || totalPages <= 1) {
         return;
     }
@@ -1196,14 +1191,12 @@ function renderPaginationButtons(containerId, currentPage, totalPages, onPageCli
         return btn;
     };
 
-    // Prev
     container.appendChild(makeBtn(
         '<i class="fa-solid fa-chevron-left text-xs"></i>',
         currentPage - 1,
         { disabled: currentPage === 1 }
     ));
 
-    // Page numbers with ellipsis
     const pages = getPaginationRange(currentPage, totalPages);
     pages.forEach(p => {
         if (p === "...") {
@@ -1216,7 +1209,6 @@ function renderPaginationButtons(containerId, currentPage, totalPages, onPageCli
         }
     });
 
-    // Next
     container.appendChild(makeBtn(
         '<i class="fa-solid fa-chevron-right text-xs"></i>',
         currentPage + 1,
@@ -1224,9 +1216,8 @@ function renderPaginationButtons(containerId, currentPage, totalPages, onPageCli
     ));
 }
 
-/**
- * Helper para sa page numbers with ellipsis (hal. 1 … 4 5 6 … 20)
- */
+// Calculates which page numbers and ellipses should appear in the pagination controls.
+
 function getPaginationRange(current, total) {
     const delta = 1;
     const range = [];
@@ -1254,10 +1245,9 @@ function getPaginationRange(current, total) {
     return rangeWithDots;
 }
 
-/**
- * Opens the receipt image
- * in a lightbox modal[cite: 5].
- */
+
+// Opens the receipt image in the preview modal and sets its download and external-view links.
+
 function viewReceiptDirect(receiptPathRaw) {
     let fullPath = NO_QR_PLACEHOLDER;
     
@@ -1274,7 +1264,6 @@ function viewReceiptDirect(receiptPathRaw) {
 
     if (modalImg) {
         modalImg.src = fullPath;
-        // BINAGO: Nilagyan ng max-h-[70vh] at w-auto para hindi lumaki nang sobra
         modalImg.className = "max-h-[70vh] w-auto max-w-full object-contain rounded-lg shadow-md mx-auto";
     }
 
@@ -1291,9 +1280,8 @@ function viewReceiptDirect(receiptPathRaw) {
         modal.querySelector("div")?.classList.remove("scale-95");
     }
 }
-/**
- * Opens the in-kind proof image in the same lightbox modal.
- */
+// Opens the donor's in-kind proof image in the larger image preview modal.
+
 function openInkindProofLightbox() {
     const img = document.getElementById("inkindDonorProofImg");
     if (!img || !img.src) return;
@@ -1315,9 +1303,9 @@ function openInkindProofLightbox() {
     }
 }
 
-/**
- * vvdfdsdsfdsfdfsfdsfdsf
- */
+
+// Closes the receipt or proof image preview modal.
+
 function closeReceiptModal() {
     const modal = document.getElementById("receiptModal");
     if (modal) {
@@ -1328,7 +1316,6 @@ function closeReceiptModal() {
 
 /**
  * Opens the receipt lightbox
- * from the review modal[cite: 5].
  */
 function triggerViewReceiptFromReview() {
     const img = document.getElementById("reviewReceiptImg");
@@ -1341,7 +1328,6 @@ function triggerViewReceiptFromReview() {
 
 /**
  * Opens the cash donation review modal
- * and displays the selected donation details[cite: 5].
  */
 function openReviewModal(id) {
     selectedDonationId = id; 
@@ -1427,7 +1413,7 @@ function openReviewModal(id) {
 }
 
 /**
- * Closes the cash donation review modal[cite: 5].
+ * Closes the cash donation review modal
  */
 function closeReviewModal() {
     const modal = document.getElementById("reviewDonationModal");
@@ -1439,10 +1425,8 @@ function closeReviewModal() {
     currentReceiptPath = null;
 }
 
-/**
- * Displays the rejection form
- * for a cash donation[cite: 5].
- */
+// Displays the cash donation rejection form and hides the initial action buttons.
+
 function showRejectionFlow() {
     document.getElementById("rejectionSection").classList.remove("hidden");
     document.getElementById("initialActionButtons").classList.add("hidden");
@@ -1450,20 +1434,16 @@ function showRejectionFlow() {
     updateRejectionText();
 }
 
-/**
- * Hides the rejection form
- * and restores the default action buttons[cite: 5].
- */
+// Hides the cash donation rejection form and restores the initial action buttons.
+
 function hideRejectionFlow() {
     document.getElementById("rejectionSection").classList.add("hidden");
     document.getElementById("initialActionButtons").classList.remove("hidden");
     document.getElementById("rejectionActionButtons").classList.add("hidden");
 }
 
-/**
- * Updates the rejection message
- * based on the selected reason[cite: 5].
- */
+// Sets the cash donation rejection explanation based on the selected reason.
+
 function updateRejectionText() {
     const selectedRadio = document.querySelector('input[name="rejectReason"]:checked');
     const reasonBox = document.getElementById("rejectionReasonText");
@@ -1482,10 +1462,8 @@ function updateRejectionText() {
     }
 }
 
-/**
- * Approves and verifies
- * the selected cash donation[cite: 5].
- */
+// Sends an approval status update for the selected cash donation to the server.
+
 async function approveDonation() {
     if (!selectedDonationId) return;
     
@@ -1509,10 +1487,8 @@ async function approveDonation() {
     }
 }
 
-/**
- * Rejects the selected cash donation
- * and records the rejection reason[cite: 5].
- */
+// Sends a rejection status and its explanation for the selected cash donation to the server.
+
 async function rejectDonation() {
     if (!selectedDonationId) return;
     const reasonText = document.getElementById("rejectionReasonText").textContent;
@@ -1537,10 +1513,8 @@ async function rejectDonation() {
     }
 }
 
-/**
- * Opens the donation settings
- * configuration modal[cite: 5].
- */
+// Opens the donation settings modal and fills the organization address when the field is empty.
+
 async function openConfigModal() {
     const modal = document.getElementById('paymentConfigModal');
     if (modal) {
@@ -1549,8 +1523,6 @@ async function openConfigModal() {
     }
 
     fetchDropoffHours();
-    // Auto-fill ang Complete Address galing sa Org Profile, pero LANG kung wala pa itong laman
-    // (hindi papatungan ang address na sadyang na-customize na ng org para sa drop-off)
     const addressInput = document.getElementById("inputLocationAddress");
     if (addressInput && !addressInput.value.trim()) {
         try {
@@ -1575,10 +1547,8 @@ async function openConfigModal() {
     }
 }
 
-/**
- * Closes the donation settings
- * configuration modal[cite: 5].
- */
+// Closes the donation settings modal.
+
 function closeConfigModal() {
     const modal = document.getElementById('paymentConfigModal');
     if (modal) {
@@ -1587,10 +1557,8 @@ function closeConfigModal() {
     }
 }
 
-/**
- * Displays a preview of the selected
- * image before uploading[cite: 5].
- */
+// Reads a selected image file and displays it in the specified preview element.
+
 function previewImage(event, previewId) {
   const file = event.target.files[0];
   if (file) {
@@ -1602,9 +1570,8 @@ function previewImage(event, previewId) {
   }
 }
 
-/**
- * Saves the organization's payment information and in-kind drop-off settings.
- */
+// Validates and saves the organization's payment details and in-kind drop-off information.
+
 async function savePaymentDetails(e) {
     e.preventDefault();
 
@@ -1908,15 +1875,12 @@ function refreshData() {
 }
 let cachedOrganizationName = null;
 
-/**
- * Resolves the logged-in organization name dynamically.
- * Priority: DOM (topbar/sidebar/greeting) → API fallback → safe default.
- * Ensures the export never prints a hardcoded name.
- */
+
+// Retrieves the logged-in organization's name for use in exported reports.
+
 async function getLoggedInOrganizationName() {
     if (cachedOrganizationName) return cachedOrganizationName;
 
-    // 1) Known DOM element IDs
     const domIds = [
         'orgName', 'organizationName', 'org-name', 'organization-name',
         'greetingOrgName', 'topbarOrgName', 'welcomeOrgName', 'headerOrgName',
@@ -1930,7 +1894,6 @@ async function getLoggedInOrganizationName() {
         }
     }
 
-    // 2) Known CSS selectors / data attributes
     const domSelectors = [
         '.org-name', '.organization-name', '.greeting-name',
         '[data-org-name]', '.topbar-org-name', '.sidebar-org-name'
@@ -1943,7 +1906,6 @@ async function getLoggedInOrganizationName() {
         }
     }
 
-    // 3) Fallback: fetch from organization profile API
     try {
         const res = await fetch('/api/organization/profile', { credentials: 'include' });
         if (res.ok) {
@@ -1968,7 +1930,8 @@ async function getLoggedInOrganizationName() {
     return 'Organization';
 }
 
-/** Makes a safe filename fragment. */
+// Cleans a text value so it can safely be used as part of an exported filename.
+
 function sanitizeFilenamePart(str) {
     return String(str || '')
         .replace(/[\\/:*?"<>|]+/g, '')
@@ -1977,7 +1940,8 @@ function sanitizeFilenamePart(str) {
         .trim() || 'report';
 }
 
-/** Returns "Year 2026", "August 2026", or "All Records". */
+// Creates the readable report period label based on the selected filter and date.
+
 function getReportPeriodLabel(filterType, dateValue) {
     if (!dateValue) return 'All Records';
     if (filterType === 'year') return `Year ${dateValue}`;
@@ -1992,7 +1956,8 @@ function getReportPeriodLabel(filterType, dateValue) {
     return String(dateValue);
 }
 
-/** Formats a date for export tables (date only, no time). */
+// Converts a date value into the date format used in exported reports.
+
 function formatExportDate(raw) {
     if (!raw) return 'N/A';
     const d = new Date(raw);
@@ -2000,10 +1965,8 @@ function formatExportDate(raw) {
     return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-/**
- * Applies the same filters the table is currently showing:
- * search input + status sub-tab + date picker.
- */
+// Prepares the filtered cash or in-kind donation records for exporting.
+
 function buildExportData(tab, filterType, dateValue) {
     const searchTerm = (document.getElementById('searchInput')?.value || '').toLowerCase().trim();
     const source = tab === 'cash' ? allDonations : allInKindDonations;
@@ -2040,9 +2003,9 @@ function buildExportData(tab, filterType, dateValue) {
         return true;
     });
 }
-// =====================================================
-// ⭐ PDF EXPORT (jsPDF + AutoTable) — PERFECT ALIGNMENT
-// =====================================================
+
+// Creates a PDF report containing the selected donation records and report details.
+
 function generateDonationPDF(orgName, tab, data, reportPeriod) {
     const { jsPDF } = window.jspdf;
     if (!jsPDF) {
@@ -2147,13 +2110,13 @@ function generateDonationPDF(orgName, tab, data, reportPeriod) {
     doc.save(filename);
     showToast(`${tab === 'cash' ? 'Cash' : 'In-Kind'} report downloaded!`, 'success');
 }
-// =====================================================
-// ⭐ EXCEL EXPORT (HTML-table based .xls) — NO EMAIL, NO TIME
-// =====================================================
+
+// Creates an Excel report containing the selected donation records.
+
 function generateDonationExcel(orgName, tab, data, reportPeriod) {
     let headers, rows;
     if (tab === 'cash') {
-        // ⭐ Email column removed
+        
         headers = ['Date', 'Donor', 'Amount (PHP)', 'Method', 'Reference No.', 'Status'];
         rows = data.map(d => [
             formatExportDate(d.created_at),
@@ -2241,11 +2204,9 @@ function generateDonationExcel(orgName, tab, data, reportPeriod) {
     showToast(`${tab === 'cash' ? 'Cash' : 'In-Kind'} report downloaded!`, 'success');
 }
 
-// =====================================================
-// ⭐ MAIN EXPORT ENTRY POINT
-// =====================================================
+// Collects the report data and starts the selected PDF or Excel export process.
+
 async function exportFile(format) {
-    // Close dropdown immediately
     const exportMenu = document.getElementById('exportMenu');
     if (exportMenu) exportMenu.classList.add('hidden');
 
@@ -2254,7 +2215,7 @@ async function exportFile(format) {
         const dateValue  = document.getElementById('datePicker')?.value || '';
         const currentTab = activeTab || 'cash';
 
-        // ⭐ Fetch the logged-in org name dynamically — no hardcoding
+        //  Fetch the logged-in org name dynamically 
         const orgName = await getLoggedInOrganizationName();
 
         const reportPeriod = getReportPeriodLabel(filterType, dateValue);
@@ -2342,6 +2303,8 @@ let ORG_DROPOFF_HOURS = DROPOFF_DAY_NAMES.map((_, i) => ({
     end_time: "18:00:00"
 }));
 
+// Converts a time value into a readable AM/PM format.
+
 function formatTimeToAMPM(timeStr) {
     const [hStr, mStr] = timeStr.split(":");
     let h = parseInt(hStr, 10);
@@ -2351,6 +2314,8 @@ function formatTimeToAMPM(timeStr) {
     if (h === 0) h = 12;
     return `${h}:${m} ${ampm}`;
 }
+
+// Creates a readable summary of the organization's selected drop-off days and hours.
 
 function generateDropoffHoursSummary(days) {
     const sorted = [...days].sort((a, b) => a.day_of_week - b.day_of_week);
@@ -2377,6 +2342,8 @@ function generateDropoffHoursSummary(days) {
     }).join(", ");
 }
 
+// Retrieves the organization's drop-off schedule from the server.
+
 async function fetchDropoffHours() {
     try {
         const res = await fetch('/api/organization/dropoff-hours', { credentials: 'include' });
@@ -2394,6 +2361,8 @@ async function fetchDropoffHours() {
     if (summaryEl) summaryEl.textContent = summary;
     if (hiddenInput) hiddenInput.value = summary;
 }
+
+// Opens the modal used to edit the organization's drop-off schedule.
 
 function openEditDropoffHoursModal() {
     const body = document.getElementById("dropoffHoursFormBody");
@@ -2417,9 +2386,13 @@ function openEditDropoffHoursModal() {
     document.getElementById("editDropoffHoursModal").classList.remove("hidden");
 }
 
+// Closes the drop-off schedule editing modal.
+
 function closeEditDropoffHoursModal() {
     document.getElementById("editDropoffHoursModal").classList.add("hidden");
 }
+
+// Enables or disables the time fields for the selected day of the week.
 
 function toggleDropoffDayRow(dow) {
     const row = document.querySelector(`#dropoffHoursFormBody .dropoff-day-row[data-day="${dow}"]`);
@@ -2428,6 +2401,8 @@ function toggleDropoffDayRow(dow) {
     row.querySelector('.dropoff-day-start-input').disabled = !isOpen;
     row.querySelector('.dropoff-day-end-input').disabled = !isOpen;
 }
+
+// Saves the updated drop-off schedule and refreshes the displayed schedule summary.
 
 async function saveDropoffHours() {
     const rows = document.querySelectorAll('#dropoffHoursFormBody .dropoff-day-row');

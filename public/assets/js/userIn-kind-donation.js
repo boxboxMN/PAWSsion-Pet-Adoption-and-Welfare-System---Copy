@@ -12,9 +12,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let organizations = [];
     let selectedOrganization = null;
-    // ==========================================
-    // ⭐ CATEGORY → ALLOWED UNITS MAP
-    // ==========================================
+
     const CATEGORY_UNITS = {
         "Food & Treats":          ["kg", "sacks", "packs", "boxes", "cans", "pcs"],
         "Toys":                   ["pcs", "packs", "boxes", "sets"],
@@ -40,12 +38,11 @@ document.addEventListener('DOMContentLoaded', async function() {
     const termsCheckbox = document.getElementById('termsCheckbox');
     const submitBtn     = document.getElementById('submitInKindBtn');
 
-    // ⭐ Quantity — numbers only, block negatives, decimals, at e/E
     if (quantityInput) {
         quantityInput.addEventListener("input", function () {
-            // Alisin ang non-digits
+        
             this.value = this.value.replace(/[^0-9]/g, "");
-            // Block 0
+           
             if (this.value === "0") this.value = "";
         });
         quantityInput.addEventListener("keydown", function (e) {
@@ -61,9 +58,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         });
     }
-       // ==========================================
-    // ⭐ CATEGORY CHANGE — Dynamic Unit + Item Placeholder
-    // ==========================================
+
     function populateUnitsForCategory(category) {
         if (!unitInput) return;
 
@@ -90,15 +85,15 @@ document.addEventListener('DOMContentLoaded', async function() {
         categoryInput.addEventListener("change", function () {
             const cat = this.value;
 
-            // Reset unit
+         
             populateUnitsForCategory(cat);
 
-            // Unlock + update item name placeholder
+        
             if (itemNameInput) {
                 if (cat) {
                     itemNameInput.disabled = false;
                     itemNameInput.placeholder = CATEGORY_PLACEHOLDERS[cat] || "Enter item name";
-                    itemNameInput.value = ""; // clear stale value when switching category
+                    itemNameInput.value = ""; 
                 } else {
                     itemNameInput.disabled = true;
                     itemNameInput.placeholder = "Select a category first...";
@@ -123,9 +118,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     const orgEmail   = document.getElementById("modalOrgEmail");
     const orgMission = document.getElementById("modalOrgMission");
 
-    // ==========================================
-    // ITEM NAME VALIDATION (same sa index.js)
-    // ==========================================
     function validateItemName(name) {
         const value = (name || '').trim();
 
@@ -160,7 +152,6 @@ document.addEventListener('DOMContentLoaded', async function() {
                 .test(value.replace(/\s+/g, '')))
             return { valid: false, reason: 'Please enter a valid item name.' };
 
-        // Bawat word (3+ letters) dapat may vowel
         const words = value.split(/[\s\-',.()\/&+]+/).filter(Boolean);
         for (const w of words) {
             const letters = w.replace(/[^a-zA-Z]/g, '');
@@ -355,9 +346,6 @@ document.addEventListener('DOMContentLoaded', async function() {
         if (e.key === "Escape") closeModal();
     });
 
-    // ==========================================
-    // IN-KIND SUBMISSION
-    // ==========================================
     if (submitBtn) {
         submitBtn.addEventListener("click", async function (e) {
             e.preventDefault();
@@ -382,14 +370,14 @@ document.addEventListener('DOMContentLoaded', async function() {
                 return;
             }
 
-            // ⭐ Item name validation (same sa index.js)
+            //  Item name validation 
             const itemCheck = validateItemName(finalItemName);
             if (!itemCheck.valid) {
                 showToast(itemCheck.reason, "error");
                 return;
             }
 
-            // ⭐ Quantity validation — positive whole number
+            //  Quantity validation — positive whole number
             const strictQuantityPattern = /^[1-9]\d*$/;
             if (!quantity || !strictQuantityPattern.test(quantity)) {
                 showToast("Please enter a valid quantity (numbers only, greater than zero).", "error");
@@ -406,7 +394,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 return;
             }
 
-            // ⭐ Payload with unit
+            //  Payload with unit
             const payload = {
                 organization_id: selectedOrganization,
                 category:        category,

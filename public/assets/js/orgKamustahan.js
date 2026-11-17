@@ -1,3 +1,5 @@
+// global variables
+
 let allUpdatesData = [];
 let filteredUpdatesData = []; 
 const itemsPerPage = 5; 
@@ -8,6 +10,7 @@ let currentDate = new Date();
 let currentUpdateIdForReply = null;
 let currentOrgName = "Organization Name"; 
 
+// Defines the four evaluation categories used by the organization
 
 const ORG_EVALUATION_ITEMS = [
     { key: 'photo_quality',     label: 'Photo Quality',       icon: 'fa-image' },
@@ -15,14 +18,16 @@ const ORG_EVALUATION_ITEMS = [
     { key: 'behavior_info',     label: 'Behavior Information',icon: 'fa-brain' },
     { key: 'overall_wellbeing', label: 'Overall Well-being',  icon: 'fa-heart' }
 ];
+// Stores the organization's selected evaluation answers
+
 let orgEvaluationAnswers = {};
 
-// ⭐ CAROUSEL STATE (MULTIPLE PHOTOS)
+// Stores the photos displayed in the update details modal
+
 let orgModalPhotos = [];
 
-// ==========================================
-// DATE HELPERS
-// ==========================================
+// Converts a date into YYYY-MM-DD format using the local timezone
+
 function toLocalDateKey(dateInput) {
     if (!dateInput) return '';
     if (typeof dateInput === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateInput)) {
@@ -38,9 +43,13 @@ function toLocalDateKey(dateInput) {
     return `${y}-${m}-${day}`;
 }
 
+// Gets the current date in local YYYY-MM-DD format
+
 function getTodayLocalKey() {
     return toLocalDateKey(new Date());
 }
+
+// Converts a date into a readable format such as November 17, 2026
 
 function formatReadableDate(dateInput) {
     if (!dateInput) return 'N/A';
@@ -59,9 +68,7 @@ function formatReadableDate(dateInput) {
     });
 }
 
-// ==========================================
-// HTML ESCAPE
-// ==========================================
+
 function escapeHtml(str) {
     if (str == null) return '';
     return String(str)
@@ -72,9 +79,8 @@ function escapeHtml(str) {
         .replace(/'/g, "&#039;");
 }
 
-// ==========================================
-// CONFIRM MODAL
-// ==========================================
+// Displays a custom confirmation modal with different themes
+
 function showModal({
     title = "Are you sure?",
     message = "",
@@ -128,6 +134,8 @@ function showModal({
         box.classList.add('is-visible');
     });
 }
+// Hides the confirmation modal after the user selects an action
+
 
 function closeModal(modal, box) {
     box.classList.remove('is-visible');
@@ -135,6 +143,7 @@ function closeModal(modal, box) {
         modal.classList.remove('is-open');
     }, 180);
 }
+// Displays a confirmation message before performing an action
 
 function showConfirm(message, onOk, onCancel = null, opts = {}) {
     showModal({
@@ -146,10 +155,8 @@ function showConfirm(message, onOk, onCancel = null, opts = {}) {
         onOk, onCancel
     });
 }
+// Displays a temporary notification message to the user
 
-// ==========================================
-// TOAST NOTIFICATION
-// ==========================================
 function showToast(message, type = "success") {
     const container = document.getElementById("toastContainer");
     if (!container) return;
@@ -180,13 +187,14 @@ function showToast(message, type = "success") {
     }, 3500);
 }
 
-// ==========================================
-// INITIALIZATION & EVENT LISTENERS
-// ==========================================
+// Shows or hides the export dropdown menu
+
 function toggleExportMenu() {
     const menu = document.getElementById('exportDropdownMenu');
     if (menu) menu.classList.toggle('hidden');
 }
+
+// Runs the initialization code after the HTML page has fully loaded
 
 document.addEventListener("DOMContentLoaded", async () => {
     if (typeof loadTopbar === "function") {
@@ -216,6 +224,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     const tableView = document.getElementById("tableViewContainer");
     const calendarView = document.getElementById("calendarViewContainer");
     const viewToggleBtn = document.querySelector('.bg-gray-100.p-1');
+
+        // Switches between active and archived records
 
     function switchTab(tabName) {
         [tabActive, tabArchive].forEach(t => {
@@ -252,9 +262,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 });
-// ==========================================
-// EVENT DELEGATION
-// ==========================================
+
+// Handles clicks on dynamically generated View and Schedule buttons
+
 document.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-action][data-update-id]");
     if (!btn) return;
@@ -270,6 +280,9 @@ document.addEventListener("click", (e) => {
         openScheduleModal(updateId);
     }
 });
+
+// Closes the confirmation modal when the Escape key is pressed
+
 document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
 
@@ -278,6 +291,7 @@ document.addEventListener('keydown', (e) => {
         confirmModal.classList.remove('is-open');
     }
 });
+// Retrieves Kamustahan records from the organization API
 
 async function fetchKamustahanData() {
     try {
@@ -301,6 +315,8 @@ async function fetchKamustahanData() {
         document.getElementById("updatesTableBody").innerHTML = `<tr><td colspan="5" class="text-center py-8 text-red-400 italic">Failed to connect to database server.</td></tr>`;
     }
 }
+
+// Filters records based on the selected tab, search keyword, and status
 
 function filterAndRenderTable(resetPage = false) {
     if (resetPage) currentPage = 1;
@@ -336,6 +352,8 @@ function filterAndRenderTable(resetPage = false) {
     filteredUpdatesData.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     renderTable(); 
 }
+
+// Displays the filtered records in the HTML table
 
 function renderTable() {
     const tbody = document.getElementById("updatesTableBody");
@@ -450,6 +468,8 @@ function renderTable() {
     updatePaginationUI(startIndex, endIndex, totalItems);
 }
 
+// Updates the pagination information and navigation buttons
+
 function updatePaginationUI(startIndex, endIndex, totalItems) {
     const paginationInfo = document.getElementById("tablePaginationInfo");
     if (paginationInfo) {
@@ -495,15 +515,17 @@ function updatePaginationUI(startIndex, endIndex, totalItems) {
     buttonsContainer.appendChild(nextBtn);
 }
 
+// Calculates and displays the Kamustahan dashboard statistics
+
 function updateStatistics(data) {
-    // 1. Kunin lang ang mga active (hindi archived) na rows
+   
     const activeData = data.filter(i => i.is_archived != 1);
 
-    // 2. Total Adopted Pets = BILANG NG UNIQUE PETS (by animal_id)
+    
     const uniquePetIds = new Set(activeData.map(i => i.animal_id));
     const total = uniquePetIds.size;
 
-    // 3. Updated = unique pets na may nai-submit nang update
+   
     const updatedPetIds = new Set(
         activeData
             .filter(i => i.formatted_date && i.update_status !== 'For Update')
@@ -511,8 +533,7 @@ function updateStatistics(data) {
     );
     const updatedCount = updatedPetIds.size;
 
-    // 4. For Update = unique pets na naghihintay pa ng update 
-    // (Kasama dito ang mga "Scheduled" sa table kasi wala pa silang na-submit)
+
     const forUpdatePetIds = new Set(
         activeData
             .filter(i => !i.formatted_date || i.update_status === 'For Update')
@@ -529,9 +550,9 @@ function updateStatistics(data) {
     if (statForUpdate) statForUpdate.textContent = forUpdateCount; 
 }
 
-// ==========================================
-// MODAL & CONSULTATION LOGIC
-// ==========================================
+
+// Opens the modal containing the adopter's submitted Kamustahan update
+
 async function openUpdateModal(item) {
     currentUpdateIdForReply = item.update_id; 
 
@@ -699,6 +720,7 @@ function updateOrgPhotoView() {
         nextBtn.classList.add('hidden');
     }
 }
+// Displays the next uploaded photo
 
 function nextOrgPhoto() {
     if (currentOrgPhotoIndex < orgModalPhotos.length - 1) {
@@ -707,6 +729,8 @@ function nextOrgPhoto() {
     }
 }
 
+// Displays the previous uploaded photo
+
 function prevOrgPhoto() {
     if (currentOrgPhotoIndex > 0) {
         currentOrgPhotoIndex--;
@@ -714,9 +738,14 @@ function prevOrgPhoto() {
     }
 }
 
+// Opens the selected photo in a new browser tab for zooming
+
 function zoomOrgPhoto() {
     window.open(orgModalPhotos[currentOrgPhotoIndex], '_blank');
 }
+
+// Closes the update details modal and clears the organization note input
+
 function closeUpdateModal() {
     const modal = document.getElementById("updateModal");
     if (modal) modal.classList.add("hidden");
@@ -724,9 +753,8 @@ function closeUpdateModal() {
     if (input) input.value = ''; 
 }
 
-// ==========================================
-// ORG EVALUATION CHECKLIST RENDERING
-// ==========================================
+// Generates the four evaluation categories and their selection buttons
+
 function renderEvaluationChecklist() {
     const grid = document.getElementById('evaluationChecklist');
     if (!grid) return;
@@ -760,7 +788,7 @@ function renderEvaluationChecklist() {
         </div>
     `).join('');
 
-    // Attach click handlers
+  
     grid.querySelectorAll('[data-eval-key]').forEach(wrapper => {
         const key = wrapper.dataset.evalKey;
         wrapper.querySelectorAll('.eval-btn').forEach(btn => {
@@ -770,12 +798,12 @@ function renderEvaluationChecklist() {
         });
     });
 
-    // Restore existing answers
     Object.entries(orgEvaluationAnswers).forEach(([key, val]) => {
         const btn = grid.querySelector(`[data-eval-key="${key}"] [data-eval-value="${val}"]`);
         if (btn) applyEvalButtonStyle(btn, val);
     });
 }
+// Saves the selected evaluation answer for a specific category
 
 function setEvalAnswer(key, val) {
     orgEvaluationAnswers[key] = val;
@@ -783,17 +811,17 @@ function setEvalAnswer(key, val) {
     const wrapper = document.querySelector(`[data-eval-key="${key}"]`);
     if (!wrapper) return;
 
-    // Reset lahat ng buttons sa default style
+  
     wrapper.querySelectorAll('.eval-btn').forEach(b => {
         b.className = 'eval-btn flex flex-col items-center justify-center text-[9px] font-semibold py-2 rounded-md border-2 border-slate-200 text-slate-500 transition leading-tight';
     });
 
-    // I-apply ang active color sa napiling button
     const selected = wrapper.querySelector(`[data-eval-value="${val}"]`);
     if (selected) applyEvalButtonStyle(selected, val);
 
     updateVerdictPreview();
 }
+// Applies the appropriate color style to the selected evaluation button
 
 function applyEvalButtonStyle(btn, val) {
     const theme = {
@@ -806,6 +834,8 @@ function applyEvalButtonStyle(btn, val) {
         btn.className = `eval-btn flex flex-col items-center justify-center text-[9px] font-semibold py-2 rounded-md border-2 transition leading-tight ${theme}`;
     }
 }
+// Determines the overall verdict based on all four evaluation answers
+
 function computeVerdict() {
     const values = ORG_EVALUATION_ITEMS.map(i => orgEvaluationAnswers[i.key]);
     if (values.some(v => !v)) return null;
@@ -813,6 +843,8 @@ function computeVerdict() {
     if (values.includes('follow_up'))   return 'follow_up';
     return 'approved';
 }
+
+// Displays the calculated or previously saved organization verdict
 
 function updateVerdictPreview(savedVerdict = null) {
     const box = document.getElementById('verdictPreview');
@@ -866,6 +898,8 @@ function updateVerdictPreview(savedVerdict = null) {
         followUpSection.classList.toggle('hidden', verdict === 'approved');
     }
 }
+
+// Saves the organization's evaluation and sends a response to the adopter
 
 async function markAsReviewed() {
     if (!currentUpdateIdForReply) return;
@@ -925,6 +959,7 @@ async function markAsReviewed() {
 
     }
 }
+// Archives the selected Kamustahan update after confirmation
 
 async function archiveUpdate(update_id) {
     showConfirm(
@@ -953,10 +988,8 @@ async function archiveUpdate(update_id) {
         { title: "Archive Update", okText: "Archive", type: "warning" }
     );
 }
+// Opens the modal for setting a Kamustahan update deadline
 
-// ==========================================
-// SCHEDULE MODAL LOGIC
-// ==========================================
 function openScheduleModal(updateId) {
     const schedUpdateIdInput = document.getElementById("schedUpdateId");
     const scheduleModal = document.getElementById("scheduleModal");
@@ -974,10 +1007,15 @@ function openScheduleModal(updateId) {
     if (scheduleModal) scheduleModal.classList.remove("hidden");
 }
 
+// Closes the schedule modal
+
+
 function closeScheduleModal() {
     const scheduleModal = document.getElementById("scheduleModal");
     if (scheduleModal) scheduleModal.classList.add("hidden");
 }
+
+// Validates and saves the selected Kamustahan deadline
 
 function submitSchedule(event) {
     event.preventDefault();
@@ -1036,10 +1074,8 @@ function submitSchedule(event) {
         }
     });
 }
+// Switches between table view and calendar view
 
-// ==========================================
-// VIEW SWITCHER & CALENDAR
-// ==========================================
 function switchView(view) {
     currentView = view;
     const tableContainer = document.getElementById('tableViewContainer');
@@ -1060,11 +1096,14 @@ function switchView(view) {
         renderCalendar();
     }
 }
+// Changes the displayed calendar month
 
 function changeMonth(direction) {
     currentDate.setMonth(currentDate.getMonth() + direction);
     renderCalendar();
 }
+
+// Generates the calendar and displays scheduled Kamustahan updates
 
 function renderCalendar() {
     const calendarGrid = document.getElementById('calendarGrid');
@@ -1128,10 +1167,8 @@ function renderCalendar() {
         calendarGrid.appendChild(dayCell);
     }
 }
+// Exports Kamustahan records into CSV or PDF format
 
-// ==========================================
-// EXPORT LOGIC
-// ==========================================
 function exportData(type) {
     const monthFilter = document.getElementById("exportMonthFilter") ? document.getElementById("exportMonthFilter").value : "";
     
@@ -1204,6 +1241,8 @@ function exportData(type) {
     const dropdownMenu = document.getElementById('exportDropdownMenu');
     if (dropdownMenu) dropdownMenu.classList.add('hidden');
 }
+
+// Creates the HTML layout used for the printable Kamustahan report
 
 function renderPrintableReport(data) {
     let printContainer = document.getElementById('printableReport');
@@ -1306,6 +1345,7 @@ function renderPrintableReport(data) {
     `;
     printContainer.innerHTML = html;
 }
+// Generates and downloads the Kamustahan PDF report
 
 function downloadKamustahanPDF() {
     const element = document.getElementById('printableReport'); 
@@ -1333,6 +1373,7 @@ function downloadKamustahanPDF() {
             showToast("There was a problem downloading the PDF.", "error");
         });
 }
+// Generates a printable report for one selected Kamustahan record
 
 function exportSingleKamustahan() {
     const item = allUpdatesData.find(i => Number(i.update_id) === Number(currentUpdateIdForReply));

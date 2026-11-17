@@ -2,7 +2,6 @@ const express = require("express");
 const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
-// const { fileTypeFromFile } = require("file-type");
 const FileType = require("file-type");
 const router = express.Router();
 const userController = require("../controllers/userController");
@@ -11,7 +10,6 @@ const { matchPets } = require("../controllers/matchmakerController");
 const { csrfSynchronisedProtection } = require("../middleware/csrf");
 const pool = require('../config/database');
 const { uploadReturnProof } = require("../config/upload");
-// const {uploadAdoptionDocument,  uploadAvatar} = require("../config/upload");
 const {uploadAdoptionDocument} = require("../config/upload");
 const { logActivity, createNotification } = require("../controllers/adminController"); 
 const { uploadToCloudinary } = require("../services/cloudinaryUpload");
@@ -124,7 +122,6 @@ const uploadDoc = multer({
       cb(new Error("Only images (JPG, PNG) and PDF files are allowed!"));
   }
 });
-// Idagdag itong storage configuration sa userRouter.js
 const kamustahanStorage = multer.diskStorage({
     destination: function (req, file, cb) {
         const dir = "uploads/kamustahan/";
@@ -143,7 +140,6 @@ const uploadKamustahan = multer({ storage: kamustahanStorage });
 function checkUserSession(req, res, next) {
     const isApi = req.originalUrl.startsWith("/api/");
 
-    // 1. Walang session
     if (!req.session.accountId) {
         if (isApi) {
             return res.status(401).json({
@@ -154,7 +150,6 @@ function checkUserSession(req, res, next) {
         return res.redirect("/auth/login");
     }
 
-    // 2. Role check — adopter lang
     if (req.session.role !== "adopter") {
         if (isApi) {
             return res.status(403).json({
@@ -417,9 +412,7 @@ router.put('/api/user/kamustahan/:id', checkUserSession, uploadKamustahan.array(
         const updateId = req.params.id;
         const { update_text } = req.body;
         
-        // Gamitin ang pool na naka-export sa itaas
         if (req.files && req.files.length > 0) {
-            // const photoPaths = req.files.map(file => `/uploads/kamustahan/${file.filename}`);
              const photoPaths = await Promise.all(
                 req.files.map(file =>
                     uploadToCloudinary(file, "pawpon/kamustahan")

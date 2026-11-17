@@ -4,15 +4,11 @@ let selectedEditFile = null;
 let fetchedUpdates = []; // Cache para sa Edit Modal
 let dueUpdatesList = []; // Cache para sa Kamustahan Due
 
-// ===================================================
 // FILTER VARIABLES
-// ===================================================
 let historySearchQuery = '';
 let historyStatusFilter = 'all';
 
-// ===================================================
 // CHECKLIST DATA DEFINITIONS
-// ===================================================
 const HEALTH_CHECKLIST = {
     appetite: {
         label: 'Appetite', icon: 'fa-utensils',
@@ -127,7 +123,6 @@ const BEHAVIOR_CHECKLIST = {
     }
 };
 
-// ⭐ Emergency symptoms na mag-shoshow ng non-blocking vet nudge
 const EMERGENCY_OPTIONS = new Set([
     'refusing', 'excessive', 'diarrhea', 'constipated', 'blood', 'with_blood', 'lethargic', 'labored'
 ]);
@@ -135,9 +130,6 @@ const EMERGENCY_OPTIONS = new Set([
 const healthAnswers = {};
 const behaviorAnswers = {};
 
-// ===================================================
-// INITIALIZATION
-// ===================================================
 document.addEventListener("DOMContentLoaded", async () => {
     await loadSidebar();
     requestAnimationFrame(() => {
@@ -156,7 +148,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const formatter = new Intl.DateTimeFormat('en-CA', phTimeOptions);
     document.getElementById('updateDate').value = formatter.format(new Date());
 
-       // 1. Fetch Kamustahan Due Updates FIRST (Para magamit sa Dropdown)
+       // 1. Fetch Kamustahan Due Updates
     try {
         const dueRes = await fetch('/api/user/kamustahan-due');
         const dueData = await dueRes.json();
@@ -165,10 +157,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             dueUpdatesList = dueData.dueUpdates || [];
             window.myDueUpdates = dueUpdatesList;
 
-            // ⭐ Timezone-safe na "Today" sa PH Time (YYYY-MM-DD)
             const todayStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
             
-            // ⭐ I-filter lang ang mga TOTOONG DUE NA (today or past) para sa banner
             const actuallyDue = dueUpdatesList.filter(u => {
                 if (!u.scheduled_date) return false;
                 const schedStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(u.scheduled_date));
@@ -202,7 +192,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.error("Error loading due Kamustahan updates:", err);
     }
 
-    // 2. Fetch Approved Pets Data (At lagyan ng Due Indicator)
+    // 2. Fetch Approved Pets Data 
     try {
         const res = await fetch('/api/user/approved-pets');
         const data = await res.json();
@@ -212,7 +202,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             petsData = data.pets;
             petSelect.innerHTML = '<option value="">-- Choose your adopted pet --</option>';
 
-            // ⭐ Gumawa ng dynamic notice para sa deadline
             const dateContainer = document.getElementById('updateDate').parentElement;
             let deadlineNotice = document.getElementById('dueDeadlineNotice');
             if (!deadlineNotice) {
@@ -226,21 +215,15 @@ document.addEventListener("DOMContentLoaded", async () => {
                 petsData.forEach(pet => {
                 const opt = document.createElement('option');
                 opt.value = pet.animal_id;
-                
-                const isDue = dueUpdatesList.some(u => u.animal_id == pet.animal_id);
-                
+                const isDue = dueUpdatesList.some(u => u.animal_id == pet.animal_id);  
                 const petName = pet.name || pet.pet_name || 'Unknown Pet';
-                
-                opt.textContent = petName + (isDue ? ' 🟡 (Update Needed)' : '');
-                
+                opt.textContent = petName + (isDue ? ' 🟡 (Update Needed)' : ''); 
                 petSelect.appendChild(opt);
             });
 
             petSelect.addEventListener('change', (e) => {
                 const selectedPet = petsData.find(p => p.animal_id == e.target.value);
                 document.getElementById('orgIdInput').value = selectedPet ? selectedPet.organization_id : '';
-
-                // ⭐ Ipakita ang Deadline kapag pinili ang pet
                 const notice = document.getElementById('dueDeadlineNotice');
                 const noticeDate = document.getElementById('dueDeadlineDate');
                 
@@ -265,12 +248,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.error("Error loading approved pets:", err);
     }
 
-    // 3. Photo input (Multiple Uploads)
+    // 3. Photo input 
     const photoInput = document.getElementById('photoInput');
     photoInput.addEventListener('change', (e) => {
         const files = Array.from(e.target.files);
         
-        // Limitahan sa 5 photos
         if (selectedFiles.length + files.length > 5) {
             showUiAlert("Maximum of 5 photos only.", "error");
             return;
@@ -297,40 +279,37 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // 4. FORM SUBMISSION (WITH STRICT VALIDATION & SANITATION)
+    // 4. FORM SUBMISSION 
     document.getElementById('kamustahanForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         hideUiAlert();
 
-        // ⭐ 1. Check kung may napiling Pet
         const petSelect = document.getElementById('petSelect');
         if (!petSelect.value) {
             showUiAlert("Please select an adopted pet.", "error");
             petSelect.focus();
             return;
         }
-
-        // ⭐ 2. Check kung may Photo
         if (selectedFiles.length === 0) {
             showUiAlert("Please upload at least one photo of your pet.", "error");
             return;
         }
 
-        // ⭐ 3. Validate Health Checklist (Kumpleto ba?)
+        //  Validate Health Checklist
         const missingHealth = Object.keys(HEALTH_CHECKLIST).filter(key => !healthAnswers[key]);
         if (missingHealth.length > 0) {
             showUiAlert(`Please answer all Health Check items. (Missing: ${missingHealth.length})`, "error");
             return;
         }
 
-        // ⭐ 4. Validate Behavior Checklist (Kumpleto ba?)
+        //  Validate Behavior Checklist 
         const missingBehavior = Object.keys(BEHAVIOR_CHECKLIST).filter(key => !behaviorAnswers[key]);
         if (missingBehavior.length > 0) {
             showUiAlert(`Please answer all Behavior Check items. (Missing: ${missingBehavior.length})`, "error");
             return;
         }
 
-        // ⭐ 5. Validate Vet Visit (Kung naka-check, kailangan may Date)
+        //  Validate Vet Visit 
         const isVetVisit = document.getElementById('vetVisitToggle').checked;
         const vetDate = document.getElementById('vetVisitDate').value;
         if (isVetVisit && !vetDate) {
@@ -349,7 +328,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             formData.append('photos', file);
         });
 
-        // ⭐ 6. Sanitize Text Inputs (Trim at Limitahan)
+        // Sanitize Text Inputs 
         const rawConcerns = document.getElementById('petConcerns')?.value || '';
         const rawDiagnosis = document.getElementById('vetDiagnosis')?.value || '';
 
@@ -417,7 +396,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
 
-    // 5. Edit form (Simple update text)
+    // 5. Edit form 
     const editForm = document.getElementById('editKamustahanForm');
     if (editForm) {
         editForm.addEventListener('submit', async (e) => {
@@ -460,9 +439,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 });
 
-// ===================================================
 // CHECKLIST RENDER FUNCTION
-// ===================================================
 function renderChecklist(containerId, checklist, storageObj, colorHex, colorBg) {
     const grid = document.getElementById(containerId);
     if (!grid) return;
@@ -496,7 +473,7 @@ function renderChecklist(containerId, checklist, storageObj, colorHex, colorBg) 
             radio.addEventListener('change', (e) => {
                 storageObj[key] = e.target.value;
 
-                // ⭐ Emergency symptom nudge (hindi risk level — tip lang)
+                //  Emergency symptom nudge 
                 let tip = wrapper.querySelector('.vet-tip');
 
                 if (EMERGENCY_OPTIONS.has(e.target.value)) {
@@ -519,9 +496,7 @@ function renderChecklist(containerId, checklist, storageObj, colorHex, colorBg) 
     }
 }
 
-// ===================================================
 // RENDER DETAILS PARA SA EDIT MODAL (Checklist & Vet)
-// ===================================================
 function renderUpdateDetails(item) {
     let html = '';
 
@@ -572,10 +547,7 @@ function renderUpdateDetails(item) {
 
     return html;
 }
-
-// ===================================================
 // UI & MODALS FUNCTIONS
-// ===================================================
 function showUiAlert(message, type = 'error') {
     const alertBox = document.getElementById('uiAlertBox');
     const alertMsg = document.getElementById('uiAlertMessage');
@@ -617,8 +589,7 @@ function renderPreview() {
     if (selectedFiles.length > 0) {
         badge.textContent = `${selectedFiles.length} / 5 photos selected`;
         badge.className = 'bg-blue-50 text-blue-700 text-xs font-bold px-3 py-1 rounded-full border border-blue-100';
-        
-        // Itago ang add button kung umabot na ng 5
+    
         if (selectedFiles.length >= 5) {
             addPhotoButton.style.display = 'none';
         } else {
@@ -657,9 +628,7 @@ function closeSuccessModal() {
     window.location.reload();
 }
 
-// ===================================================
 // HISTORY MODAL WITH FILTERS
-// ===================================================
 async function openHistoryModal() {
     const modal = document.getElementById('historyModal');
     modal.classList.remove('hidden');
@@ -748,7 +717,7 @@ function filterAndRenderHistory() {
 
     container.innerHTML = '';
     filteredData.forEach(item => {
-        // ⭐ 1. PHOTO & DATE FORMATTING (MULTIPLE PHOTOS)
+        // PHOTO & DATE FORMATTING 
         let photosArray = [];
         if (item.photos) {
             try {
@@ -757,11 +726,11 @@ function filterAndRenderHistory() {
             } catch(e) { photosArray = [item.photos]; }
         }
 
-        // I-format ang paths
+
         photosArray = photosArray.map(p => (!p.startsWith('http') && !p.startsWith('/')) ? `/${p}` : p);
         const firstImage = photosArray.length > 0 ? photosArray[0] : '';
 
-        // Gawing Philippine Time (PHT)
+    
         let formattedDate = 'N/A';
         if (item.update_date) {
             const dateStr = item.update_date.length === 10 ? `${item.update_date}T00:00:00` : item.update_date;
@@ -774,7 +743,6 @@ function filterAndRenderHistory() {
             });
         }
 
-        // ⭐ 2. VERDICT BADGES
         const verdictThemes = {
             approved:  { cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', icon: 'fa-check-circle',        label: 'Approved' },
             follow_up: { cls: 'bg-amber-50 text-amber-700 border-amber-200',       icon: 'fa-clock',                label: 'Follow-up Needed' },
@@ -789,7 +757,7 @@ function filterAndRenderHistory() {
                </span>` 
             : '';
 
-        // ⭐ 3. PARSE CHECKLISTS
+       
         let healthData = {};
         let behaviorData = {};
         try { if (item.health_checklist) healthData = JSON.parse(item.health_checklist); } catch(e){}
@@ -803,7 +771,7 @@ function filterAndRenderHistory() {
         const healthTags = Object.entries(healthData).map(([k, val]) => renderTag(k, val, 'emerald')).join('');
         const behaviorTags = Object.entries(behaviorData).map(([k, val]) => renderTag(k, val, 'indigo')).join('');
 
-        // ⭐ 4. ORG REVIEW BLOCK
+  
         let orgReplyHtml = '';
         if (item.org_response || item.org_verdict) {
             let replyDate = item.org_responded_at ? new Date(item.org_responded_at).toLocaleString('en-US', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' }) : '';
@@ -859,7 +827,7 @@ function filterAndRenderHistory() {
             ? `<button onclick="openEditModal(${item.update_id})" class="text-xs bg-white border border-slate-200 text-slate-600 hover:text-blue-600 hover:border-blue-300 hover:bg-blue-50 px-3.5 py-2 rounded-xl font-bold transition-all shadow-sm flex items-center gap-1.5"><i class="fas fa-pen text-[10px]"></i> Edit</button>`
             : `<span class="text-[10px] font-bold text-emerald-600 bg-emerald-50/50 px-3 py-2 rounded-xl border border-emerald-100 flex items-center gap-1.5 shadow-sm"><i class="fas fa-lock text-[10px]"></i> Locked</span>`;
 
-        // ⭐ 5. PET-CENTRIC CARD HTML
+
         const card = document.createElement('div');
         card.className = 'bg-white rounded-3xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden';
 

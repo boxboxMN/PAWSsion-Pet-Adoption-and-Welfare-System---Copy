@@ -5,10 +5,7 @@ const pool = require("../config/database");
 const { uploadToCloudinary } = require("../services/cloudinaryUpload");
 const { csrfSynchronisedProtection } = require("../middleware/csrf");
 const { uploadPet, uploadQR, uploadHandoverProof, uploadReturnProof, uploadDropoff,uploadInkindProof  } = require('../config/upload');
-// const { logActivity } = require("../controllers/adminController");
 const { logActivity, createNotification } = require("../controllers/adminController");
-
-// Controller functions
 const { 
     addPet, 
     updatePet, 
@@ -56,7 +53,6 @@ async function checkOrganizationApproval(req, res, next) {
         );
 
         if (!rows.length || rows[0].role !== "organization") {
-            // ✅ Redirect sa tamang dashboard base sa role
             if (req.session.role === "adopter") {
                 return res.redirect("/dashboard");
             }
@@ -80,7 +76,6 @@ async function checkOrganizationApproval(req, res, next) {
 
 router.use(checkOrganizationApproval);
 
-// 1. UNANG ROUTE: /pending
 router.get("/pending", (req, res) => {
     if (!req.session.accountId) {
         return res.redirect("/auth/login");
@@ -138,7 +133,6 @@ router.get("/profile", (req, res) => {
     res.sendFile(path.join(__dirname, "../public/organization/profile.html"));
 });
 
-// 4. PET & DONATION API ROUTES
 router.post("/pets/add", uploadPet.array("images", 10), addPet);
 router.put("/pets/update/:id", uploadPet.array("images", 10), updatePet);
 router.delete("/pets/delete/:id", deletePet);
@@ -147,9 +141,7 @@ router.get("/pets/trash", getDeletedPets);
 router.post("/pets/restore/:id", restorePet);
 router.delete("/pets/permanent/:id", permanentlyDeletePet);
 router.get("/pets/:id", getPetDetails);
-// Corrected donations route (serves GET /org/donations)
 router.get("/donations", getDonations);
-// 5. PAYMENT & QR ROUTES
 router.get(
     "/payment-info",
     getPaymentInfo
@@ -247,7 +239,6 @@ router.post(
     }
 );
 
-// GET: Fetch Drop-off Details
 router.get("/dropoff-info", async (req, res) => {
   try {
     const organizationId = req.session.accountId;
@@ -263,8 +254,6 @@ router.get("/dropoff-info", async (req, res) => {
   }
 });
 
-//5.adoption
-// GET Single Application Details Endpoint (Protected by Organization)
 router.get('/applications/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -332,7 +321,6 @@ router.get('/applications/:id', async (req, res) => {
 
     const appData = rows[0];
 
-    // Safely parse JSON applicant_snapshot
     let snapshot = {};
     try {
         snapshot = typeof appData.applicant_snapshot === 'string'
@@ -342,7 +330,6 @@ router.get('/applications/:id', async (req, res) => {
         console.error("JSON parse error:", e);
     }
 
-    // Merge parsed snapshot details with the main response object
     const responseData = {
         ...appData,
         full_name: snapshot.full_name || 'N/A',
@@ -362,7 +349,6 @@ router.get('/applications/:id', async (req, res) => {
     }
 });
 
-// GET: Load Adopter Qualification Checklist
 router.get('/applications/:id/qualification-checklist', async (req, res) => {
     try {
         const { id } = req.params;
@@ -375,7 +361,6 @@ router.get('/applications/:id/qualification-checklist', async (req, res) => {
             });
         }
 
-        // Get the organization linked to the logged-in account
         const [orgRows] = await pool.query(
             `SELECT organization_id
              FROM organizations
@@ -1681,7 +1666,6 @@ router.get("/applications/export/summary", async (req, res) => {
     }
 });
 
-// Add Archive Route
 router.patch("/pets/archive/:id", archivePet);
 
 router.get("/pets/:animalId/application", getApplicationByAnimalId);
@@ -1689,7 +1673,7 @@ router.get('/donations/export', async (req, res) => {
     try {
         const format = req.query.format; // excel or pdf
         const type = req.query.type;     // month or year
-        const date = req.query.date;     // 2026-08 or 2026
+        const date = req.query.date;     
         const tab = req.query.tab || 'cash'; // 'cash' o 'inkind'
 
         // --------------------------------------------
@@ -1788,7 +1772,7 @@ router.get('/donations/export', async (req, res) => {
         }
 
         // ============================================
-        // EXCEL / CSV EXPORT (Professional Structured)
+        // EXCEL / CSV EXPORT 
         // ============================================
         if (format === 'excel') {
             let csv = "";
@@ -1837,7 +1821,7 @@ router.get('/donations/export', async (req, res) => {
         }
 
         // ============================================
-        // PDF EXPORT (Professional Layout with PDFKit)
+        // PDF EXPORT 
         // ============================================
         if (format === 'pdf') {
             let PDFDocument;
@@ -1858,7 +1842,7 @@ router.get('/donations/export', async (req, res) => {
             res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
             doc.pipe(res);
 
-            // --- PROFESSIONAL PDF HEADER ---
+         
             doc.fontSize(16).font('Helvetica-Bold').fillColor('#1E293B').text(organizationName, { align: 'center' });
             doc.moveDown(0.2);
             doc.fontSize(12).font('Helvetica-Bold').fillColor('#475569').text(`Verified ${tab === 'inkind' ? 'In-Kind' : 'Cash'} Donations Summary Report`, { align: 'center' });
@@ -1942,7 +1926,7 @@ router.get('/donations/export', async (req, res) => {
                 y += 20;
             });
 
-            // --- FOOTER / SUMMARY SECTION ---
+           
             doc.moveDown(1);
             if (y > 720) { doc.addPage(); y = 50; }
             
@@ -1968,8 +1952,6 @@ router.get('/donations/export', async (req, res) => {
     }
 });
 
-// Palitan ang 'upload.single' ng 'uploadDropoff.single' 
-// Siguraduhin na ang string na ipapasa ('donation_image') ay tugma sa pangalan ng input field sa FormData sa frontend.
 
 router.post(
     "/donation-settings/inkind",
@@ -2042,7 +2024,6 @@ router.post('/kamustahan/:updateId/acknowledge', async (req, res) => {
         if (!org.length) return res.status(404).json({ success: false, message: "Organization not found." });
         const orgId = org[0].organization_id;
 
-        // ⭐ 1. CHECK KUNG MAY VERDICT NA (IMMUTABLE LOCK) + kunin ang animal/adopter IDs
         const [[existing]] = await pool.query(
             `SELECT org_verdict, animal_id, adopter_id 
              FROM kamustahan_updates 
@@ -2061,7 +2042,6 @@ router.post('/kamustahan/:updateId/acknowledge', async (req, res) => {
             });
         }
 
-        // ⭐ 2. VALIDATE FOLLOW-UP DATE (huwag payagan ang past date)
         if (follow_up_date) {
             const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
             if (!dateRegex.test(String(follow_up_date).trim())) {
@@ -2094,8 +2074,6 @@ router.post('/kamustahan/:updateId/acknowledge', async (req, res) => {
             orgId
         ]);
 
-        // ⭐ 4. KUNG MAY FOLLOW-UP DATE → GUMAWA NG BAGONG 'For Update' ROW
-        // Ito ang mag-o-open ng bagong update cycle para sa adopter.
         if (follow_up_date) {
             const [[pending]] = await pool.query(
                 `SELECT update_id FROM kamustahan_updates
@@ -2109,7 +2087,6 @@ router.post('/kamustahan/:updateId/acknowledge', async (req, res) => {
             );
 
             if (pending) {
-                // May existing pending na — i-update lang ang deadline
                 await pool.query(
                     `UPDATE kamustahan_updates SET scheduled_date = ? WHERE update_id = ?`,
                     [follow_up_date, pending.update_id]

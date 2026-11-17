@@ -74,7 +74,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const method = paymentMethodSelect ? paymentMethodSelect.value : "GCash";
 
 if (modalQrImage) {
-    modalQrImage.src = qrImageSrc;   // fallback
+    modalQrImage.src = qrImageSrc;  
     cropQrToSquare(qrImageSrc, method).then(cropped => {
         modalQrImage.src = cropped;
     });
@@ -84,7 +84,7 @@ if (qrModalAccountName)   qrModalAccountName.textContent   = nameText   || "N/A"
 if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A";
         if (qrModal) {
             qrModal.classList.add("active");
-            qrModal.style.display = "flex";     // ← guarantees it shows
+            qrModal.style.display = "flex";     
             document.body.style.overflow = "hidden";
         }
     }
@@ -92,12 +92,12 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
     function closeQrModal() {
         if (qrModal) {
             qrModal.classList.remove("active");
-            qrModal.style.display = "";          // ← reset inline style
+            qrModal.style.display = "";          
             document.body.style.overflow = "";
         }
     }
 
-    /* ✅ Event delegation — works even if button is re-rendered */
+  
     document.addEventListener("click", function (e) {
         if (e.target.closest("#viewQrBtn")) {
             e.preventDefault();
@@ -109,14 +109,14 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
     if (qrModalClose)    qrModalClose.addEventListener("click", closeQrModal);
     if (qrModalCloseBtn) qrModalCloseBtn.addEventListener("click", closeQrModal);
 
-    /* Click outside to close */
+  
     if (qrModal) {
         qrModal.addEventListener("click", function (e) {
             if (e.target === qrModal) closeQrModal();
         });
     }
 
-    /* Esc key closes QR modal */
+   
     document.addEventListener("keydown", function (e) {
         if (e.key === "Escape" && qrModal && qrModal.classList.contains("active")) {
             closeQrModal();
@@ -164,7 +164,6 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
             ? data
             : (data.organizations || data.data || []);
 
-            // Ipakita lang ang mga org na may configured GCash o Maya na payment method
             organizations = allOrganizations.filter(org =>
                 (org.gcash_number && org.gcash_number.trim() !== "") ||
                 (org.maya_number && org.maya_number.trim() !== "")
@@ -275,7 +274,6 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
             return;
         }
 
-        // Ipakita lang sa dropdown ang payment method na talagang naka-configure ng org
         const hasGcash = org.gcash_number && org.gcash_number.trim() !== "";
         const hasMaya = org.maya_number && org.maya_number.trim() !== "";
 
@@ -286,7 +284,6 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
             if (hasMaya) optionsHtml += `<option value="Maya">Maya</option>`;
             paymentMethodSelect.innerHTML = optionsHtml;
 
-            // Panatilihin ang dating napili kung available pa rin ito, kung hindi, gamitin ang una sa listahan
             if (hasGcash && previousValue === "GCash") {
                 paymentMethodSelect.value = "GCash";
             } else if (hasMaya && previousValue === "Maya") {
@@ -626,7 +623,6 @@ function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "/uploads/
  async function handleReceiptUpload(event) {
     const file = event.target.files[0];
 
-    // Walang file na pinili → clear preview at wag magpatuloy
     if (!file) {
         const preview = document.getElementById("receiptPreview");
         const wrap    = document.getElementById("receiptPreviewWrap");
@@ -635,7 +631,6 @@ function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "/uploads/
         return;
     }
 
-    // ⭐ STRICT VALIDATION — JPEG at PNG lang
     const allowedMimeTypes = [
         "image/jpeg",
         "image/jpg",
@@ -652,9 +647,8 @@ function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "/uploads/
             "Invalid file type. Please upload a JPG, JPEG, or PNG image only.",
             "error"
         );
-        event.target.value = "";   // ⭐ reset input
+        event.target.value = "";   
 
-        // Reset preview at status
         const preview = document.getElementById("receiptPreview");
         const wrap    = document.getElementById("receiptPreviewWrap");
         if (preview) preview.src = "";
@@ -669,7 +663,6 @@ function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "/uploads/
         return;
     }
 
-    // ⭐ Size check
     if (file.size > MAX_SIZE_MB * 1024 * 1024) {
         showToast(`File too large. Maximum size is ${MAX_SIZE_MB}MB.`, "error");
         event.target.value = "";
@@ -683,10 +676,8 @@ function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "/uploads/
         return;
     }
 
-    // ⭐ UNLOCK muna — para ma-refill ng bagong OCR
     unlockOcrFields();
 
-    // Show filename
     const fileNameEl = document.getElementById("receiptFileName");
     if (fileNameEl) {
         fileNameEl.textContent = `Selected: ${file.name}`;
@@ -694,7 +685,6 @@ function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "/uploads/
         fileNameEl.classList.remove("text-gray-500");
     }
 
-    // 1) Show preview
     const reader = new FileReader();
     reader.onload = (e) => {
         const preview = document.getElementById("receiptPreview");
@@ -706,7 +696,6 @@ function getValidImageUrl(imagePath, fallbackUrl = "", legacyFolder = "/uploads/
     };
     reader.readAsDataURL(file);
 
-    // 2) Run OCR (naglo-lock ito pagkatapos)
     await runReceiptOCR(file);
 }
 
@@ -723,7 +712,7 @@ async function runReceiptOCR(file) {
     try {
         if (!window.Tesseract) throw new Error("Tesseract.js not loaded");
 
-        // --- Upscale first (GCash screenshots are tiny) ---
+      
         const enhanced = await upscaleImageForOcr(file, 1600);
 
         const result = await Tesseract.recognize(enhanced, "eng", {
@@ -743,7 +732,6 @@ async function runReceiptOCR(file) {
         const parsed  = parseReceiptText(text);
         const result2 = fillReceiptFields(parsed);
 
-        // ⭐ I-LOCK ang mga na-auto-fill na fields
         if (result2.filled > 0 || result2.corrected > 0) {
             lockOcrFilledFields(parsed);
         }
@@ -773,9 +761,8 @@ async function runReceiptOCR(file) {
         }, 4000);
     }
 }
-// ==========================================
-// OCR FIELD LOCKING (user side)
-// ==========================================
+
+// OCR FIELD LOCKING 
 function lockOcrFilledFields(parsed) {
     const fields = [
         { el: document.getElementById("refNumInput"),  has: !!parsed.reference },
@@ -894,7 +881,7 @@ function parseReceiptText(text) {
 }
 
 function fillReceiptFields(parsed) {
-    // ⭐ Adapted para sa cash-donation.html field IDs
+   
     const refInput    = document.getElementById("refNumInput");
     const amountInput = document.getElementById("customAmount");
     const donorInput  = document.querySelector('input[placeholder="Name"]') || document.getElementById("donorName");
@@ -938,7 +925,6 @@ function fillReceiptFields(parsed) {
         }
     }
 
-    // Your Name (fill only if blank — hindi kino-correct, at readonly kasi)
     if (parsed.name && donorInput && !donorInput.value) {
         donorInput.value = parsed.name;
         highlightOcrField(donorInput, "blue");
@@ -1001,17 +987,13 @@ if (statusBox) {
 
 const fileNameEl = document.getElementById("receiptFileName");
 if (fileNameEl) {
-    // ⭐ UPDATED — JPG, JPEG, PNG lang
     fileNameEl.textContent = "Accepted file type: JPG, JPEG, PNG (max 5MB)";
 }
 
-/* =========================================================
-   GLOBAL QR MODAL — BULLETPROOF (works even if DOMContentLoaded fails)
-   ========================================================= */
+
 (function () {
     function initQrHandlers() {
 
-        // Global open function — callable via onclick="openQRCodeModal(event)"
         window.openQRCodeModal = function (e) {
             if (e) { e.preventDefault(); e.stopPropagation(); }
 
@@ -1039,11 +1021,9 @@ if (fileNameEl) {
                 return;
             }
 
-                            // ⭐ Detect payment method para tamang crop
             const methodSelect = document.getElementById("paymentMethod");
             const currentMethod = methodSelect ? methodSelect.value : "GCash";
 
-            // ⭐ I-crop MUNA bago ipakita — walang fallback, walang glitch
             if (modalImg) {
                 modalImg.style.opacity = "0";
                 cropQrToSquare(src, currentMethod).then(cropped => {
@@ -1056,7 +1036,7 @@ if (fileNameEl) {
             if (modalNo)  modalNo.textContent = (numEl  && numEl.textContent.trim())  || "N/A";
 
                 modal.classList.add("active");
-            modal.style.cssText = `
+                modal.style.cssText = `
                 display: flex !important;
                 position: fixed !important;
                 inset: 0 !important;
@@ -1077,7 +1057,6 @@ if (fileNameEl) {
             document.body.style.overflow = "";
         };
 
-        // Delegated click — works even if button is re-rendered
         document.addEventListener("click", function (e) {
             if (e.target.closest("#viewQrBtn")) {
                 e.preventDefault();
@@ -1111,8 +1090,7 @@ function cropQrToSquare(src, method = "gcash") {
         if (!src) { resolve(src); return; }
 
         const img = new Image();
-        // ⭐ WALANG crossOrigin — same-origin ang mga images, kailangan ito para gumana ang canvas
-        // img.crossOrigin = "anonymous";
+
 
         img.onload = () => {
             const w = img.width;
@@ -1125,41 +1103,37 @@ function cropQrToSquare(src, method = "gcash") {
                 let widthPct, topPct, bottomPct;
 
                 if (String(method).toLowerCase().includes("maya")) {
-                    // Maya: QR is in lower-middle, after green header + logo + name + phone
+                   
                     widthPct  = 0.72;
-                    topPct    = 0.36;   // ⭐ Start below name/phone
-                    bottomPct = 0.72;   // ⭐ End before "Transfer fees may apply"
+                    topPct    = 0.36;   
+                    bottomPct = 0.72;   
                 } else {
-                    // GCash: QR is in upper area, right after blue header bar
+                
                     widthPct  = 0.60;
-                    topPct    = 0.22;   // ⭐ Taasan para laktawan ang blue bar
+                    topPct    = 0.22;   
                     bottomPct = 0.46;
                 }
 
-                // Compute crop region
+
                 cropW = w * widthPct;
                 cropX = (w - cropW) / 2;
                 cropY = h * topPct;
                 cropH = (h * bottomPct) - cropY;
 
-                // ⭐ Force SQUARE — pantay ang lapad at taas
                 const size = Math.max(cropW, cropH);
                 cropW = size;
                 cropH = size;
 
-                // ⭐ Re-center sa original crop center Y
                 const originalCenterY = (h * topPct) + ((h * bottomPct) - (h * topPct)) / 2;
                 cropX = (w - cropW) / 2;
                 cropY = originalCenterY - (cropH / 2);
 
-                // ⭐ Clamp sa image bounds
                 if (cropY < 0) cropY = 0;
                 if (cropY + cropH > h) cropY = h - cropH;
                 if (cropX < 0) cropX = 0;
                 if (cropX + cropW > w) cropX = w - cropW;
             }
 
-            // ⭐ Output — 600×600 square PNG
             const outSize = 600;
             const canvas = document.createElement("canvas");
             canvas.width  = outSize;
