@@ -785,11 +785,13 @@ function viewReturnRequestDetails(requestId) {
             showCloseButton: true,
             showConfirmButton: false,
             confirmButtonColor: "#2563eb",
+            footer: decisionButtonsHTML,
             customClass: {
                 popup: "rounded-2xl",
                 htmlContainer: "!m-0 !p-0 !text-left",
                 actions: "!mt-4",
-                confirmButton: "!rounded-lg !px-6 !py-2 !text-sm !font-semibold"
+                confirmButton: "!rounded-lg !px-6 !py-2 !text-sm !font-semibold",
+                 footer: "!m-0 !px-6 !py-4 !border-t !border-gray-100 !bg-white"
             },
 
             didOpen: (popup) => {
@@ -801,6 +803,14 @@ function viewReturnRequestDetails(requestId) {
                 content.style.maxHeight = "65vh";
                 content.style.overflowY = "auto";
                 content.style.overscrollBehavior = "contain";
+
+                const footer = popup.querySelector(".swal2-footer");
+
+                if (footer) {
+                    footer.style.position = "sticky";
+                    footer.style.bottom = "0";
+                    footer.style.zIndex = "10";
+                }
             },
             title: "",
             html: `
@@ -852,8 +862,6 @@ function viewReturnRequestDetails(requestId) {
                             <i class="fa-regular fa-calendar"></i>
                             <span>Requested on <span class="font-medium text-gray-700">${formattedDate}</span></span>
                         </div>
-
-                        ${decisionButtonsHTML}
                     </div>
                 </div>
             `
