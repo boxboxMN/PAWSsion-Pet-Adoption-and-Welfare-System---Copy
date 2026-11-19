@@ -2659,7 +2659,7 @@ exports.submitPetReturnRequest = async (req, res) => {
             [applicationId]
         );
 
-        const existingRequest = existingRows[0] || null;
+        const existingRequest = existing[0] || null;
 
         // Block requests that are still active or already completed.
         if (existingRequest && ["Pending", "Approved", "Returned"].includes(existingRequest.status)) {
