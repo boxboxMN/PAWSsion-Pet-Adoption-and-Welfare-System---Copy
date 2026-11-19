@@ -2649,11 +2649,13 @@ exports.submitPetReturnRequest = async (req, res) => {
             });
         }
 
-        // One request per adoption application, even if previously rejected.
+        // Prevent duplicate active or completed return requests.
+        // Allow a new request if the previous request was Rejected.
         const [existing] = await connection.query(
             `SELECT return_request_id
              FROM pet_return_requests
              WHERE application_id = ?
+                AND status IN ('Pending', 'Approved', 'Returned')
              LIMIT 1`,
             [applicationId]
         );
@@ -2663,7 +2665,7 @@ exports.submitPetReturnRequest = async (req, res) => {
 
             return res.status(409).json({
                 success: false,
-                message: "A return request has already been submitted for this adoption."
+                message: "A return request is already pending, approved, or completed for this adoption."
             });
         }
 

@@ -1167,3 +1167,7 @@ COMMIT;
 ALTER TABLE pet_return_requests
 ADD COLUMN org_reject_proof VARCHAR(2048) NULL
 AFTER organization_received_photo;
+
+ALTER TABLE pet_return_requests
+DROP INDEX unique_return_application,
+ADD INDEX idx_return_application (application_id);
