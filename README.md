@@ -1171,3 +1171,28 @@ AFTER organization_received_photo;
 ALTER TABLE pet_return_requests
 DROP INDEX unique_return_application,
 ADD INDEX idx_return_application (application_id);
+
+CREATE TABLE pet_return_history (
+    history_id INT NOT NULL AUTO_INCREMENT,
+    return_request_id INT NOT NULL,
+    application_id INT NOT NULL,
+    adopter_id INT NOT NULL,
+    animal_id INT NOT NULL,
+    organization_id INT NOT NULL,
+    return_reason TEXT NOT NULL,
+    status ENUM('Pending', 'Approved', 'Rejected', 'Returned') NOT NULL,
+    organization_response TEXT DEFAULT NULL,
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL,
+    adopter_return_photo VARCHAR(2048) DEFAULT NULL,
+    organization_received_photo VARCHAR(2048) DEFAULT NULL,
+    org_reject_proof VARCHAR(2048) DEFAULT NULL,
+    archived_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (history_id),
+    INDEX idx_history_application (application_id),
+    INDEX idx_history_request (return_request_id)
+) ENGINE=InnoDB;
+
+ALTER TABLE pet_return_requests
+ADD UNIQUE INDEX unique_return_application (application_id);

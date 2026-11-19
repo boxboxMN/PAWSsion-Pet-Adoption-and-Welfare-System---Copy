@@ -373,6 +373,110 @@ router.get(
     }
 );
 
+// GET: View adopter's previous pet return request history
+router.get(
+    "/api/user/applications/:applicationId/return-request-history",
+    checkUserSession,
+    userController.getUserReturnRequestHistory
+);
+
+
+// GET: View previous return request proof (Adopter only)
+router.get(
+    "/api/user/return-request-history/:historyId/proof/:type",
+    checkUserSession,
+    async (req, res) => {
+        try {
+            const { historyId, type } = req.params;
+            const accountId = req.session?.accountId;
+
+            const allowedColumns = {
+                adopter: "h.adopter_return_photo",
+                organization: "h.organization_received_photo",
+                rejection: "h.org_reject_proof"
+            };
+
+            const photoColumn = allowedColumns[type];
+
+            if (!photoColumn) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Invalid proof type."
+                });
+            }
+
+            const [rows] = await pool.query(
+                `
+                SELECT ${photoColumn} AS photo_path
+                FROM pet_return_history h
+                INNER JOIN user_adoption_applications app
+                    ON h.application_id = app.application_id
+                INNER JOIN adopters ad
+                    ON app.adopter_id = ad.adopter_id
+                WHERE h.history_id = ?
+                  AND ad.account_id = ?
+                  AND ${photoColumn} IS NOT NULL
+                `,
+                [historyId, accountId]
+            );
+
+            if (!rows.length) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Historical proof not found."
+                });
+            }
+
+            const photoUrl = rows[0].photo_path;
+
+            // Cloudinary image URL
+            if (
+                typeof photoUrl === "string" &&
+                /^https:\/\/res\.cloudinary\.com\//i.test(photoUrl)
+            ) {
+                return res.redirect(photoUrl);
+            }
+
+            // Local image fallback
+            const filename = path.basename(photoUrl);
+
+            const photoPath = path.join(
+                __dirname,
+                "..",
+                "uploads",
+                "pet-proof",
+                filename
+            );
+
+            if (!fs.existsSync(photoPath)) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Historical proof image is unavailable."
+                });
+            }
+
+            return res.sendFile(photoPath, (err) => {
+                if (err && !res.headersSent) {
+                    console.error("Historical proof file error:", err);
+
+                    res.status(404).json({
+                        success: false,
+                        message: "Historical proof image is unavailable."
+                    });
+                }
+            });
+
+        } catch (err) {
+            console.error("Historical proof retrieval error:", err);
+
+            return res.status(500).json({
+                success: false,
+                message: "Unable to retrieve historical proof."
+            });
+        }
+    }
+);
+
 router.get("/api/user/donations", checkUserSession, userController.getUserDonations);
 router.get("/api/user/profile", checkUserSession, userController.getProfile);
 

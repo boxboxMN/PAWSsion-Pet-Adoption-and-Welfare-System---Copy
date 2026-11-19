@@ -2652,15 +2652,17 @@ exports.submitPetReturnRequest = async (req, res) => {
         // Prevent duplicate active or completed return requests.
         // Allow a new request if the previous request was Rejected.
         const [existing] = await connection.query(
-            `SELECT return_request_id
+            `SELECT return_request_id, status
              FROM pet_return_requests
              WHERE application_id = ?
-                AND status IN ('Pending', 'Approved', 'Returned')
-             LIMIT 1`,
+             FOR UPDATE`,
             [applicationId]
         );
 
-        if (existing.length) {
+        const existingRequest = existingRows[0] || null;
+
+        // Block requests that are still active or already completed.
+        if (existingRequest && ["Pending", "Approved", "Returned"].includes(existingRequest.status)) {
             await connection.rollback();
 
             return res.status(409).json({
@@ -2669,31 +2671,136 @@ exports.submitPetReturnRequest = async (req, res) => {
             });
         }
 
-       const adopterReturnPhoto = await uploadToCloudinary(
+        // Only a Rejected request can be resubmitted.
+        if (existingRequest && existingRequest.status !== "Rejected") {
+            await connection.rollback();
+
+            return res.status(409).json({
+                success: false,
+                message: "This return request cannot be resubmitted."
+            });
+        }
+
+        const adopterReturnPhoto = await uploadToCloudinary(
             req.file,
             "pawpon/pet-proof"
         );
 
-        await connection.query(
-            `INSERT INTO pet_return_requests
-                (application_id, adopter_id, animal_id, organization_id, return_reason, adopter_return_photo, status)
-             VALUES (?, ?, ?, ?, ?, ?, 'Pending')`,
-            [
-                application.application_id,
-                application.adopter_id,
-                application.animal_id,
-                application.organization_id,
-                reason,
-                adopterReturnPhoto
-            ]
-        );
+        if (existingRequest) {
+            // 1. Archive the previous rejected request.
+            const [archiveResult] = await connection.query(
+                `INSERT INTO pet_return_history (
+                    return_request_id,
+                    application_id,
+                    adopter_id,
+                    animal_id,
+                    organization_id,
+                    return_reason,
+                    status,
+                    organization_response,
+                    created_at,
+                    updated_at,
+                    adopter_return_photo,
+                    organization_received_photo,
+                    org_reject_proof
+                )
+                SELECT
+                    return_request_id,
+                    application_id,
+                    adopter_id,
+                    animal_id,
+                    organization_id,
+                    return_reason,
+                    status,
+                    organization_response,
+                    created_at,
+                    updated_at,
+                    adopter_return_photo,
+                    organization_received_photo,
+                    org_reject_proof
+                FROM pet_return_requests
+                WHERE return_request_id = ?
+                  AND application_id = ?
+                  AND status = 'Rejected'`,
+                [
+                    existingRequest.return_request_id,
+                    applicationId
+                ]
+            );
 
-        await connection.commit();
+            if (archiveResult.affectedRows !== 1) {
+                throw new Error(
+                    "Failed to archive the previous rejected return request."
+                );
+            }
 
-        return res.status(201).json({
-            success: true,
-            message: "Return request submitted successfully. The pet will remain Adopted while the request is pending."
-        });
+            // 2. Reuse the existing request ID.
+            const [updateResult] = await connection.query(
+                `UPDATE pet_return_requests
+                 SET
+                    return_reason = ?,
+                    adopter_return_photo = ?,
+                    status = 'Pending',
+                    organization_response = NULL,
+                    org_reject_proof = NULL,
+                    organization_received_photo = NULL,
+                    created_at = NOW(),
+                    updated_at = NOW()
+                 WHERE return_request_id = ?
+                   AND application_id = ?
+                   AND status = 'Rejected'`,
+                [
+                    reason,
+                    adopterReturnPhoto,
+                    existingRequest.return_request_id,
+                    applicationId
+                ]
+            );
+
+            if (updateResult.affectedRows !== 1) {
+                throw new Error(
+                    "Failed to update the rejected return request."
+                );
+            }
+
+            await connection.commit();
+
+            return res.status(200).json({
+                success: true,
+                message: "Return request resubmitted successfully."
+            });
+
+        } else {
+            // No previous request: create the first request.
+            await connection.query(
+                `INSERT INTO pet_return_requests
+                    (
+                        application_id,
+                        adopter_id,
+                        animal_id,
+                        organization_id,
+                        return_reason,
+                        adopter_return_photo,
+                        status
+                    )
+                 VALUES (?, ?, ?, ?, ?, ?, 'Pending')`,
+                [
+                    application.application_id,
+                    application.adopter_id,
+                    application.animal_id,
+                    application.organization_id,
+                    reason,
+                    adopterReturnPhoto
+                ]
+            );
+
+            await connection.commit();
+
+            return res.status(201).json({
+                success: true,
+                message: "Return request submitted successfully. The pet will remain Adopted while the request is pending."
+            });
+        }
 
     } catch (error) {
         await connection.rollback();
@@ -2715,6 +2822,72 @@ exports.submitPetReturnRequest = async (req, res) => {
 
     } finally {
         connection.release();
+    }
+};
+
+
+// =====================================================
+// GET ADOPTER'S PREVIOUS PET RETURN REQUEST HISTORY
+// =====================================================
+exports.getUserReturnRequestHistory = async (req, res) => {
+    try {
+        const accountId = req.session?.accountId;
+        const applicationId = Number(req.params.applicationId);
+
+        if (!accountId) {
+            return res.status(401).json({
+                success: false,
+                message: "You must be logged in."
+            });
+        }
+
+        if (!Number.isInteger(applicationId) || applicationId <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid application ID."
+            });
+        }
+
+        // Verify that this application belongs to the logged-in adopter
+        const [historyRows] = await pool.query(
+            `
+            SELECT
+                h.history_id,
+                h.return_request_id,
+                h.application_id,
+                h.return_reason,
+                h.status,
+                h.organization_response,
+                h.adopter_return_photo,
+                h.organization_received_photo,
+                h.org_reject_proof,
+                h.created_at,
+                h.updated_at,
+                h.archived_at
+            FROM pet_return_history h
+            INNER JOIN user_adoption_applications app
+                ON h.application_id = app.application_id
+            INNER JOIN adopters ad
+                ON app.adopter_id = ad.adopter_id
+            WHERE h.application_id = ?
+              AND ad.account_id = ?
+            ORDER BY h.archived_at DESC, h.created_at DESC
+            `,
+            [applicationId, accountId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            history: historyRows
+        });
+
+    } catch (error) {
+        console.error("Error fetching pet return request history:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to retrieve return request history."
+        });
     }
 };
 

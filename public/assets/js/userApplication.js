@@ -433,6 +433,142 @@ function updateStepper(status) {
     });
 }
 
+
+// =====================================================
+// LOAD PREVIOUS PET RETURN REQUEST HISTORY
+// =====================================================
+async function loadReturnRequestHistory(applicationId) {
+    const historyCard = document.getElementById("detail-return-history-card");
+    const historyContent = document.getElementById("detail-return-history-content");
+
+    if (!historyCard || !historyContent) return;
+
+    historyCard.classList.add("hidden");
+    historyContent.replaceChildren();
+
+    try {
+        const response = await fetch(
+            `/api/user/applications/${encodeURIComponent(applicationId)}/return-request-history`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Unable to load return request history.");
+        }
+
+        const history = Array.isArray(data.history) ? data.history : [];
+
+        // Hide the card if there are no previous requests
+        if (history.length === 0) return;
+
+        historyCard.classList.remove("hidden");
+
+        history.forEach((item, index) => {
+            const requestCard = document.createElement("div");
+            requestCard.className = "border border-gray-200 rounded-xl p-4 bg-gray-50";
+
+            const heading = document.createElement("div");
+            heading.className = "flex flex-wrap items-center justify-between gap-2 mb-3";
+
+            const requestTitle = document.createElement("h3");
+            requestTitle.className = "font-semibold text-gray-800";
+            requestTitle.textContent = `Previous Request #${index + 1}`;
+
+            const statusBadge = document.createElement("span");
+            statusBadge.className = "text-xs font-semibold px-3 py-1 rounded-full bg-red-100 text-red-700";
+            statusBadge.textContent = item.status || "Unknown";
+
+            heading.append(requestTitle, statusBadge);
+            requestCard.appendChild(heading);
+
+            const date = document.createElement("p");
+            date.className = "text-xs text-gray-500 mb-3";
+
+            const requestDate = item.created_at
+                ? new Date(item.created_at).toLocaleString()
+                : "Date unavailable";
+
+            date.textContent = `Submitted: ${requestDate}`;
+            requestCard.appendChild(date);
+
+            const reasonTitle = document.createElement("p");
+            reasonTitle.className = "text-sm font-semibold text-gray-700 mb-1";
+            reasonTitle.textContent = "Adopter's Reason";
+
+            const reason = document.createElement("p");
+            reason.className = "text-sm text-gray-600 whitespace-pre-line break-words mb-3";
+            reason.textContent = item.return_reason || "No reason provided.";
+
+            requestCard.append(reasonTitle, reason);
+
+            if (item.organization_response) {
+                const responseTitle = document.createElement("p");
+                responseTitle.className = "text-sm font-semibold text-gray-700 mb-1";
+                responseTitle.textContent = "Organization's Response";
+
+                const organizationResponse = document.createElement("p");
+                organizationResponse.className = "text-sm text-gray-600 whitespace-pre-line break-words mb-3";
+                organizationResponse.textContent = item.organization_response;
+
+                requestCard.append(responseTitle, organizationResponse);
+            }
+
+            // Previous proof photos
+            const proofTypes = [
+                {
+                    key: "adopter_return_photo",
+                    type: "adopter",
+                    label: "Adopter's Return Photo"
+                },
+                {
+                    key: "org_reject_proof",
+                    type: "rejection",
+                    label: "Organization's Rejection Proof"
+                },
+                {
+                    key: "organization_received_photo",
+                    type: "organization",
+                    label: "Organization's Received Photo"
+                }
+            ];
+
+            proofTypes.forEach(proof => {
+                if (!item[proof.key]) return;
+
+                const proofContainer = document.createElement("div");
+                proofContainer.className = "mt-3";
+
+                const proofLabel = document.createElement("p");
+                proofLabel.className = "text-sm font-semibold text-gray-700 mb-2";
+                proofLabel.textContent = proof.label;
+
+                const proofImage = document.createElement("img");
+                proofImage.src =
+                    `/api/user/return-request-history/${encodeURIComponent(item.history_id)}/proof/${proof.type}`;
+
+                proofImage.alt = proof.label;
+                proofImage.className = "w-full max-w-lg rounded-lg object-contain max-h-96 border border-gray-200 bg-white";
+
+                proofImage.onerror = () => {
+                    proofImage.onerror = null;
+                    proofImage.alt = `${proof.label} is unavailable.`;
+                };
+
+                proofContainer.append(proofLabel, proofImage);
+                requestCard.appendChild(proofContainer);
+            });
+
+            historyContent.appendChild(requestCard);
+        });
+
+    } catch (error) {
+        console.error("Error loading return request history:", error);
+        historyCard.classList.remove("hidden");
+        historyContent.textContent = "Unable to load previous return request history.";
+    }
+}
+
 // =====================================================
 // SHOW APPLICATION DETAILS
 // =====================================================
@@ -815,6 +951,9 @@ function showDetails(app) {
             `;
         }
     }
+
+    // LOAD PREVIOUS RETURN REQUEST HISTORY
+    loadReturnRequestHistory(app.id);
 
     document.getElementById("app").scrollTo({ top: 0, behavior: "smooth" });
 }
