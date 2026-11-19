@@ -709,6 +709,8 @@ async function loadOrgReturnRequestHistory(applicationId) {
         <p class="text-sm text-gray-400 italic">Loading previous requests...</p>
     `;
 
+    const recordsPerPage = 5;
+
     try {
         const response = await fetch(
             `/org/return-requests/${encodeURIComponent(applicationId)}/history`
@@ -720,7 +722,7 @@ async function loadOrgReturnRequestHistory(applicationId) {
             throw new Error(data.message || "Failed to load history.");
         }
 
-        const history = data.history || [];
+        const history = Array.isArray(data.history) ? data.history : [];
 
         if (!history.length) {
             container.innerHTML = `
@@ -731,99 +733,156 @@ async function loadOrgReturnRequestHistory(applicationId) {
             return;
         }
 
-        container.innerHTML = history.map(item => {
-            const submittedDate = item.created_at
-                ? new Date(item.created_at)
-                : null;
+        let currentPage = 1;
 
-            const formattedDate =
-                submittedDate && !Number.isNaN(submittedDate.getTime())
-                    ? submittedDate.toLocaleString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit"
-                    })
-                    : "N/A";
+        function renderHistoryPage() {
+            const totalPages = Math.ceil(history.length / recordsPerPage);
+            const startIndex = (currentPage - 1) * recordsPerPage;
 
-            const proofTypes = [
-                {
-                    field: "adopter_return_photo",
-                    type: "adopter",
-                    label: "Adopter's Return Proof"
-                },
-                {
-                    field: "org_reject_proof",
-                    type: "rejection",
-                    label: "Organization's Rejection Proof"
-                },
-                {
-                    field: "organization_received_photo",
-                    type: "organization",
-                    label: "Organization's Receipt Proof"
-                }
-            ];
+            const pageRecords = history.slice(
+                startIndex,
+                startIndex + recordsPerPage
+            );
 
-            const proofsHTML = proofTypes
-                .filter(proof => item[proof.field])
-                .map(proof => `
-                    <div class="mt-3">
-                        <p class="text-xs font-semibold text-gray-500 mb-2">
-                            ${proof.label}
+            container.innerHTML = pageRecords.map(item => {
+                const submittedDate = item.created_at
+                    ? new Date(item.created_at)
+                    : null;
+
+                const formattedDate =
+                    submittedDate && !Number.isNaN(submittedDate.getTime())
+                        ? submittedDate.toLocaleString("en-US", {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit"
+                        })
+                        : "N/A";
+
+                const proofTypes = [
+                    {
+                        field: "adopter_return_photo",
+                        type: "adopter",
+                        label: "Adopter's Return Proof"
+                    },
+                    {
+                        field: "org_reject_proof",
+                        type: "rejection",
+                        label: "Organization's Rejection Proof"
+                    },
+                    {
+                        field: "organization_received_photo",
+                        type: "organization",
+                        label: "Organization's Receipt Proof"
+                    }
+                ];
+
+                const proofsHTML = proofTypes
+                    .filter(proof => item[proof.field])
+                    .map(proof => `
+                        <div class="mt-3">
+                            <p class="text-xs font-semibold text-gray-500 mb-2">
+                                ${proof.label}
+                            </p>
+
+                            <img
+                                src="/org/return-request-history/${encodeURIComponent(item.history_id)}/proof/${proof.type}"
+                                alt="${proof.label}"
+                                class="w-full max-h-48 object-contain rounded-lg border border-gray-200 bg-white"
+                            />
+                        </div>
+                    `)
+                    .join("");
+
+                return `
+                    <div class="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+                        <div class="flex items-center justify-between gap-3">
+                            <p class="text-sm font-bold text-gray-800">
+                                Previous Request #${startIndex + pageRecords.indexOf(item) + 1}
+                            </p>
+
+                            ${getReturnRequestStatusBadgeHTML(item.status)}
+                        </div>
+
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+                                Previous Return Reason
+                            </p>
+
+                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                                ${escapeHtml(item.return_reason || "No reason provided.")}
+                            </p>
+                        </div>
+
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+                                Organization's Previous Response
+                            </p>
+
+                            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                                ${escapeHtml(item.organization_response || "No response recorded.")}
+                            </p>
+                        </div>
+
+                        ${proofsHTML || `
+                            <p class="text-xs text-gray-400 italic">
+                                No previous proof photos available.
+                            </p>
+                        `}
+
+                        <p class="text-xs text-gray-400">
+                            Submitted on ${formattedDate}
                         </p>
-
-                        <img
-                            src="/org/return-request-history/${encodeURIComponent(item.history_id)}/proof/${proof.type}"
-                            alt="${proof.label}"
-                            class="w-full max-h-48 object-contain rounded-lg border border-gray-200 bg-white"
-                        />
                     </div>
-                `)
-                .join("");
+                `;
+            }).join("");
 
-            return `
-                <div class="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
-                    <div class="flex items-center justify-between gap-3">
-                        <p class="text-sm font-bold text-gray-800">
-                            Previous Request
-                        </p>
+            // Pagination controls
+            if (totalPages > 1) {
+                const pagination = document.createElement("div");
+                pagination.className = "flex items-center justify-between gap-3 pt-4 mt-4 border-t border-gray-200";
 
-                        ${getReturnRequestStatusBadgeHTML(item.status)}
-                    </div>
+                const pageInfo = document.createElement("p");
+                pageInfo.className = "text-xs text-gray-500";
+                pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
 
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
-                            Previous Return Reason
-                        </p>
+                const buttons = document.createElement("div");
+                buttons.className = "flex items-center gap-2";
 
-                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words">
-                            ${escapeHtml(item.return_reason || "No reason provided.")}
-                        </p>
-                    </div>
+                const previousButton = document.createElement("button");
+                previousButton.type = "button";
+                previousButton.textContent = "Previous";
+                previousButton.disabled = currentPage === 1;
+                previousButton.className = "px-3 py-2 text-xs font-semibold rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed";
 
-                    <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
-                            Organization's Previous Response
-                        </p>
+                previousButton.addEventListener("click", () => {
+                    if (currentPage > 1) {
+                        currentPage--;
+                        renderHistoryPage();
+                    }
+                });
 
-                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words">
-                            ${escapeHtml(item.organization_response || "No response recorded.")}
-                        </p>
-                    </div>
+                const nextButton = document.createElement("button");
+                nextButton.type = "button";
+                nextButton.textContent = "Next";
+                nextButton.disabled = currentPage === totalPages;
+                nextButton.className = "px-3 py-2 text-xs font-semibold rounded-lg bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-40 disabled:cursor-not-allowed";
 
-                    ${proofsHTML || `
-                        <p class="text-xs text-gray-400 italic">
-                            No previous proof photos available.
-                        </p>
-                    `}
+                nextButton.addEventListener("click", () => {
+                    if (currentPage < totalPages) {
+                        currentPage++;
+                        renderHistoryPage();
+                    }
+                });
 
-                    <p class="text-xs text-gray-400">
-                        Submitted on ${formattedDate}
-                    </p>
-                </div>
-            `;
-        }).join("");
+                buttons.append(previousButton, nextButton);
+                pagination.append(pageInfo, buttons);
+                container.appendChild(pagination);
+            }
+        }
+
+        renderHistoryPage();
 
     } catch (error) {
         console.error("Load Organization Return History Error:", error);

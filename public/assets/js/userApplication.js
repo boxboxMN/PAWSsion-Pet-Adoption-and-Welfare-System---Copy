@@ -446,6 +446,8 @@ async function loadReturnRequestHistory(applicationId) {
     historyCard.classList.add("hidden");
     historyContent.replaceChildren();
 
+    const recordsPerPage = 5;
+
     try {
         const response = await fetch(
             `/api/user/applications/${encodeURIComponent(applicationId)}/return-request-history`
@@ -464,103 +466,161 @@ async function loadReturnRequestHistory(applicationId) {
 
         historyCard.classList.remove("hidden");
 
-        history.forEach((item, index) => {
-            const requestCard = document.createElement("div");
-            requestCard.className = "border border-gray-200 rounded-xl p-4 bg-gray-50";
+        let currentPage = 1;
 
-            const heading = document.createElement("div");
-            heading.className = "flex flex-wrap items-center justify-between gap-2 mb-3";
+        function renderHistoryPage() {
+            historyContent.replaceChildren();
 
-            const requestTitle = document.createElement("h3");
-            requestTitle.className = "font-semibold text-gray-800";
-            requestTitle.textContent = `Previous Request #${index + 1}`;
+            const totalPages = Math.ceil(history.length / recordsPerPage);
+            const startIndex = (currentPage - 1) * recordsPerPage;
+            const pageRecords = history.slice(
+                startIndex,
+                startIndex + recordsPerPage
+            );
 
-            const statusBadge = document.createElement("span");
-            statusBadge.className = "text-xs font-semibold px-3 py-1 rounded-full bg-red-100 text-red-700";
-            statusBadge.textContent = item.status || "Unknown";
+            pageRecords.forEach((item, index) => {
+                const requestCard = document.createElement("div");
+                requestCard.className = "border border-gray-200 rounded-xl p-4 bg-gray-50";
 
-            heading.append(requestTitle, statusBadge);
-            requestCard.appendChild(heading);
+                const heading = document.createElement("div");
+                heading.className = "flex flex-wrap items-center justify-between gap-2 mb-3";
 
-            const date = document.createElement("p");
-            date.className = "text-xs text-gray-500 mb-3";
+                const requestTitle = document.createElement("h3");
+                requestTitle.className = "font-semibold text-gray-800";
+                requestTitle.textContent = `Previous Request #${startIndex + index + 1}`;
 
-            const requestDate = item.created_at
-                ? new Date(item.created_at).toLocaleString()
-                : "Date unavailable";
+                const statusBadge = document.createElement("span");
+                statusBadge.className = "text-xs font-semibold px-3 py-1 rounded-full bg-red-100 text-red-700";
+                statusBadge.textContent = item.status || "Unknown";
 
-            date.textContent = `Submitted: ${requestDate}`;
-            requestCard.appendChild(date);
+                heading.append(requestTitle, statusBadge);
+                requestCard.appendChild(heading);
 
-            const reasonTitle = document.createElement("p");
-            reasonTitle.className = "text-sm font-semibold text-gray-700 mb-1";
-            reasonTitle.textContent = "Adopter's Reason";
+                const date = document.createElement("p");
+                date.className = "text-xs text-gray-500 mb-3";
 
-            const reason = document.createElement("p");
-            reason.className = "text-sm text-gray-600 whitespace-pre-line break-words mb-3";
-            reason.textContent = item.return_reason || "No reason provided.";
+                const requestDate = item.created_at
+                    ? new Date(item.created_at).toLocaleString()
+                    : "Date unavailable";
 
-            requestCard.append(reasonTitle, reason);
+                date.textContent = `Submitted: ${requestDate}`;
+                requestCard.appendChild(date);
 
-            if (item.organization_response) {
-                const responseTitle = document.createElement("p");
-                responseTitle.className = "text-sm font-semibold text-gray-700 mb-1";
-                responseTitle.textContent = "Organization's Response";
+                const reasonTitle = document.createElement("p");
+                reasonTitle.className = "text-sm font-semibold text-gray-700 mb-1";
+                reasonTitle.textContent = "Adopter's Reason";
 
-                const organizationResponse = document.createElement("p");
-                organizationResponse.className = "text-sm text-gray-600 whitespace-pre-line break-words mb-3";
-                organizationResponse.textContent = item.organization_response;
+                const reason = document.createElement("p");
+                reason.className = "text-sm text-gray-600 whitespace-pre-line break-words mb-3";
+                reason.textContent = item.return_reason || "No reason provided.";
 
-                requestCard.append(responseTitle, organizationResponse);
-            }
+                requestCard.append(reasonTitle, reason);
 
-            // Previous proof photos
-            const proofTypes = [
-                {
-                    key: "adopter_return_photo",
-                    type: "adopter",
-                    label: "Adopter's Return Photo"
-                },
-                {
-                    key: "org_reject_proof",
-                    type: "rejection",
-                    label: "Organization's Rejection Proof"
-                },
-                {
-                    key: "organization_received_photo",
-                    type: "organization",
-                    label: "Organization's Received Photo"
+                if (item.organization_response) {
+                    const responseTitle = document.createElement("p");
+                    responseTitle.className = "text-sm font-semibold text-gray-700 mb-1";
+                    responseTitle.textContent = "Organization's Response";
+
+                    const organizationResponse = document.createElement("p");
+                    organizationResponse.className = "text-sm text-gray-600 whitespace-pre-line break-words mb-3";
+                    organizationResponse.textContent = item.organization_response;
+
+                    requestCard.append(responseTitle, organizationResponse);
                 }
-            ];
 
-            proofTypes.forEach(proof => {
-                if (!item[proof.key]) return;
+                // Previous proof photos
+                const proofTypes = [
+                    {
+                        key: "adopter_return_photo",
+                        type: "adopter",
+                        label: "Adopter's Return Photo"
+                    },
+                    {
+                        key: "org_reject_proof",
+                        type: "rejection",
+                        label: "Organization's Rejection Proof"
+                    },
+                    {
+                        key: "organization_received_photo",
+                        type: "organization",
+                        label: "Organization's Received Photo"
+                    }
+                ];
 
-                const proofContainer = document.createElement("div");
-                proofContainer.className = "mt-3";
+                proofTypes.forEach(proof => {
+                    if (!item[proof.key]) return;
 
-                const proofLabel = document.createElement("p");
-                proofLabel.className = "text-sm font-semibold text-gray-700 mb-2";
-                proofLabel.textContent = proof.label;
+                    const proofContainer = document.createElement("div");
+                    proofContainer.className = "mt-3";
 
-                const proofImage = document.createElement("img");
-                proofImage.src =
-                    `/api/user/return-request-history/${encodeURIComponent(item.history_id)}/proof/${proof.type}`;
+                    const proofLabel = document.createElement("p");
+                    proofLabel.className = "text-sm font-semibold text-gray-700 mb-2";
+                    proofLabel.textContent = proof.label;
 
-                proofImage.alt = proof.label;
-                proofImage.className = "w-full max-w-lg rounded-lg object-contain max-h-96 border border-gray-200 bg-white";
+                    const proofImage = document.createElement("img");
+                    proofImage.src =
+                        `/api/user/return-request-history/${encodeURIComponent(item.history_id)}/proof/${proof.type}`;
 
-                proofImage.onerror = () => {
-                    proofImage.onerror = null;
-                    proofImage.alt = `${proof.label} is unavailable.`;
-                };
+                    proofImage.alt = proof.label;
+                    proofImage.className = "w-full max-w-lg rounded-lg object-contain max-h-96 border border-gray-200 bg-white";
 
-                proofContainer.append(proofLabel, proofImage);
-                requestCard.appendChild(proofContainer);
+                    proofImage.onerror = () => {
+                        proofImage.onerror = null;
+                        proofImage.alt = `${proof.label} is unavailable.`;
+                    };
+
+                    proofContainer.append(proofLabel, proofImage);
+                    requestCard.appendChild(proofContainer);
+                });
+
+                historyContent.appendChild(requestCard);
             });
 
-            historyContent.appendChild(requestCard);
-        });
+            // Pagination controls
+            if (totalPages > 1) {
+                const pagination = document.createElement("div");
+                pagination.className = "flex items-center justify-between gap-3 pt-4 mt-4 border-t border-gray-200";
+
+                const pageInfo = document.createElement("p");
+                pageInfo.className = "text-xs text-gray-500";
+                pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+
+                const buttons = document.createElement("div");
+                buttons.className = "flex items-center gap-2";
+
+                const previousButton = document.createElement("button");
+                previousButton.type = "button";
+                previousButton.textContent = "Previous";
+                previousButton.disabled = currentPage === 1;
+                previousButton.className = "px-3 py-2 text-xs font-semibold rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed";
+
+                previousButton.addEventListener("click", () => {
+                    if (currentPage > 1) {
+                        currentPage--;
+                        renderHistoryPage();
+                    }
+                });
+
+                const nextButton = document.createElement("button");
+                nextButton.type = "button";
+                nextButton.textContent = "Next";
+                nextButton.disabled = currentPage === totalPages;
+                nextButton.className = "px-3 py-2 text-xs font-semibold rounded-lg bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-40 disabled:cursor-not-allowed";
+
+                nextButton.addEventListener("click", () => {
+                    if (currentPage < totalPages) {
+                        currentPage++;
+                        renderHistoryPage();
+                    }
+                });
+
+                buttons.append(previousButton, nextButton);
+                pagination.append(pageInfo, buttons);
+                historyContent.appendChild(pagination);
+            }
+        }
+
+        renderHistoryPage();
 
     } catch (error) {
         console.error("Error loading return request history:", error);
