@@ -3574,6 +3574,87 @@ exports.getPetReturnRequests = async (req, res) => {
     }
 };
 
+// =====================================================
+// GET ORGANIZATION'S PREVIOUS PET RETURN REQUEST HISTORY
+// =====================================================
+exports.getPetReturnRequestHistory = async (req, res) => {
+    const accountId = req.session?.accountId;
+    const applicationId = Number(req.params.applicationId);
+
+    if (!accountId) {
+        return res.status(401).json({
+            success: false,
+            message: "Unauthorized."
+        });
+    }
+
+    if (!Number.isInteger(applicationId) || applicationId <= 0) {
+        return res.status(400).json({
+            success: false,
+            message: "Invalid application ID."
+        });
+    }
+
+    try {
+        // Get the logged-in organization's ID
+        const [orgRows] = await pool.query(
+            `SELECT organization_id
+             FROM organizations
+             WHERE account_id = ?
+             LIMIT 1`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Organization not found."
+            });
+        }
+
+        const organizationId = orgRows[0].organization_id;
+
+        // Retrieve previous return requests belonging to this organization
+        const [history] = await pool.query(
+            `
+            SELECT
+                h.history_id,
+                h.return_request_id,
+                h.application_id,
+                h.adopter_id,
+                h.animal_id,
+                h.return_reason,
+                h.status,
+                h.organization_response,
+                h.adopter_return_photo,
+                h.organization_received_photo,
+                h.org_reject_proof,
+                h.created_at,
+                h.updated_at,
+                h.archived_at
+            FROM pet_return_history h
+            WHERE h.application_id = ?
+              AND h.organization_id = ?
+            ORDER BY h.archived_at DESC, h.created_at DESC
+            `,
+            [applicationId, organizationId]
+        );
+
+        return res.status(200).json({
+            success: true,
+            history
+        });
+
+    } catch (error) {
+        console.error("Get Organization Return Request History Error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to retrieve return request history."
+        });
+    }
+};
+
 // PATCH: Approve or reject a return request
 exports.updatePetReturnRequestStatus = async (req, res) => {
     const accountId = req.session?.accountId;

@@ -34,6 +34,7 @@ const {
     schedulePetUpdate,
     archiveKamustahanUpdate,
     getPetReturnRequests,
+    getPetReturnRequestHistory,
     updatePetReturnRequestStatus,
     confirmPetReturnReceived,
     markReturnedPetAsAvailable
@@ -773,6 +774,102 @@ router.patch('/applications/:id/status', async (req, res) => {
 
 // GET: View return requests for this organization
 router.get("/return-requests", getPetReturnRequests);
+
+// GET: View previous return request history for this organization
+router.get("/return-requests/:applicationId/history", getPetReturnRequestHistory);
+
+// GET: View previous return request proof (Organization only)
+router.get("/return-request-history/:historyId/proof/:type", async (req, res) => {
+    try {
+        const { historyId, type } = req.params;
+        const accountId = req.session?.accountId;
+
+        if (!accountId) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        const allowedColumns = {
+            adopter: "h.adopter_return_photo",
+            organization: "h.organization_received_photo",
+            rejection: "h.org_reject_proof"
+        };
+
+        const photoColumn = allowedColumns[type];
+
+        if (!photoColumn) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid proof type."
+            });
+        }
+
+        const [rows] = await pool.query(
+            `
+            SELECT ${photoColumn} AS photo_path
+            FROM pet_return_history h
+            INNER JOIN organizations o
+                ON h.organization_id = o.organization_id
+            WHERE h.history_id = ?
+                AND o.account_id = ?
+                AND ${photoColumn} IS NOT NULL
+            `,
+            [historyId, accountId]
+        );
+
+        if (!rows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Historical proof not found."
+            });
+        }
+
+        const photoUrl = rows[0].photo_path;
+
+        if (
+            typeof photoUrl === "string" &&
+            /^https:\/\/res\.cloudinary\.com\//i.test(photoUrl)
+        ) {
+            return res.redirect(photoUrl);
+        }
+
+        const filename = path.basename(photoUrl);
+        const photoPath = path.join(
+            __dirname,
+            "..",
+            "uploads",
+            "pet-proof",
+            filename
+        );
+
+        if (!fs.existsSync(photoPath)) {
+            return res.status(404).json({
+                success: false,
+                message: "Historical proof image is unavailable."
+            });
+        }
+
+        return res.sendFile(photoPath, (err) => {
+            if (err && !res.headersSent) {
+                console.error("Historical proof file error:", err);
+                res.status(404).json({
+                    success: false,
+                    message: "Historical proof image is unavailable."
+                });
+            }
+        });
+
+    } catch (error) {
+        console.error("Organization historical proof retrieval error:", error);
+
+        return res.status(500).json({
+            success: false,
+            message: "Unable to retrieve historical proof."
+        });
+    }
+});
 
 // PATCH: Approve or reject a return request
 router.patch("/return-requests/:id/status", csrfSynchronisedProtection, uploadReturnProof.single("orgRejectProof"), updatePetReturnRequestStatus);

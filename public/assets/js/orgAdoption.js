@@ -697,6 +697,145 @@ async function updateReturnRequestStatus(requestId, status) {
     }
 }
 
+// =====================================================
+// LOAD ORGANIZATION'S PREVIOUS PET RETURN REQUEST HISTORY
+// =====================================================
+async function loadOrgReturnRequestHistory(applicationId) {
+    const container = document.getElementById("org-return-history-content");
+
+    if (!container) return;
+
+    container.innerHTML = `
+        <p class="text-sm text-gray-400 italic">Loading previous requests...</p>
+    `;
+
+    try {
+        const response = await fetch(
+            `/org/return-requests/${encodeURIComponent(applicationId)}/history`
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            throw new Error(data.message || "Failed to load history.");
+        }
+
+        const history = data.history || [];
+
+        if (!history.length) {
+            container.innerHTML = `
+                <p class="text-sm text-gray-400 italic">
+                    No previous return requests found.
+                </p>
+            `;
+            return;
+        }
+
+        container.innerHTML = history.map(item => {
+            const submittedDate = item.created_at
+                ? new Date(item.created_at)
+                : null;
+
+            const formattedDate =
+                submittedDate && !Number.isNaN(submittedDate.getTime())
+                    ? submittedDate.toLocaleString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit"
+                    })
+                    : "N/A";
+
+            const proofTypes = [
+                {
+                    field: "adopter_return_photo",
+                    type: "adopter",
+                    label: "Adopter's Return Proof"
+                },
+                {
+                    field: "org_reject_proof",
+                    type: "rejection",
+                    label: "Organization's Rejection Proof"
+                },
+                {
+                    field: "organization_received_photo",
+                    type: "organization",
+                    label: "Organization's Receipt Proof"
+                }
+            ];
+
+            const proofsHTML = proofTypes
+                .filter(proof => item[proof.field])
+                .map(proof => `
+                    <div class="mt-3">
+                        <p class="text-xs font-semibold text-gray-500 mb-2">
+                            ${proof.label}
+                        </p>
+
+                        <img
+                            src="/org/return-request-history/${encodeURIComponent(item.history_id)}/proof/${proof.type}"
+                            alt="${proof.label}"
+                            class="w-full max-h-48 object-contain rounded-lg border border-gray-200 bg-white"
+                        />
+                    </div>
+                `)
+                .join("");
+
+            return `
+                <div class="rounded-xl border border-gray-200 bg-white p-4 space-y-3">
+                    <div class="flex items-center justify-between gap-3">
+                        <p class="text-sm font-bold text-gray-800">
+                            Previous Request
+                        </p>
+
+                        ${getReturnRequestStatusBadgeHTML(item.status)}
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+                            Previous Return Reason
+                        </p>
+
+                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                            ${escapeHtml(item.return_reason || "No reason provided.")}
+                        </p>
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">
+                            Organization's Previous Response
+                        </p>
+
+                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words">
+                            ${escapeHtml(item.organization_response || "No response recorded.")}
+                        </p>
+                    </div>
+
+                    ${proofsHTML || `
+                        <p class="text-xs text-gray-400 italic">
+                            No previous proof photos available.
+                        </p>
+                    `}
+
+                    <p class="text-xs text-gray-400">
+                        Submitted on ${formattedDate}
+                    </p>
+                </div>
+            `;
+        }).join("");
+
+    } catch (error) {
+        console.error("Load Organization Return History Error:", error);
+
+        container.innerHTML = `
+            <p class="text-sm text-rose-500">
+                Unable to load previous return request history.
+            </p>
+        `;
+    }
+}
+
 function viewReturnRequestDetails(requestId) {
     const request = returnPetRequests.find(
         item => Number(item.return_request_id) === Number(requestId)
@@ -915,9 +1054,32 @@ function viewReturnRequestDetails(requestId) {
                             <span>Requested on <span class="font-medium text-gray-700">${formattedDate}</span></span>
                         </div>
                     </div>
+
+                    <!-- PREVIOUS RETURN REQUEST HISTORY -->
+                    <div class="pt-4 border-t border-gray-200">
+                        <div class="mb-3">
+                            <p class="text-sm font-bold text-gray-800">
+                                <i class="fa-solid fa-clock-rotate-left text-orange-500 mr-1"></i>
+                                Previous Return Request History
+                            </p>
+
+                            <p class="text-xs text-gray-500 mt-1">
+                                View the adopter's previous return requests and your organization's past responses.
+                            </p>
+                        </div>
+
+                        <div id="org-return-history-content" class="space-y-3">
+                            <p class="text-sm text-gray-400 italic">
+                                Loading previous requests...
+                            </p>
+                        </div>
+                    </div>
                 </div>
             `
         });
+
+        // LOAD PREVIOUS RETURN REQUEST HISTORY
+        loadOrgReturnRequestHistory(request.application_id);
 }
 
 function showRejectReturnRequestForm(requestId) {
