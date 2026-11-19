@@ -3541,6 +3541,7 @@ exports.getPetReturnRequests = async (req, res) => {
                 r.return_reason,
                 r.status,
                 r.organization_response,
+                r.org_reject_proof,
                 r.adopter_return_photo,
                 r.organization_received_photo,
                 r.created_at,

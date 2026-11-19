@@ -740,6 +740,37 @@ function viewReturnRequestDetails(requestId) {
 
         const organizationProofUrl = `/org/return-requests/${request.return_request_id}/proof/organization`;
 
+        const rejectionProofUrl = `/org/return-requests/${request.return_request_id}/proof/rejection`;
+
+        const rejectionReasonHTML = request.status === "Rejected"
+            ? `
+                <div class="rounded-xl border border-rose-200 bg-rose-50/50 p-4 space-y-3">
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-rose-700 mb-2">
+                            Organization's Rejection Reason
+                        </p>
+                        <p class="text-sm text-gray-700 whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(request.organization_response || "No rejection reason available.")}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-rose-700 mb-2">
+                            Organization's Rejection Proof
+                        </p>
+
+                        ${
+                            request.org_reject_proof
+                                ? `<img
+                                    src="${rejectionProofUrl}"
+                                    alt="Organization rejection proof"
+                                    class="w-full max-h-64 object-contain rounded-xl border border-gray-200 bg-white"
+                                />`
+                                : `<p class="text-xs text-gray-400 italic">Rejection proof not available.</p>`
+                        }
+                    </div>
+                </div>
+            `
+            : "";
+
         const adopterProofHTML = request.adopter_return_photo
             ? `
                 <div>
@@ -876,6 +907,8 @@ function viewReturnRequestDetails(requestId) {
                         ${adopterProofHTML}
 
                         ${organizationProofHTML}
+
+                        ${rejectionReasonHTML}
     
                         <div class="flex items-center gap-2 text-xs text-gray-500">
                             <i class="fa-regular fa-calendar"></i>
