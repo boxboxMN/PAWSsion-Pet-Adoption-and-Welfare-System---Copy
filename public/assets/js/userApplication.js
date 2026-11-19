@@ -212,7 +212,10 @@ async function loadApplications() {
             organization: app.organization_name || "Unknown Organization",
             organizationId: app.organization_id || app.org_id || null, 
             status: app.status === "Pending" ? "Under Review" : (app.status || "Under Review"),
+            returnRequestId: app.return_request_id || null,
             returnRequestStatus: app.return_request_status || null,
+            returnRequestResponse: app.return_request_response || null,
+            returnRequestRejectionProof: app.return_request_rejection_proof || null,
             date: formatDate(app.created_at),
             rawDate: app.created_at,
 
@@ -702,7 +705,7 @@ function showDetails(app) {
         meetupCard.classList.add("hidden");
     }
 
-    // 6c. HANDOVER PROOF CARD (Lalabas lang kapag Received)
+    // 6c. HANDOVER PROOF CARD (will show when Received)
     const handoverCard = document.getElementById("detail-handover-card");
     const handoverPhoto = document.getElementById("detail-handover-photo");
 
@@ -724,6 +727,42 @@ function showDetails(app) {
         }
     }
     
+    // 6d. RETURN REQUEST REJECTION CARD (Lalabas lang kapag Rejected)
+    const returnRejectionCard = document.getElementById("detail-return-rejection-card");
+    const returnRejectionReason = document.getElementById("detail-return-rejection-reason");
+    const returnRejectionProofContainer = document.getElementById("detail-return-rejection-proof-container");
+    const returnRejectionProof = document.getElementById("detail-return-rejection-proof");
+
+    if (returnRejectionCard && returnRejectionReason && returnRejectionProofContainer && returnRejectionProof) {
+        if ((app.returnRequestStatus || "").toLowerCase() === "rejected") {
+            returnRejectionCard.classList.remove("hidden");
+
+            returnRejectionReason.textContent =
+                app.returnRequestResponse || "No response provided by the organization.";
+
+            if (app.returnRequestId && app.returnRequestRejectionProof) {
+                returnRejectionProofContainer.classList.remove("hidden");
+
+                returnRejectionProof.src =
+                    `/api/user/return-requests/${encodeURIComponent(app.returnRequestId)}/rejection-proof`;
+
+                returnRejectionProof.onerror = () => {
+                    returnRejectionProof.onerror = null;
+                    returnRejectionProof.alt = "Rejection proof image is unavailable.";
+                };
+            } else {
+                returnRejectionProofContainer.classList.add("hidden");
+                returnRejectionProof.removeAttribute("src");
+                returnRejectionProof.onerror = null;
+            }
+        } else {
+            returnRejectionCard.classList.add("hidden");
+            returnRejectionReason.textContent = "";
+            returnRejectionProofContainer.classList.add("hidden");
+            returnRejectionProof.removeAttribute("src");
+            returnRejectionProof.onerror = null;
+        }
+    }
     // 7. UPLOADED DOCUMENT (Ipakita ang totoong PDF/Image link na in-upload)
     const docContainer = document.querySelector('#details-view .border-dashed');
     

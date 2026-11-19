@@ -775,14 +775,14 @@ router.patch('/applications/:id/status', async (req, res) => {
 router.get("/return-requests", getPetReturnRequests);
 
 // PATCH: Approve or reject a return request
-router.patch("/return-requests/:id/status", updatePetReturnRequestStatus);
+router.patch("/return-requests/:id/status", csrfSynchronisedProtection, uploadReturnProof.single("orgRejectProof"), updatePetReturnRequestStatus);
 
 // PATCH: Organization confirms receipt of returned pet with proof photo
 router.patch(
     "/return-requests/:id/confirm-received",
     csrfSynchronisedProtection,
     uploadReturnProof.single("organizationReceivedPhoto"),
-    confirmPetReturnReceived
+    confirmPetReturnReceived 
 );
 
 // PATCH: Mark an approved returned pet as available
@@ -992,16 +992,21 @@ router.get("/return-requests/:id/proof/:type", async (req, res) => {
             });
         }
 
-        if (!["adopter", "organization"].includes(type)) {
+        if (!["adopter", "organization", "rejection"].includes(type)) {
             return res.status(400).json({
                 success: false,
                 message: "Invalid proof type."
             });
         }
 
-        const photoColumn = type === "adopter"
-            ? "r.adopter_return_photo"
-            : "r.organization_received_photo";
+        // const photoColumn = type === "adopter"
+        //     ? "r.adopter_return_photo"
+        //     : "r.organization_received_photo";
+        const photoColumn = {
+            adopter: "r.adopter_return_photo",
+            organization: "r.organization_received_photo",
+            rejection: "r.org_reject_proof"
+        }[type];
 
         const [rows] = await pool.query(
             `SELECT ${photoColumn} AS photo_path

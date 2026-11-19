@@ -3593,15 +3593,43 @@ exports.updatePetReturnRequestStatus = async (req, res) => {
         });
     }
 
+    const responseText = typeof organization_response === "string"
+            ? organization_response.trim()
+            : "";
+
     if (
         organization_response != null &&
-        (typeof organization_response !== "string" ||
-         organization_response.length > 1000)
+        typeof organization_response !== "string" 
+        // ||organization_response.length > 1000)
     ) {
+        return res.status(400).json({
+            success: false,
+            message: "Organization response must be valid text."
+        });
+    }
+
+    if (responseText.length > 1000) {
         return res.status(400).json({
             success: false,
             message: "Organization response must not exceed 1000 characters."
         });
+    }
+
+    // Rejection requires both a reason and a proof photo.
+    if (status === "Rejected") {
+        if (!responseText) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide a reason for rejecting this return request."
+            });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "Please upload supporting proof for the rejection."
+            });
+        }
     }
 
     const connection = await pool.getConnection();
@@ -3688,16 +3716,33 @@ exports.updatePetReturnRequestStatus = async (req, res) => {
             });
         }
 
+        // Upload rejection proof to Cloudinary only when rejecting.
+        let rejectionProofUrl = null;
+
+        if (status === "Rejected") {
+            rejectionProofUrl = await uploadToCloudinary(
+                req.file,
+                "pawpon/pet-proof"
+            );
+        }
+
         await connection.query(
             `UPDATE pet_return_requests
              SET status = ?,
                  organization_response = ?,
+                 org_reject_proof = CASE
+                    WHEN ? = 'Rejected' THEN ?
+                    ELSE org_reject_proof
+                 END,
                  updated_at = NOW()
              WHERE return_request_id = ?
                AND status = 'Pending'`,
             [
                 status,
-                organization_response?.trim() || null,
+                // organization_response?.trim() || null,
+                responseText || null,
+                status,
+                rejectionProofUrl,
                 id
             ]
         );

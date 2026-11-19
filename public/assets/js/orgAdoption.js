@@ -628,13 +628,32 @@ async function updateReturnRequestStatus(requestId, status) {
     if (!confirmed.isConfirmed) return;
 
     try {
+        // Get CSRF token
+        const csrfResponse = await fetch("/auth/csrf-token", {
+            method: "GET",
+            credentials: "same-origin",
+            headers: {
+                "Accept": "application/json"
+            }
+        });
+
+        const csrfData = await csrfResponse.json();
+
+        if (!csrfResponse.ok || !csrfData.token) {
+            throw new Error(
+                "Unable to get security token. Please refresh and try again."
+            );
+        }
+
         const response = await fetch(
             `/org/return-requests/${encodeURIComponent(requestId)}/status`,
             {
                 method: "PATCH",
                 credentials: "same-origin",
                 headers: {
-                    "Content-Type": "application/json"
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "x-csrf-token": csrfData.token
                 },
                 body: JSON.stringify({
                     status: status
@@ -770,7 +789,7 @@ function viewReturnRequestDetails(requestId) {
 
                     <button
                         type="button"
-                        onclick="Swal.close(); updateReturnRequestStatus(${Number(request.return_request_id)}, 'Rejected')"
+                        onclick="Swal.close(); showRejectReturnRequestForm(${Number(request.return_request_id)})"
                         class="flex-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold py-2.5 transition"
                     >
                         <i class="fa-solid fa-xmark mr-1"></i>
@@ -866,6 +885,185 @@ function viewReturnRequestDetails(requestId) {
                 </div>
             `
         });
+}
+
+function showRejectReturnRequestForm(requestId) {
+    Swal.fire({
+        title: "Reject Return Request",
+        html: `
+            <div class="text-left space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Rejection Reason <span class="text-red-500">*</span>
+                    </label>
+
+                    <textarea
+                        id="returnRejectionReason"
+                        rows="4"
+                        maxlength="1000"
+                        placeholder="Explain why this return request is being rejected..."
+                        class="w-full rounded-lg border border-gray-300 p-3 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none resize-none"
+                    ></textarea>
+
+                    <p class="text-xs text-gray-400 mt-1">
+                        Maximum of 1000 characters.
+                    </p>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">
+                        Supporting Proof Photo <span class="text-red-500">*</span>
+                    </label>
+
+                    <input
+                        type="file"
+                        id="returnRejectionProof"
+                        accept="image/jpeg,image/png,image/webp"
+                        class="block w-full text-sm text-gray-600
+                        file:mr-3 file:rounded-lg file:border-0
+                        file:bg-blue-50 file:px-4 file:py-2
+                        file:text-sm file:font-semibold file:text-blue-700
+                        hover:file:bg-blue-100"
+                    />
+
+                    <p class="text-xs text-gray-400 mt-1">
+                        Accepted formats: JPG, PNG, WEBP. Maximum size: 5 MB.
+                    </p>
+                </div>
+            </div>
+        `,
+        width: 480,
+        showCancelButton: true,
+        confirmButtonText: "Submit Rejection",
+        cancelButtonText: "Cancel",
+        confirmButtonColor: "#dc2626",
+        focusConfirm: false,
+
+        preConfirm: () => {
+            const reason = document
+                .getElementById("returnRejectionReason")
+                .value.trim();
+
+            const proofInput = document.getElementById("returnRejectionProof");
+            const proof = proofInput.files[0];
+
+            if (!reason) {
+                Swal.showValidationMessage("Please provide a rejection reason.");
+                return false;
+            }
+
+            if (!proof) {
+                Swal.showValidationMessage("Please upload a supporting proof photo.");
+                return false;
+            }
+
+            if (reason.length > 1000) {
+                Swal.showValidationMessage("Rejection reason must not exceed 1000 characters.");
+                return false;
+            }
+
+            const allowedTypes = [
+                "image/jpeg",
+                "image/png",
+                "image/webp"
+            ];
+
+            if (!allowedTypes.includes(proof.type)) {
+                Swal.showValidationMessage("Only JPG, PNG, and WEBP images are allowed.");
+                return false;
+            }
+
+            if (proof.size > 5 * 1024 * 1024) {
+                Swal.showValidationMessage("Proof image must not exceed 5 MB.");
+                return false;
+            }
+
+            return {
+                reason,
+                proof
+            };
+        }
+    }).then(async (result) => {
+        if (!result.isConfirmed) return;
+
+        await submitReturnRequestRejection(
+            requestId,
+            result.value.reason,
+            result.value.proof
+        );
+    });
+}
+
+async function submitReturnRequestRejection(requestId, reason, proof) {
+    const formData = new FormData();
+
+    formData.append("status", "Rejected");
+    formData.append("organization_response", reason);
+    formData.append("orgRejectProof", proof);
+
+    try {
+        Swal.fire({
+            title: "Submitting Rejection...",
+            text: "Please wait while we process your request.",
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            didOpen: () => {
+                Swal.showLoading();
+            }
+        });
+
+        const csrfResponse = await fetch("/auth/csrf-token", {
+            credentials: "same-origin"
+        });
+
+        const csrfData = await csrfResponse.json();
+
+        if (!csrfResponse.ok || !csrfData.token) {
+            throw new Error("Unable to verify CSRF token. Please refresh the page.");
+        }
+
+        const response = await fetch(
+            `/org/return-requests/${encodeURIComponent(requestId)}/status`,
+            {
+                method: "PATCH",
+                credentials: "same-origin",
+                headers: {
+                    "X-CSRF-Token": csrfData.token
+                },
+                body: formData
+            }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok || data.success === false) {
+            throw new Error(
+                data.message || "Failed to reject the return request."
+            );
+        }
+
+        await Swal.fire({
+            icon: "success",
+            title: "Return Rejected",
+            text: data.message || "The return request has been rejected successfully.",
+            confirmButtonColor: "#2563eb"
+        });
+
+        await fetchReturnPetRequests();
+
+        // Refresh the existing adoption applications table.
+        await fetchAdoptionApplications();
+
+    } catch (error) {
+        console.error("Error rejecting return request:", error);
+
+        await Swal.fire({
+            icon: "error",
+            title: "Rejection Failed",
+            text: error.message || "Unable to reject the return request.",
+            confirmButtonColor: "#dc2626"
+        });
+    }
 }
 
 // Helper: Update Stat Cards

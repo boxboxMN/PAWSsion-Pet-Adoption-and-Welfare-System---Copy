@@ -210,6 +210,41 @@
                             />
                         </div>
                     </div>
+
+                    <!-- Return Request Rejection Card -->
+                    <div id="detail-return-rejection-card" class="card hidden">
+                        <h2 class="section-title">
+                            <i class="fas fa-circle-exclamation text-red-600"></i>
+                            Return Request Rejected
+                        </h2>
+
+                        <p class="text-sm text-gray-500 mb-3">
+                            The organization has rejected your pet return request. Please review their response and attached proof below.
+                        </p>
+
+                        <div class="border border-red-200 rounded-xl p-4 bg-red-50/40">
+                            <h3 class="text-sm font-semibold text-red-800 mb-2">
+                                Organization's Response
+                            </h3>
+
+                            <p id="detail-return-rejection-reason"
+                            class="text-sm text-gray-800 whitespace-pre-line break-words">
+                            </p>
+
+                            <div id="detail-return-rejection-proof-container" class="mt-4 hidden">
+                                <h3 class="text-sm font-semibold text-gray-700 mb-2">
+                                    Rejection Proof
+                                </h3>
+
+                                <img
+                                    id="detail-return-rejection-proof"
+                                    src=""
+                                    alt="Organization rejection proof"
+                                    class="w-full max-w-lg mx-auto rounded-lg object-contain max-h-96 border border-gray-200"
+                                />
+                            </div>
+                        </div>
+                    </div>
                     
                     <!-- Requirement -->
                     <div class="card">

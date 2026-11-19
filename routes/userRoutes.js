@@ -293,6 +293,86 @@ router.get("/api/user/applications/:id/handover-proof", checkUserSession,
     }
 );
 
+// GET: View organization rejection proof (Adopter only)
+router.get(
+    "/api/user/return-requests/:id/rejection-proof",
+    checkUserSession,
+    async (req, res) => {
+        try {
+            const { id } = req.params;
+            const accountId = req.session?.accountId;
+
+            const [rows] = await pool.query(
+                `SELECT r.org_reject_proof
+                 FROM pet_return_requests r
+                 JOIN user_adoption_applications app
+                    ON r.application_id = app.application_id
+                 JOIN adopters ad
+                    ON app.adopter_id = ad.adopter_id
+                 WHERE r.return_request_id = ?
+                   AND ad.account_id = ?
+                   AND r.status = 'Rejected'
+                   AND r.org_reject_proof IS NOT NULL`,
+                [id, accountId]
+            );
+
+            if (!rows.length) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Rejection proof not found."
+                });
+            }
+
+            const photoUrl = rows[0].org_reject_proof;
+
+            // Cloudinary image URL
+            if (
+                typeof photoUrl === "string" &&
+                /^https:\/\/res\.cloudinary\.com\//i.test(photoUrl)
+            ) {
+                return res.redirect(photoUrl);
+            }
+
+            // Local image fallback
+            const filename = path.basename(photoUrl);
+
+            const photoPath = path.join(
+                __dirname,
+                '..',
+                'uploads',
+                'pet-proof',
+                filename
+            );
+
+            if (!fs.existsSync(photoPath)) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Rejection proof image is unavailable."
+                });
+            }
+
+            return res.sendFile(photoPath, (err) => {
+                if (err && !res.headersSent) {
+                    console.error("Adopter rejection proof file error:", err);
+
+                    res.status(404).json({
+                        success: false,
+                        message: "Rejection proof image is unavailable."
+                    });
+                }
+            });
+
+        } catch (err) {
+            console.error("Adopter rejection proof error:", err);
+
+            return res.status(500).json({
+                success: false,
+                message: "Unable to retrieve rejection proof."
+            });
+        }
+    }
+);
+
 router.get("/api/user/donations", checkUserSession, userController.getUserDonations);
 router.get("/api/user/profile", checkUserSession, userController.getProfile);
 
