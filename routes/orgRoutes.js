@@ -688,18 +688,21 @@ router.patch('/applications/:id/status', async (req, res) => {
             // BAGONG DAGDAG: Automatic na i-decline ang ibang aplikante para sa parehong pet
             // =========================================================================
             const [declineResult] = await connection.query(`
-                UPDATE user_adoption_applications app
-                JOIN animals a ON app.animal_id = a.animal_id
+                UPDATE user_adoption_applications
                 SET 
-                    app.status = 'Declined', 
-                    app.decline_reason = 'The pet has already been adopted by another applicant.', 
-                    app.updated_at = NOW() 
-                WHERE a.name = (SELECT name FROM animals WHERE animal_id = ?)
-                  AND app.application_id != ? 
-                  AND app.status IN ('Under Review', 'Interview Scheduled')
+                    status = 'Declined', 
+                    decline_reason = 'This pet has already been adopted by another applicant.', 
+                    updated_at = NOW() 
+                WHERE animal_id = ? 
+                    AND application_id != ?
+                    AND status IN (
+                        'Under Review',
+                        'Interview Scheduled',
+                        'Post-Interview Review'
+                    )
             `, [animalId, id]);
 
-            console.log(`💡 Automatic Decline Executed: ${declineResult.affectedRows} other application(s) for the same pet name were declined.`);
+            console.log(`💡 Automatic Decline Executed: ${declineResult.affectedRows} other application(s) for the same pet were declined.`);
         }
 
         // save the changes in the db
