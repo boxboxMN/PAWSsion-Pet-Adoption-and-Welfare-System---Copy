@@ -36,37 +36,20 @@ async function loadRecentActivities() {
             switch (item.activity_type) {
                 case 'application':
                     icon = 'fa-clipboard-check';
+                    dotColor = 'bg-blue-500 ring-blue-100';
 
-                    const now = new Date();
-                    let isPastInterview = false;
-                    let interviewDateTime = null;
+                    title = `Application: ${item.status}`;
 
-                    if (item.interview_date) {
-                        interviewDateTime = new Date(item.interview_date);
-                        
-                       
-                        if (item.interview_time) {
-                            const [hours, minutes] = item.interview_time.split(':');
-                            interviewDateTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0, 0);
-                        } else {
-                            interviewDateTime.setHours(23, 59, 59, 999); 
-                        }
-                
-                        
-                        if (now > interviewDateTime && (item.status === 'Interview Scheduled' || item.status === 'Under Review')) {
-                            isPastInterview = true;
-                        }
-                    }
+                    description = `Adoption application for <span class="font-medium text-gray-700">"${item.pet_name}"</span> (${item.species}) is currently <strong>${item.status}</strong>.`;
 
-                    if (isPastInterview) {
+                    // Show Post-Interview Review only when the actual
+                    // application status has been updated by the organization.
+                    if (item.status === 'Post-Interview Review') {
                         dotColor = 'bg-purple-500 ring-purple-100';
-                        title = `Application: Post-Interview Review`;
-                        description = `Your interview for <span class="font-medium text-gray-700">"${item.pet_name}"</span> was scheduled for <span class="font-medium text-gray-700">${new Date(item.interview_date).toLocaleDateString()}</span>. The organization is currently reviewing your application.`;
-                    } else {
-                        dotColor = 'bg-blue-500 ring-blue-100';
-                        title = `Application: ${item.status}`;
-                        description = `Adoption application for <span class="font-medium text-gray-700">"${item.pet_name}"</span> (${item.species}) is currently <strong>${item.status}</strong>.`;
+
+                        description = `Your interview for <span class="font-medium text-gray-700">"${item.pet_name}"</span> has been completed. The organization is currently reviewing your application.`;
                     }
+
                     break;
 
                 case 'donation_cash':
