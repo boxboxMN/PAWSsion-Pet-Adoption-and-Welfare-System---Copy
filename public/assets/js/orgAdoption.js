@@ -152,6 +152,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let editingSectionIndex = null;
 
+    const qualificationChecklistSections = window.qualificationChecklistSections;
+
+    if (!Array.isArray(qualificationChecklistSections)) {
+        console.error("Qualification checklist data is not loaded.");
+        return;
+    }
+
     // Open modal
     function openSectionModal(index = null) {
         editingSectionIndex = index;

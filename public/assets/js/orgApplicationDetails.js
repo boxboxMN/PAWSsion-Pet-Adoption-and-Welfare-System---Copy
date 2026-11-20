@@ -1698,7 +1698,7 @@ document.addEventListener("DOMContentLoaded", () => {
     generateTimeOptions();
 });
 
-const qualificationChecklistSections = [
+window.qualificationChecklistSections = [
     {
         title: "1. Financial Readiness",
         items: [
