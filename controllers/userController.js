@@ -4,8 +4,7 @@ const bcrypt = require("bcrypt");
 const validator = require('validator');
 const AdoptionModel = require('../models/userModel');
 const { getAnimalImages } = require("../models/animalImageModel");
-const { logActivity } = require("./adminController");
-const { createNotification, notifyAllAdmins } = require("./adminController");
+const { logActivity, createNotification, notifyAllAdmins } = require("./adminController");
 const { uploadToCloudinary } = require("../services/cloudinaryUpload");
 
 const crypto = require("crypto");
@@ -2622,6 +2621,17 @@ exports.submitPetReturnRequest = async (req, res) => {
 
         const application = rows[0];
 
+        // Get the organization's account ID for notification.
+        const [organizationRows] = await connection.query(
+            `SELECT account_id
+            FROM organizations
+            WHERE organization_id = ?
+            LIMIT 1`,
+            [application.organization_id]
+        );
+
+        const organizationAccountId = organizationRows[0]?.account_id || null;
+
         if (!application.organization_id) {
             await connection.rollback();
         
@@ -2765,6 +2775,17 @@ exports.submitPetReturnRequest = async (req, res) => {
 
             await connection.commit();
 
+            // Notify the organization about the resubmitted return request.
+            if (organizationAccountId) {
+                await createNotification(
+                    organizationAccountId,
+                    "Pet Return Request Resubmitted",
+                    "An adopter has resubmitted a previously rejected pet return request.",
+                    "pet_return_request",
+                    null
+                );
+            }
+
             return res.status(200).json({
                 success: true,
                 message: "Return request resubmitted successfully."
@@ -2795,6 +2816,17 @@ exports.submitPetReturnRequest = async (req, res) => {
             );
 
             await connection.commit();
+
+            // Notify the organization about the new return request.
+            if (organizationAccountId) {
+                await createNotification(
+                    organizationAccountId,
+                    "New Pet Return Request",
+                    `An adopter has submitted a return request for a pet under your organization.`,
+                    "pet_return_request",
+                    null
+                );
+            }
 
             return res.status(201).json({
                 success: true,

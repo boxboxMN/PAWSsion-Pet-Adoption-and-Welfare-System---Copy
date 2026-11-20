@@ -126,6 +126,10 @@ function renderNotifIcon(type) {
         account_suspended: "🚫",
         account_banned: "⛔",
         account_disabled: "🔒",
+
+        // Pet Return Notifications
+        pet_return_request: "🐾",
+        pet_return_status: "🏠"
     };
     return icons[type] || "🔔";
 }

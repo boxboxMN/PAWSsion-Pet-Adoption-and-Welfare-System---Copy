@@ -1,10 +1,8 @@
 const pool = require("../config/database");
 const { generateEmbedding } = require("../services/embeddingService");
-const { logActivity } = require("./adminController");
-const { createNotification, notifyAllAdmins } = require("./adminController");
+const { logActivity, createNotification, notifyAllAdmins } = require("./adminController");
 const { ensureAnimalImagesTable } = require("../models/animalImageModel");
 const { uploadToCloudinary } = require("../services/cloudinaryUpload");
-
 
 async function purgeExpiredTrash(organizationId) {
     const [expired] = await pool.query(
@@ -3745,10 +3743,14 @@ exports.updatePetReturnRequestStatus = async (req, res) => {
                 r.animal_id,
                 r.status,
                 app.status AS application_status,
+                ad.account_id AS adopter_account_id,
+                a.name AS pet_name,
                 a.adoption_status
              FROM pet_return_requests r
              JOIN user_adoption_applications app
                 ON app.application_id = r.application_id
+             JOIN adopters ad
+                ON ad.adopter_id = r.adopter_id
              JOIN animals a ON a.animal_id = r.animal_id
              WHERE r.return_request_id = ?
                AND r.organization_id = ?
@@ -3830,6 +3832,19 @@ exports.updatePetReturnRequestStatus = async (req, res) => {
         );
 
         await connection.commit();
+
+        // Notify the adopter about the return request status.
+        if (request.adopter_account_id) {
+            await createNotification(
+                request.adopter_account_id,
+                `Pet Return Request ${status}`,
+                status === "Approved"
+                    ? `Your return request for ${request.pet_name} has been approved by the organization.`
+                    : `Your return request for ${request.pet_name} has been rejected. Reason: ${responseText}`,
+                "pet_return_status",
+                null
+            );
+        }
 
         return res.json({
             success: true,

@@ -62,7 +62,11 @@ function userNotifIcon(type) {
         interview_rescheduled: "📅",
         donation_status: "💰",
         kamustahan_due: "🐾",
-        account_warning: "⚠️"
+        account_warning: "⚠️",
+
+        // Pet Return Notifications
+        pet_return_request: "🐾",
+        pet_return_status: "🏠"
     };
     return icons[type] || "🔔";
 }
