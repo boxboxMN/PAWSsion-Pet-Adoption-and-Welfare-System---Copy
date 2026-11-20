@@ -1347,28 +1347,6 @@ function goBackAndRefresh() {
     }
 }
 
-// Variable para sa pag-cache ng profile
-let cachedOrgProfile = null;
-
-// Helper: Kunin ang Organization Profile
-async function getOrgProfileData() {
-    if (cachedOrgProfile) return cachedOrgProfile;
-    try {
-        const response = await fetch('/api/organization/profile', {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include'
-        });
-        if (response.ok) {
-            cachedOrgProfile = await response.json();
-            return cachedOrgProfile;
-        }
-    } catch (err) {
-        console.error("Failed to fetch org profile:", err);
-    }
-    return { organization_name: "Pawpon Organization Shelter" };
-}
-
 // Helper: Buuin ang Full Address ng Organization mula sa Profile data
 function buildOrgFullAddress(orgData) {
     if (!orgData) return "";
