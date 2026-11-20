@@ -40,31 +40,65 @@ document.addEventListener("DOMContentLoaded", async () => {
     // Adoption Management Tabs
     const adoptionTab = document.getElementById("adoptionApplicationsTab");
     const returnRequestsTab = document.getElementById("returnPetRequestsTab");
+    const qualificationsTab = document.getElementById("qualificationChecklistTab");
 
     const adoptionPanel = document.getElementById("adoptionApplicationsPanel");
     const returnRequestsPanel = document.getElementById("returnPetRequestsPanel");
+    const qualificationsPanel = document.getElementById("qualificationChecklistPanel");
 
     function switchAdoptionTab(activeTab) {
-        const showAdoption = activeTab === "adoption";
+        // const showAdoption = activeTab === "adoption";
 
-        adoptionPanel.classList.toggle("hidden", !showAdoption);
-        returnRequestsPanel.classList.toggle("hidden", showAdoption);
+        // adoptionPanel.classList.toggle("hidden", !showAdoption);
+        // returnRequestsPanel.classList.toggle("hidden", showAdoption);
 
-        adoptionTab.setAttribute("aria-selected", String(showAdoption));
-        returnRequestsTab.setAttribute("aria-selected", String(!showAdoption));
+        // adoptionTab.setAttribute("aria-selected", String(showAdoption));
+        // returnRequestsTab.setAttribute("aria-selected", String(!showAdoption));
 
-        adoptionTab.classList.toggle("border-blue-600", showAdoption);
-        adoptionTab.classList.toggle("text-blue-600", showAdoption);
-        adoptionTab.classList.toggle("border-transparent", !showAdoption);
-        adoptionTab.classList.toggle("text-gray-500", !showAdoption);
+        // adoptionTab.classList.toggle("border-blue-600", showAdoption);
+        // adoptionTab.classList.toggle("text-blue-600", showAdoption);
+        // adoptionTab.classList.toggle("border-transparent", !showAdoption);
+        // adoptionTab.classList.toggle("text-gray-500", !showAdoption);
 
-        returnRequestsTab.classList.toggle("border-blue-600", !showAdoption);
-        returnRequestsTab.classList.toggle("text-blue-600", !showAdoption);
-        returnRequestsTab.classList.toggle("border-transparent", showAdoption);
-        returnRequestsTab.classList.toggle("text-gray-500", showAdoption);
+        // returnRequestsTab.classList.toggle("border-blue-600", !showAdoption);
+        // returnRequestsTab.classList.toggle("text-blue-600", !showAdoption);
+        // returnRequestsTab.classList.toggle("border-transparent", showAdoption);
+        // returnRequestsTab.classList.toggle("text-gray-500", showAdoption);
+        const tabs = [
+        {
+            tab: adoptionTab,
+            panel: adoptionPanel,
+            key: "adoption"
+        },
+        {
+            tab: returnRequestsTab,
+            panel: returnRequestsPanel,
+            key: "returns"
+        },
+        {
+            tab: qualificationsTab,
+            panel: qualificationsPanel,
+            key: "qualifications"
+        }
+        ];
+
+        tabs.forEach(({ tab, panel, key }) => {
+            if (!tab || !panel) return;
+
+            const isActive = activeTab === key;
+
+            panel.classList.toggle("hidden", !isActive);
+
+            tab.setAttribute("aria-selected", String(isActive));
+
+            tab.classList.toggle("border-blue-600", isActive);
+            tab.classList.toggle("text-blue-600", isActive);
+            tab.classList.toggle("border-transparent", !isActive);
+            tab.classList.toggle("text-gray-500", !isActive);
+        });
     }
 
-    if (adoptionTab && returnRequestsTab && adoptionPanel && returnRequestsPanel) {
+    if (adoptionTab && returnRequestsTab && qualificationsTab && adoptionPanel && returnRequestsPanel && qualificationsPanel) {
         adoptionTab.addEventListener("click", () => {
             switchAdoptionTab("adoption");
         });
@@ -74,6 +108,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             await fetchReturnPetRequests();
         });
 
+        qualificationsTab.addEventListener("click", () => {
+            switchAdoptionTab("qualifications");
+        });
+
         // Open the correct tab based on the URL parameter
         const urlParams = new URLSearchParams(window.location.search);
         const requestedTab = urlParams.get("tab");
@@ -81,11 +119,242 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (requestedTab === "returns") {
             switchAdoptionTab("returns");
             fetchReturnPetRequests();
+        } else if (requestedTab === "qualifications") {
+            switchAdoptionTab("qualifications");
         } else {
             // Set the default active tab
             switchAdoptionTab("adoption");
         }
     }
+});
+
+
+/* ==========================================
+   QUALIFICATION CHECKLIST SECTION MANAGER
+========================================== */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const modal = document.getElementById("qualificationSectionModal");
+    const addSectionBtn = document.getElementById("addQualificationSectionBtn");
+    const closeBtn = document.getElementById("closeQualificationSectionModalBtn");
+    const cancelBtn = document.getElementById("cancelQualificationSectionBtn");
+    const addItemBtn = document.getElementById("addQualificationItemBtn");
+    const saveBtn = document.getElementById("saveQualificationSectionBtn");
+
+    const titleInput = document.getElementById("qualificationSectionTitle");
+    const itemsContainer = document.getElementById("qualificationItemsEditor");
+    const sectionsContainer = document.getElementById("qualificationSectionsContainer");
+
+    if (!modal || !addSectionBtn || !itemsContainer || !sectionsContainer) {
+        console.error("Qualification checklist elements not found.");
+        return;
+    }
+
+    let editingSectionIndex = null;
+
+    // Open modal
+    function openSectionModal(index = null) {
+        editingSectionIndex = index;
+        itemsContainer.innerHTML = "";
+
+        if (index !== null) {
+            const section = qualificationChecklistSections[index];
+
+            titleInput.value = section.title;
+            document.getElementById("qualificationSectionModalTitle").textContent =
+                "Edit Qualification Section";
+
+            section.items.forEach(item => {
+                addQualificationItem(item.label);
+            });
+        } else {
+            titleInput.value = "";
+            document.getElementById("qualificationSectionModalTitle").textContent =
+                "Add Qualification Section";
+
+            addQualificationItem();
+        }
+
+        modal.classList.remove("hidden");
+        document.body.style.overflow = "hidden";
+        titleInput.focus();
+    }
+
+    // Close modal
+    function closeSectionModal() {
+        modal.classList.add("hidden");
+        document.body.style.overflow = "";
+        itemsContainer.innerHTML = "";
+        titleInput.value = "";
+        editingSectionIndex = null;
+    }
+
+    // Add an item input
+    function addQualificationItem(value = "") {
+        const wrapper = document.createElement("div");
+        wrapper.className = "flex items-start gap-2";
+
+        const input = document.createElement("textarea");
+        input.rows = 2;
+        input.maxLength = 500;
+        input.value = value;
+        input.placeholder = "Enter a qualification requirement...";
+        input.className =
+            "flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className =
+            "w-10 h-10 rounded-lg text-red-500 hover:bg-red-50";
+        removeBtn.innerHTML = '<i class="fa-solid fa-trash"></i>';
+        removeBtn.title = "Remove item";
+
+        removeBtn.addEventListener("click", () => {
+            wrapper.remove();
+        });
+
+        wrapper.appendChild(input);
+        wrapper.appendChild(removeBtn);
+        itemsContainer.appendChild(wrapper);
+    }
+
+    // Display sections
+    function renderManagedSections() {
+        sectionsContainer.innerHTML = "";
+
+        if (qualificationChecklistSections.length === 0) {
+            sectionsContainer.innerHTML = `
+                <p class="text-center text-gray-400 py-8">
+                    No qualification sections yet.
+                </p>
+            `;
+            return;
+        }
+
+        qualificationChecklistSections.forEach((section, index) => {
+            const card = document.createElement("div");
+            card.className =
+                "border border-gray-200 rounded-xl p-4 space-y-3";
+
+            const header = document.createElement("div");
+            header.className =
+                "flex items-center justify-between gap-3";
+
+            const heading = document.createElement("h3");
+            heading.className = "font-semibold text-gray-800";
+            heading.textContent = section.title;
+
+            const editBtn = document.createElement("button");
+            editBtn.type = "button";
+            editBtn.className =
+                "text-sm text-blue-600 hover:text-blue-800 font-medium";
+            editBtn.innerHTML = '<i class="fa-solid fa-pen mr-1"></i>Edit';
+
+            editBtn.addEventListener("click", () => {
+                openSectionModal(index);
+            });
+
+            header.appendChild(heading);
+            header.appendChild(editBtn);
+
+            const itemList = document.createElement("ul");
+            itemList.className =
+                "list-disc pl-6 space-y-1 text-sm text-gray-600";
+
+            section.items.forEach(item => {
+                const li = document.createElement("li");
+                li.textContent = item.label;
+                itemList.appendChild(li);
+            });
+
+            card.appendChild(header);
+            card.appendChild(itemList);
+            sectionsContainer.appendChild(card);
+        });
+    }
+
+    // Add Section button
+    addSectionBtn.addEventListener("click", () => {
+        openSectionModal();
+    });
+
+    // Add Item button
+    addItemBtn?.addEventListener("click", () => {
+        addQualificationItem();
+    });
+
+    // Close buttons
+    closeBtn?.addEventListener("click", closeSectionModal);
+    cancelBtn?.addEventListener("click", closeSectionModal);
+
+    // Save Section (temporary in-memory save)
+    saveBtn?.addEventListener("click", () => {
+        const sectionTitle = titleInput.value.trim();
+
+        const itemInputs = itemsContainer.querySelectorAll("textarea");
+        const items = [];
+
+        itemInputs.forEach(input => {
+            const label = input.value.trim();
+
+            if (label) {
+                items.push({
+                    id: "qualification_" + Date.now() + "_" + items.length,
+                    label
+                });
+            }
+        });
+
+        if (!sectionTitle) {
+            Swal.fire({
+                icon: "warning",
+                title: "Missing Section Title",
+                text: "Please enter a section title."
+            });
+            return;
+        }
+
+        if (items.length === 0) {
+            Swal.fire({
+                icon: "warning",
+                title: "No Qualifications",
+                text: "Please add at least one qualification item."
+            });
+            return;
+        }
+
+        const sectionData = {
+            title: sectionTitle,
+            items
+        };
+
+        if (editingSectionIndex !== null) {
+            // Preserve existing item IDs when editing.
+            const oldItems = qualificationChecklistSections[editingSectionIndex].items;
+
+            sectionData.items = items.map((item, index) => ({
+                ...item,
+                id: oldItems[index]?.id || item.id
+            }));
+
+            qualificationChecklistSections[editingSectionIndex] = sectionData;
+        } else {
+            qualificationChecklistSections.push(sectionData);
+        }
+
+        renderManagedSections();
+        closeSectionModal();
+
+        Swal.fire({
+            icon: "success",
+            title: "Section Updated",
+            text: "The qualification section was added to the current page.",
+            confirmButtonColor: "#2563EB"
+        });
+    });
+
+    // Initial display
+    renderManagedSections();
 });
 
 async function fetchAdoptionApplications() {

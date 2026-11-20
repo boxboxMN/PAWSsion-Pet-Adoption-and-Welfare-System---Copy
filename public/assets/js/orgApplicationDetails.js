@@ -1992,7 +1992,6 @@ function closeQualificationChecklist() {
     }
 }
 
-
 async function saveQualificationChecklist() {
     if (!currentAppId) {
         Swal.fire({
