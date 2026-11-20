@@ -1196,3 +1196,18 @@ CREATE TABLE pet_return_history (
 
 ALTER TABLE pet_return_requests
 ADD UNIQUE INDEX unique_return_application (application_id);
+
+CREATE TABLE organization_qualification_checklists (
+    checklist_id INT AUTO_INCREMENT PRIMARY KEY,
+    organization_id INT NOT NULL UNIQUE,
+    checklist_data LONGTEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ON UPDATE CURRENT_TIMESTAMP,
+
+    CONSTRAINT fk_org_qualification_checklist
+        FOREIGN KEY (organization_id)
+        REFERENCES organizations(organization_id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);

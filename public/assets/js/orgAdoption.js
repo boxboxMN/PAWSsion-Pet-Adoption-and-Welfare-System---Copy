@@ -152,7 +152,81 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let editingSectionIndex = null;
 
-    const qualificationChecklistSections = window.qualificationChecklistSections;
+    const defaultQualificationChecklistSections = [
+        {
+            title: "1. Financial Readiness",
+            items: [
+                { id: "food_expenses", label: "Can provide regular food and clean drinking water." },
+                { id: "vet_expenses", label: "Has considered routine veterinary care and emergency expenses." },
+                { id: "basic_supplies", label: "Can provide essential supplies for the pet." }
+            ]
+        },
+        {
+            title: "2. Living Environment and Safety",
+            items: [
+                { id: "living_permission", label: "Has permission to keep a pet where they live, when applicable." },
+                { id: "safe_space", label: "Can provide a safe and suitable living space." },
+                { id: "hazards", label: "Has considered potential household hazards and escape risks." }
+            ]
+        },
+        {
+            title: "3. Pet-Care Knowledge",
+            items: [
+                { id: "basic_care", label: "Understands the pet's basic feeding, hygiene, and care needs." },
+                { id: "healthcare", label: "Understands the importance of vaccinations and veterinary checkups." },
+                { id: "behavior", label: "Understands that pets may need training, patience, and adjustment time." }
+            ]
+        },
+        {
+            title: "4. Existing or Previous Pet Experience",
+            items: [
+                { id: "experience", label: "Has discussed any relevant previous or current pet-care experience." },
+                { id: "first_time_support", label: "If a first-time adopter, has considered available guidance and support." }
+            ]
+        },
+        {
+            title: "5. Time and Long-Term Commitment",
+            items: [
+                { id: "daily_time", label: "Can provide sufficient time, attention, and daily care." },
+                { id: "long_term", label: "Understands the long-term responsibility of pet ownership." },
+                { id: "backup_care", label: "Has considered who can care for the pet during absences or emergencies." }
+            ]
+        },
+        {
+            title: "6. Animal Welfare and Handling",
+            items: [
+                { id: "humane_handling", label: "Demonstrates understanding of humane and responsible handling." },
+                { id: "welfare", label: "Understands the importance of the pet's safety and welfare." },
+                { id: "adjustment", label: "Is prepared to allow the pet time to adjust to a new home." }
+            ]
+        },
+        {
+            title: "7. Pet-Specific Readiness",
+            items: [
+                { id: "specific_needs", label: "Has considered this pet's known needs, age, and behavior." },
+                { id: "household_fit", label: "Has considered compatibility with household members and other pets, if applicable." }
+            ]
+        },
+        {
+            title: "8. Adopter Behavior and Personality",
+            items: [
+                { id: "patience_understanding", label: "Shows willingness to be patient while the pet adjusts to its new home." },
+                { id: "animal_behavior_approach", label: "Has considered humane ways to respond to unwanted behavior, fear, or adjustment difficulties." },
+                { id: "realistic_expectations", label: "Has realistic expectations about pet ownership, training, and the pet's adjustment period." },
+                { id: "lifestyle_compatibility", label: "Has a lifestyle and activity level compatible with this pet's needs." }
+            ]
+        },
+        {
+            title: "9. Health-Related Considerations and Pet-Care Planning",
+            items: [
+                { id: "care_continuity", label: "Has a plan to maintain the pet's daily care if temporarily unable to provide it." },
+                { id: "support_arrangements", label: "Has considered trusted support or alternative caregiving arrangements when needed." },
+                { id: "care_support_needs", label: "Has considered any assistance or arrangements needed to provide consistent care for the pet." }
+            ]
+        }
+    ];
+
+    let qualificationChecklistSections = [];
 
     if (!Array.isArray(qualificationChecklistSections)) {
         console.error("Qualification checklist data is not loaded.");
@@ -261,8 +335,78 @@ document.addEventListener("DOMContentLoaded", () => {
                 openSectionModal(index);
             });
 
+            const actions = document.createElement("div");
+            actions.className = "flex items-center gap-3";
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.type = "button";
+            deleteBtn.className =
+                "text-sm text-red-600 hover:text-red-800 font-medium";
+            deleteBtn.innerHTML = '<i class="fa-solid fa-trash mr-1"></i>Delete';
+
+            deleteBtn.addEventListener("click", async () => {
+                const result = await Swal.fire({
+                    icon: "warning",
+                    title: "Delete Section?",
+                    text: "Are you sure you want to delete this qualification section?",
+                    showCancelButton: true,
+                    confirmButtonText: "Yes, Delete",
+                    cancelButtonText: "Cancel",
+                    confirmButtonColor: "#DC2626"
+                });
+
+                if (!result.isConfirmed) return;
+
+                const previousSections = JSON.parse(
+                    JSON.stringify(qualificationChecklistSections)
+                );
+
+                qualificationChecklistSections.splice(index, 1);
+
+                try {
+                    const response = await fetch("/org/qualification-checklist", {
+                        method: "PUT",
+                        credentials: "include",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            checklist_data: qualificationChecklistSections
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || "Failed to delete section.");
+                    }
+
+                    renderManagedSections();
+
+                    Swal.fire({
+                        icon: "success",
+                        title: "Section Deleted",
+                        text: "The qualification section has been deleted."
+                    });
+
+                } catch (error) {
+                    qualificationChecklistSections = previousSections;
+
+                    console.error("Error deleting qualification section:", error);
+
+                    Swal.fire({
+                        icon: "error",
+                        title: "Delete Failed",
+                        text: "Unable to delete this section. Please try again."
+                    });
+                }
+            });
+
+            actions.appendChild(editBtn);
+            actions.appendChild(deleteBtn);
+
             header.appendChild(heading);
-            header.appendChild(editBtn);
+            header.appendChild(actions);
 
             const itemList = document.createElement("ul");
             itemList.className =
@@ -294,8 +438,8 @@ document.addEventListener("DOMContentLoaded", () => {
     closeBtn?.addEventListener("click", closeSectionModal);
     cancelBtn?.addEventListener("click", closeSectionModal);
 
-    // Save Section (temporary in-memory save)
-    saveBtn?.addEventListener("click", () => {
+    // Save Section to Database
+    saveBtn?.addEventListener("click", async () => {
         const sectionTitle = titleInput.value.trim();
 
         const itemInputs = itemsContainer.querySelectorAll("textarea");
@@ -335,6 +479,10 @@ document.addEventListener("DOMContentLoaded", () => {
             items
         };
 
+        const previousSections = JSON.parse(
+            JSON.stringify(qualificationChecklistSections)
+        );
+
         if (editingSectionIndex !== null) {
             // Preserve existing item IDs when editing.
             const oldItems = qualificationChecklistSections[editingSectionIndex].items;
@@ -349,19 +497,112 @@ document.addEventListener("DOMContentLoaded", () => {
             qualificationChecklistSections.push(sectionData);
         }
 
-        renderManagedSections();
-        closeSectionModal();
+        try {
+            saveBtn.disabled = true;
 
-        Swal.fire({
-            icon: "success",
-            title: "Section Updated",
-            text: "The qualification section was added to the current page.",
-            confirmButtonColor: "#2563EB"
-        });
+            const response = await fetch("/org/qualification-checklist", {
+                method: "PUT",
+                credentials: "include",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    checklist_data: qualificationChecklistSections
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || "Failed to save qualification checklist.");
+            }
+
+            renderManagedSections();
+            closeSectionModal();
+
+            Swal.fire({
+                icon: "success",
+                title: "Section Saved",
+                text: "The qualification checklist has been saved successfully.",
+                confirmButtonColor: "#2563EB"
+            });
+        } catch (error) {
+            qualificationChecklistSections = previousSections;
+
+            console.error("Error saving qualification checklist:", error);
+
+            Swal.fire({
+                icon: "error",
+                title: "Save Failed",
+                text: "Unable to save the qualification checklist. Please try again."
+            });
+
+        } finally {
+            saveBtn.disabled = false;
+        }
     });
+    
+    // Load Organization's Master Qualification Checklist
+    async function loadQualificationChecklist() {
+        try {
+            const response = await fetch("/org/qualification-checklist", {
+                method: "GET",
+                credentials: "include",
+                headers: {
+                    "Accept": "application/json"
+                }
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                throw new Error(data.message || "Failed to load qualification checklist.");
+            }
+
+            if (Array.isArray(data.checklist)) {
+                // Load the organization's saved checklist
+                qualificationChecklistSections = data.checklist;
+            } else {
+                // First-time setup: use the 9 default sections
+                qualificationChecklistSections = JSON.parse(
+                    JSON.stringify(defaultQualificationChecklistSections)
+                );
+
+                // Save defaults to the database
+                const saveResponse = await fetch("/org/qualification-checklist", {
+                    method: "PUT",
+                    credentials: "include",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        checklist_data: qualificationChecklistSections
+                    })
+                });
+
+                const saveData = await saveResponse.json();
+
+                if (!saveResponse.ok || !saveData.success) {
+                    throw new Error(saveData.message || "Failed to save default checklist.");
+                }
+            }
+
+            renderManagedSections();
+
+        } catch (error) {
+            console.error("Error loading qualification checklist:", error);
+
+            Swal.fire({
+                icon: "error",
+                title: "Unable to Load Checklist",
+                text: "Please refresh the page and try again."
+            });
+        }
+    }
 
     // Initial display
-    renderManagedSections();
+    loadQualificationChecklist();
+
 });
 
 async function fetchAdoptionApplications() {

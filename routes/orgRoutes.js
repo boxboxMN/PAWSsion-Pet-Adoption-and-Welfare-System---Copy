@@ -538,6 +538,151 @@ router.post('/applications/:id/qualification-checklist', async (req, res) => {
     }
 });
 
+// GET: Load Organization's Master Qualification Checklist
+router.get('/qualification-checklist', async (req, res) => {
+    try {
+        const accountId = req.session?.accountId;
+
+        if (!accountId) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        const [orgRows] = await pool.query(
+            `SELECT organization_id
+             FROM organizations
+             WHERE account_id = ?`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Organization not found."
+            });
+        }
+
+        const orgId = orgRows[0].organization_id;
+
+        const [rows] = await pool.query(
+            `SELECT checklist_data, updated_at
+             FROM org_checklists
+             WHERE organization_id = ?`,
+            [orgId]
+        );
+
+        if (!rows.length) {
+            return res.json({
+                success: true,
+                checklist: null
+            });
+        }
+
+        let checklistData;
+
+        try {
+            checklistData = JSON.parse(rows[0].checklist_data);
+        } catch (parseError) {
+            console.error("Organization checklist JSON parse error:", parseError);
+
+            return res.status(500).json({
+                success: false,
+                message: "Unable to read organization checklist."
+            });
+        }
+
+        return res.json({
+            success: true,
+            checklist: checklistData,
+            updated_at: rows[0].updated_at
+        });
+
+    } catch (err) {
+        console.error("Load Organization Checklist Error:", err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to load organization checklist."
+        });
+    }
+});
+
+// PUT: Save or Update Organization's Master Qualification Checklist
+router.put('/qualification-checklist', async (req, res) => {
+    try {
+        const accountId = req.session?.accountId;
+        const { checklist_data } = req.body;
+
+        if (!accountId) {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized."
+            });
+        }
+
+        // Validate checklist data
+        if (
+            !Array.isArray(checklist_data) ||
+            checklist_data.some(section =>
+                !section ||
+                typeof section !== "object" ||
+                typeof section.title !== "string" ||
+                !Array.isArray(section.items)
+            )
+        ) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid qualification checklist data."
+            });
+        }
+
+        // Get logged-in organization's ID
+        const [orgRows] = await pool.query(
+            `SELECT organization_id
+             FROM organizations
+             WHERE account_id = ?`,
+            [accountId]
+        );
+
+        if (!orgRows.length) {
+            return res.status(404).json({
+                success: false,
+                message: "Organization not found."
+            });
+        }
+
+        const orgId = orgRows[0].organization_id;
+
+        // Save or update the organization's master checklist
+        await pool.query(
+            `INSERT INTO org_checklists
+                (organization_id, checklist_data)
+             VALUES (?, ?)
+             ON DUPLICATE KEY UPDATE
+                checklist_data = VALUES(checklist_data)`,
+            [
+                orgId,
+                JSON.stringify(checklist_data)
+            ]
+        );
+
+        return res.json({
+            success: true,
+            message: "Organization qualification checklist saved successfully."
+        });
+
+    } catch (err) {
+        console.error("Save Organization Checklist Error:", err);
+
+        return res.status(500).json({
+            success: false,
+            message: "Failed to save organization qualification checklist."
+        });
+    }
+});
+
 // PATCH Update Application Status (Decline, Approve, Schedule Interview)
 router.patch('/applications/:id/status', async (req, res) => {
     // Gumamit ng connection mula sa pool para sa Transaction
