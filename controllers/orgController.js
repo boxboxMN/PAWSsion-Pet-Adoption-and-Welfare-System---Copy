@@ -3544,12 +3544,25 @@ exports.getPetReturnRequests = async (req, res) => {
                 r.organization_received_photo,
                 r.created_at,
                 r.updated_at,
+                app.status AS application_status,
+
+                CASE
+                    WHEN r.application_id = (
+                        SELECT MAX(latest_app.application_id)
+                        FROM user_adoption_applications latest_app
+                        WHERE latest_app.animal_id = r.animal_id
+                    )
+                    THEN 1
+                    ELSE 0
+                END AS is_latest_application,
+
                 a.name AS pet_name,
                 a.species,
                 a.image_path,
                 a.adoption_status
              FROM pet_return_requests r
              JOIN animals a ON a.animal_id = r.animal_id
+             JOIN user_adoption_applications app ON app.application_id = r.application_id
              WHERE r.organization_id = ?
              ORDER BY
                 CASE WHEN r.status = 'Pending' THEN 0 ELSE 1 END,
