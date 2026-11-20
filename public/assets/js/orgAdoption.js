@@ -74,8 +74,17 @@ document.addEventListener("DOMContentLoaded", async () => {
             await fetchReturnPetRequests();
         });
 
-        // Set the default active tab
-        switchAdoptionTab("adoption");
+        // Open the correct tab based on the URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const requestedTab = urlParams.get("tab");
+
+        if (requestedTab === "returns") {
+            switchAdoptionTab("returns");
+            fetchReturnPetRequests();
+        } else {
+            // Set the default active tab
+            switchAdoptionTab("adoption");
+        }
     }
 });
 

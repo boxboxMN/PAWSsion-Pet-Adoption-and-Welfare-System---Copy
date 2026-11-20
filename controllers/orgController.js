@@ -3842,7 +3842,7 @@ exports.updatePetReturnRequestStatus = async (req, res) => {
                     ? `Your return request for ${request.pet_name} has been approved by the organization.`
                     : `Your return request for ${request.pet_name} has been rejected. Reason: ${responseText}`,
                 "pet_return_status",
-                null
+                "/org/adoption?tab=returns"
             );
         }
 

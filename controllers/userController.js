@@ -2782,7 +2782,7 @@ exports.submitPetReturnRequest = async (req, res) => {
                     "Pet Return Request Resubmitted",
                     "An adopter has resubmitted a previously rejected pet return request.",
                     "pet_return_request",
-                    null
+                    "/org/adoption?tab=returns"
                 );
             }
 
@@ -2824,7 +2824,7 @@ exports.submitPetReturnRequest = async (req, res) => {
                     "New Pet Return Request",
                     `An adopter has submitted a return request for a pet under your organization.`,
                     "pet_return_request",
-                    null
+                    "/org/adoption?tab=returns"
                 );
             }
 
