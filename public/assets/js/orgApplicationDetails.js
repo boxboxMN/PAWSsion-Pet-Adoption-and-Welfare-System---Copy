@@ -1,6 +1,6 @@
 let currentAppId = null;
 let currentAppDetails = null;
-let allApplications = [];
+var allApplications = [];
 let currentDeclineReason = "";
 let pendingRescheduleOverrideReason = "";
 let selectedMethod = 'virtual';
