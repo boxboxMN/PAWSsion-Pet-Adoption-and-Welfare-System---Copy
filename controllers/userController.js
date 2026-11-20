@@ -3059,7 +3059,6 @@ exports.getUserUpcomingSchedules = async (req, res) => {
             WHERE app.adopter_id = ? 
               AND app.status = 'Interview Scheduled'
               AND i.interview_date IS NOT NULL
-              AND STR_TO_DATE(CONCAT(DATE_FORMAT(i.interview_date, '%Y-%m-%d'), ' ', COALESCE(i.interview_time, '23:59:59')), '%Y-%m-%d %H:%i:%s') >= NOW()
             ORDER BY i.interview_date ASC, i.interview_time ASC
         `, [adopterId]);
 

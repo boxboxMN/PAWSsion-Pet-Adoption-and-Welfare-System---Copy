@@ -147,30 +147,30 @@ async function loadUpcomingSchedules() {
             return;
         }
 
-        const now = new Date();
+        // const now = new Date();
 
        
-        const activeSchedules = data.schedules.filter(item => {
-            if (!item.interview_date) return false;
+        // const activeSchedules = data.schedules.filter(item => {
+        //     if (!item.interview_date) return false;
 
-            const interviewDateTime = new Date(item.interview_date);
+        //     const interviewDateTime = new Date(item.interview_date);
             
-            if (item.interview_time) {
-                const parts = item.interview_time.split(':');
-                interviewDateTime.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
-            } else {
-                interviewDateTime.setHours(23, 59, 59, 999);
-            }
+        //     if (item.interview_time) {
+        //         const parts = item.interview_time.split(':');
+        //         interviewDateTime.setHours(parseInt(parts[0], 10), parseInt(parts[1], 10), 0, 0);
+        //     } else {
+        //         interviewDateTime.setHours(23, 59, 59, 999);
+        //     }
 
-            return now <= interviewDateTime; 
-        });
+        //     return now <= interviewDateTime; 
+        // });
 
-        if (activeSchedules.length === 0) {
-            renderEmptySchedule(container);
-            return;
-        }
+        // if (activeSchedules.length === 0) {
+        //     renderEmptySchedule(container);
+        //     return;
+        // }
 
-        container.innerHTML = activeSchedules.map(item => {
+        container.innerHTML = data.schedules.map(item => {
             const hasLink = item.interview_location_link && item.interview_location_link.startsWith("http");
             const methodDisplay = item.interview_method ? item.interview_method.toUpperCase() : "Online Interview";
             
