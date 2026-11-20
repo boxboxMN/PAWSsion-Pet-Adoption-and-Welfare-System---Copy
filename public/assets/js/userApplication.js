@@ -21,6 +21,27 @@ let applications = [];
 let currentTab = "Under Review";
 let selectedApp = null;
 
+const paginationContainer = document.getElementById("applications-pagination");
+const paginationInfo = document.getElementById("pagination-info");
+const paginationPage = document.getElementById("pagination-page");
+const prevPageBtn = document.getElementById("prev-page-btn");
+const nextPageBtn = document.getElementById("next-page-btn");
+
+const rowsPerPage = 5;
+const currentPageByTab = {};
+
+function getPaginationKey() {
+    return currentTab === "Cancelled"
+        ? `Cancelled:${cancelledFilterValue}`
+        : currentTab;
+}
+
+function getCurrentPage() {
+    const key = getPaginationKey();
+    return currentPageByTab[key] || 1;
+}
+
+
 // =====================================================
 // DOM REFERENCES
 // =====================================================
@@ -36,6 +57,10 @@ let cancelledFilterValue = "All";
 if (cancelledFilter) {
     cancelledFilter.addEventListener("change", function () {
         cancelledFilterValue = this.value;
+
+         // Reset the selected Cancelled filter to page 1
+        currentPageByTab[getPaginationKey()] = 1;
+        
         renderTable();
     });
 }
@@ -301,9 +326,38 @@ function renderTable() {
     });
 
     // ---------------------------------------------
+    // PAGINATION CALCULATION
+    // ---------------------------------------------
+    const totalApplications = filtered.length;
+    const totalPages = Math.ceil(totalApplications / rowsPerPage);
+    const pageKey = getPaginationKey();
+
+    // Make sure the current page is valid
+    let currentPage = getCurrentPage();
+
+    if (totalPages === 0) {
+        currentPage = 1;
+    } else if (currentPage > totalPages) {
+        currentPage = totalPages;
+    }
+
+    currentPageByTab[pageKey] = currentPage;
+
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    const endIndex = Math.min(
+        startIndex + rowsPerPage,
+        totalApplications
+    );
+
+    const paginatedApplications = filtered.slice(
+        startIndex,
+        endIndex
+    );
+
+    // ---------------------------------------------
     // NO RESULTS
     // ---------------------------------------------
-    if (filtered.length === 0) {
+    if (totalApplications === 0) {
         tableBody.innerHTML = `
             <tr>
                 <td colspan="5" class="p-8 text-center text-gray-500">
@@ -311,62 +365,97 @@ function renderTable() {
                 </td>
             </tr>
         `;
-        return;
+
+    } else {
+        // ---------------------------------------------
+        // BUILD TABLE
+        // ---------------------------------------------
+        let html = "";
+
+        paginatedApplications.forEach(app => {
+            const statusClass = getStatusClass(app.status);
+
+            const petImageSrc = app.image && app.image.trim() !== "" ? app.image : "/assets/images/no-image.png";
+
+            html += `
+                <tr class="border-t border-gray-200 hover:bg-gray-50 transition">
+                    <!-- PET -->
+                <td class="p-4">
+                        <div class="flex items-center gap-3">
+                            <img src="${petImageSrc}" alt="${app.petName}" class="w-14 h-14 rounded-lg object-cover border" onerror="this.onerror=null; this.src='/assets/images/no-image.png';" />
+                            <div>
+                                <span class="font-semibold text-gray-800">${app.petName}</span>
+                                <p class="text-xs text-gray-500">${app.species}</p>
+                            </div>
+                        </div>
+                    </td>
+
+                    <!-- STATUS -->
+                    <td class="p-4">
+                        <span class="badge-status ${statusClass}">
+                            <span class="dot"></span>
+                            ${app.status}
+                        </span>
+                    </td>
+
+                    <!-- ORGANIZATION -->
+                    <td class="p-4 text-sm text-gray-700">
+                        ${app.organization}
+                    </td>
+
+                    <!-- DATE -->
+                    <td class="p-4 text-sm text-gray-700">
+                        ${app.date}
+                    </td>
+
+                    <!-- ACTION -->
+                    <td class="p-4 text-center">
+                        <button class="view-details-btn inline-flex items-center gap-2 border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-full text-sm font-medium transition" data-id="${app.id}">
+                            <i class="fas fa-eye"></i>
+                            View Details
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableBody.innerHTML = html;
     }
 
     // ---------------------------------------------
-    // BUILD TABLE
+    // UPDATE PAGINATION INFORMATION
     // ---------------------------------------------
-    let html = "";
+    if (paginationInfo) {
+        paginationInfo.textContent = totalApplications === 0
+            ? "Showing 0 applications"
+            : `Showing ${startIndex + 1}–${endIndex} of ${totalApplications} applications`;
+    }
 
-    filtered.forEach(app => {
-        const statusClass = getStatusClass(app.status);
+    if (paginationPage) {
+        paginationPage.textContent =
+            `Page ${currentPage} of ${Math.max(totalPages, 1)}`;
+    }
 
-        const petImageSrc = app.image && app.image.trim() !== "" ? app.image : "/assets/images/no-image.png";
+    // ---------------------------------------------
+    // UPDATE PAGINATION BUTTONS
+    // ---------------------------------------------
+    if (prevPageBtn) {
+        prevPageBtn.disabled =
+            currentPage <= 1 || totalApplications === 0;
+    }
 
-        html += `
-            <tr class="border-t border-gray-200 hover:bg-gray-50 transition">
-                <!-- PET -->
-               <td class="p-4">
-                    <div class="flex items-center gap-3">
-                        <img src="${petImageSrc}" alt="${app.petName}" class="w-14 h-14 rounded-lg object-cover border" onerror="this.onerror=null; this.src='/assets/images/no-image.png';" />
-                        <div>
-                            <span class="font-semibold text-gray-800">${app.petName}</span>
-                            <p class="text-xs text-gray-500">${app.species}</p>
-                        </div>
-                    </div>
-                </td>
+    if (nextPageBtn) {
+        nextPageBtn.disabled =
+            currentPage >= totalPages || totalApplications === 0;
+    }
 
-                <!-- STATUS -->
-                <td class="p-4">
-                    <span class="badge-status ${statusClass}">
-                        <span class="dot"></span>
-                        ${app.status}
-                    </span>
-                </td>
-
-                <!-- ORGANIZATION -->
-                <td class="p-4 text-sm text-gray-700">
-                    ${app.organization}
-                </td>
-
-                <!-- DATE -->
-                <td class="p-4 text-sm text-gray-700">
-                    ${app.date}
-                </td>
-
-                <!-- ACTION -->
-                <td class="p-4 text-center">
-                    <button class="view-details-btn inline-flex items-center gap-2 border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-full text-sm font-medium transition" data-id="${app.id}">
-                        <i class="fas fa-eye"></i>
-                        View Details
-                    </button>
-                </td>
-            </tr>
-        `;
-    });
-
-    tableBody.innerHTML = html;
+    // Hide pagination when there are 5 or fewer applications
+    if (paginationContainer) {
+        paginationContainer.classList.toggle(
+            "hidden",
+            totalApplications <= rowsPerPage
+        );
+    }
 
     // ---------------------------------------------
     // VIEW DETAILS EVENTS
@@ -380,6 +469,32 @@ function renderTable() {
                 showDetails(app);
             }
         });
+    });
+}
+
+// =====================================================
+// PAGINATION BUTTON EVENTS
+// =====================================================
+
+if (prevPageBtn) {
+    prevPageBtn.addEventListener("click", function () {
+        const pageKey = getPaginationKey();
+        const currentPage = getCurrentPage();
+
+        if (currentPage > 1) {
+            currentPageByTab[pageKey] = currentPage - 1;
+            renderTable();
+        }
+    });
+}
+
+if (nextPageBtn) {
+    nextPageBtn.addEventListener("click", function () {
+        const pageKey = getPaginationKey();
+        const currentPage = getCurrentPage();
+
+        currentPageByTab[pageKey] = currentPage + 1;
+        renderTable();
     });
 }
 
@@ -1435,6 +1550,9 @@ function goBack() {
 
 function setActiveTab(tab) {
     currentTab = tab;
+
+    // Reset the selected tab to page 1
+    currentPageByTab[getPaginationKey()] = 1;
 
     tabBtns.forEach(btn => {
         const tabName = btn.dataset.tab;
