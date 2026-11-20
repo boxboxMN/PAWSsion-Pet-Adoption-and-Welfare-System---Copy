@@ -3125,7 +3125,12 @@ exports.getApplicationByAnimalId = async (req, res) => {
             FROM user_adoption_applications app
             INNER JOIN animals a ON app.animal_id = a.animal_id
             WHERE app.animal_id = ? AND a.organization_id = ?
-            ORDER BY app.application_id DESC
+            ORDER BY 
+            CASE
+                WHEN app.status = 'Approved' THEN 0
+                ELSE 1
+            END,
+            app.application_id DESC
             LIMIT 1
             `,
             [animalId, organizationId]
