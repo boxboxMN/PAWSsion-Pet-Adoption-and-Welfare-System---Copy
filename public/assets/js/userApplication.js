@@ -216,6 +216,8 @@ async function loadApplications() {
             returnRequestStatus: app.return_request_status || null,
             returnRequestResponse: app.return_request_response || null,
             returnRequestRejectionProof: app.return_request_rejection_proof || null,
+            organizationReceivedPhoto: app.organization_received_photo || null,
+            returnRequestUpdatedAt: app.return_request_updated_at || null,
             date: formatDate(app.created_at),
             rawDate: app.created_at,
 
@@ -959,6 +961,54 @@ function showDetails(app) {
             returnRejectionProof.onerror = null;
         }
     }
+
+    // 6e. ORGANIZATION PET RETURN RECEIPT PROOF
+    const returnReceiptCard = document.getElementById("detail-return-receipt-card");
+    const returnReceiptDate = document.getElementById("detail-return-received-date");
+    const returnReceiptProofContainer = document.getElementById("detail-return-receipt-proof-container");
+    const returnReceiptProof = document.getElementById("detail-return-receipt-proof");
+
+    if (
+        returnReceiptCard &&
+        returnReceiptDate &&
+        returnReceiptProofContainer &&
+        returnReceiptProof
+    ) {
+        const isReturned =
+            app.status === "Returned" &&
+            (app.returnRequestStatus || "").toLowerCase() === "returned";
+
+        if (isReturned) {
+            returnReceiptCard.classList.remove("hidden");
+
+            returnReceiptDate.textContent = app.returnRequestUpdatedAt
+                ? formatDate(app.returnRequestUpdatedAt)
+                : "Date not available";
+
+            if (app.organizationReceivedPhoto) {
+                returnReceiptProofContainer.classList.remove("hidden");
+
+                returnReceiptProof.src =
+                    `/api/user/return-requests/${encodeURIComponent(app.returnRequestId)}/receipt-proof`;
+
+                returnReceiptProof.onerror = () => {
+                    returnReceiptProof.onerror = null;
+                    returnReceiptProof.alt = "Organization receipt proof image is unavailable.";
+                };
+            } else {
+                returnReceiptProofContainer.classList.add("hidden");
+                returnReceiptProof.removeAttribute("src");
+                returnReceiptProof.onerror = null;
+            }
+        } else {
+            returnReceiptCard.classList.add("hidden");
+            returnReceiptDate.textContent = "—";
+            returnReceiptProofContainer.classList.add("hidden");
+            returnReceiptProof.removeAttribute("src");
+            returnReceiptProof.onerror = null;
+        }
+    }
+
     // 7. UPLOADED DOCUMENT (Ipakita ang totoong PDF/Image link na in-upload)
     const docContainer = document.querySelector('#details-view .border-dashed');
     

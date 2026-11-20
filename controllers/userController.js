@@ -2008,6 +2008,8 @@ exports.getUserApplications = async (req, res) => {
                 pr.return_request_id AS return_request_id,
                 pr.organization_response AS return_request_response,
                 pr.org_reject_proof AS return_request_rejection_proof,
+                pr.organization_received_photo AS organization_received_photo,
+                pr.updated_at AS return_request_updated_at,
                 COALESCE(app.updated_at, app.created_at) AS created_at,
                 app.updated_at,
                 i.interview_date,

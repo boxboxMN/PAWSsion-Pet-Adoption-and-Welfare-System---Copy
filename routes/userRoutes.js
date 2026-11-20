@@ -373,6 +373,86 @@ router.get(
     }
 );
 
+// GET: View organization receipt proof (Adopter only)
+router.get(
+    "/api/user/return-requests/:id/receipt-proof",
+    checkUserSession,
+    async (req, res) => {
+        try {
+            const { id } = req.params;
+            const accountId = req.session?.accountId;
+
+            const [rows] = await pool.query(
+                `SELECT r.organization_received_photo
+                 FROM pet_return_requests r
+                 JOIN user_adoption_applications app
+                    ON r.application_id = app.application_id
+                 JOIN adopters ad
+                    ON app.adopter_id = ad.adopter_id
+                 WHERE r.return_request_id = ?
+                   AND ad.account_id = ?
+                   AND r.status = 'Returned'
+                   AND r.organization_received_photo IS NOT NULL`,
+                [id, accountId]
+            );
+
+            if (!rows.length) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Organization receipt proof not found."
+                });
+            }
+
+            const photoUrl = rows[0].organization_received_photo;
+
+            // Cloudinary image URL
+            if (
+                typeof photoUrl === "string" &&
+                /^https:\/\/res\.cloudinary\.com\//i.test(photoUrl)
+            ) {
+                return res.redirect(photoUrl);
+            }
+
+            // Local image fallback
+            const filename = path.basename(photoUrl);
+
+            const photoPath = path.join(
+                __dirname,
+                '..',
+                'uploads',
+                'pet-proof',
+                filename
+            );
+
+            if (!fs.existsSync(photoPath)) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Organization receipt proof image is unavailable."
+                });
+            }
+
+            return res.sendFile(photoPath, (err) => {
+                if (err && !res.headersSent) {
+                    console.error("Adopter receipt proof file error:", err);
+
+                    res.status(404).json({
+                        success: false,
+                        message: "Organization receipt proof image is unavailable."
+                    });
+                }
+            });
+
+        } catch (err) {
+            console.error("Adopter receipt proof error:", err);
+
+            return res.status(500).json({
+                success: false,
+                message: "Unable to retrieve organization receipt proof."
+            });
+        }
+    }
+);
+
 // GET: View adopter's previous pet return request history
 router.get(
     "/api/user/applications/:applicationId/return-request-history",
