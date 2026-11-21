@@ -1999,7 +1999,16 @@ async function openQualificationChecklist() {
 
             if (checklistContainer && !canEditChecklist) {
                 checklistContainer.textContent =
-                    "No historical qualification checklist assessment is available for this application.";
+                    "No qualification checklist was recorded for this application.";
+            }
+
+            // Hide Additional Notes when there is no saved assessment.
+            const generalNotesSection = document.getElementById(
+                "qualificationChecklistGeneralNotes"
+            );
+
+            if (generalNotesSection && !canEditChecklist) {
+                generalNotesSection.classList.add("hidden");
             }
 
             if (lastUpdated) {
