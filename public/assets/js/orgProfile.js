@@ -201,6 +201,76 @@ function renderSocialLinks(links = []) {
     });
 }
 
+// Display organization social media links safely
+function displayOrganizationSocialLinks(links = []) {
+    const container = document.getElementById("infoSocialLinks");
+
+    if (!container) return;
+
+    container.replaceChildren();
+
+    // Handle JSON returned as a string
+    if (typeof links === "string") {
+        try {
+            links = JSON.parse(links);
+        } catch (error) {
+            links = [];
+        }
+    }
+
+    if (!Array.isArray(links) || links.length === 0) {
+        const emptyMessage = document.createElement("p");
+        emptyMessage.className = "text-sm text-gray-400";
+        emptyMessage.textContent = "No social media links available.";
+
+        container.appendChild(emptyMessage);
+        return;
+    }
+
+    links.forEach(link => {
+        if (!link || typeof link.platform !== "string" || typeof link.url !== "string") {
+            return;
+        }
+
+        const platform = link.platform.trim();
+        const rawUrl = link.url.trim();
+
+        if (!platform || !rawUrl) return;
+
+        try {
+            const safeUrl = new URL(rawUrl);
+
+            // Only allow HTTP and HTTPS links
+            if (!["http:", "https:"].includes(safeUrl.protocol)) {
+                return;
+            }
+
+            const anchor = document.createElement("a");
+
+            anchor.href = safeUrl.href;
+            anchor.target = "_blank";
+            anchor.rel = "noopener noreferrer";
+            anchor.textContent = platform;
+
+            anchor.className =
+                "inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-blue-100 bg-blue-50 text-blue-900 text-sm font-semibold hover:bg-blue-100 transition";
+
+            container.appendChild(anchor);
+
+        } catch (error) {
+            console.warn("Skipped invalid organization social link.");
+        }
+    });
+
+    if (container.children.length === 0) {
+        const emptyMessage = document.createElement("p");
+        emptyMessage.className = "text-sm text-gray-400";
+        emptyMessage.textContent = "No valid social media links available.";
+
+        container.appendChild(emptyMessage);
+    }
+}
+
 // Add another social media field.
 document.getElementById("addSocialLinkBtn")?.addEventListener("click", () => {
     addSocialLinkField();

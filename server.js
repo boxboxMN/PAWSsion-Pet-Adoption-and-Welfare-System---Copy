@@ -1168,31 +1168,51 @@ app.put("/api/organization/update-profile", uploadOrgPic.single('profile_pic'), 
                 throw new Error("Invalid social links format.");
             }
 
-            parsedSocialLinks = parsedSocialLinks
-                .filter(link =>
-                    link &&
-                    typeof link.platform === "string" &&
-                    typeof link.url === "string" &&
-                    link.platform.trim() &&
-                    link.url.trim()
-                )
-                .map(link => {
-                    const parsedUrl = new URL(link.url.trim());
+            // Limit the number of links
+            if (parsedSocialLinks.length > 20) {
+                throw new Error("Too many social media links.");
+            }
 
-                    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
-                        throw new Error("Social media links must use HTTP or HTTPS.");
-                    }
+            parsedSocialLinks = parsedSocialLinks.map(link => {
+                if (!link || typeof link.platform !== "string" || typeof link.url !== "string") {
+                    throw new Error("Invalid social media link.");
+                }
 
-                    return {
-                        platform: sanitize(link.platform),
-                        url: parsedUrl.href
-                    };
-                });
+                const platform = link.platform.trim();
+                const rawUrl = link.url.trim();
+
+                // Validate platform name
+                if (!platform || platform.length > 50) {
+                    throw new Error("Invalid platform name.");
+                }
+
+                // Validate URL length
+                if (!rawUrl || rawUrl.length > 2048) {
+                    throw new Error("Invalid URL length.");
+                }
+
+                const parsedUrl = new URL(rawUrl);
+
+                // Allow HTTP and HTTPS only
+                if (
+                    !["http:", "https:"].includes(parsedUrl.protocol) ||
+                    !parsedUrl.hostname ||
+                    parsedUrl.username ||
+                    parsedUrl.password
+                ) {
+                    throw new Error("Unsafe URL.");
+                }
+
+                return {
+                    platform,
+                    url: parsedUrl.href
+                };
+            });
 
         } catch (error) {
             return res.status(400).json({
                 success: false,
-                message: "Please provide valid social media links using HTTP or HTTPS."
+                message: "Please provide valid social media platform names and HTTP/HTTPS URLs. Each platform name must be 50 characters or fewer, and each URL must be 2,048 characters or fewer."
             });
         }
 
