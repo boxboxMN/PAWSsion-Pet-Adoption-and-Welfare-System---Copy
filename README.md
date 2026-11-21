@@ -1211,3 +1211,6 @@ CREATE TABLE organization_qualification_checklists (
         ON DELETE CASCADE
         ON UPDATE CASCADE
 );
+
+ALTER TABLE adoption_qualification_checklists
+ADD COLUMN checklist_snapshot LONGTEXT NULL;

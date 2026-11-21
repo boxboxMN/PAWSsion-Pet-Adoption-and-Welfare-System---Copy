@@ -397,7 +397,7 @@ router.get('/applications/:id/qualification-checklist', async (req, res) => {
 
         // Load the saved checklist, if one exists
         const [rows] = await pool.query(
-            `SELECT checklist_data, notes, updated_at
+            `SELECT checklist_data, checklist_snapshot, notes, updated_at
              FROM adoption_qualification_checklists
              WHERE application_id = ?`,
             [id]
@@ -423,10 +423,26 @@ router.get('/applications/:id/qualification-checklist', async (req, res) => {
             });
         }
 
+        let checklistSnapshot = null;
+
+        if (rows[0].checklist_snapshot) {
+            try {
+                checklistSnapshot = JSON.parse(rows[0].checklist_snapshot);
+            } catch (parseError) {
+                console.error("Checklist snapshot JSON parse error:", parseError);
+
+                return res.status(500).json({
+                    success: false,
+                    message: "Unable to read the saved checklist snapshot."
+                });
+            }
+        }
+
         return res.json({
             success: true,
             checklist: {
                 data: checklistData,
+                snapshot: checklistSnapshot,
                 notes: rows[0].notes,
                 updated_at: rows[0].updated_at
             }
@@ -447,7 +463,7 @@ router.post('/applications/:id/qualification-checklist', async (req, res) => {
     try {
         const { id } = req.params;
         const accountId = req.session?.accountId;
-        const { checklist_data, notes } = req.body;
+        const { checklist_data, checklist_snapshot, notes } = req.body;
 
         if (!accountId) {
             return res.status(401).json({
@@ -464,6 +480,13 @@ router.post('/applications/:id/qualification-checklist', async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Invalid checklist data."
+            });
+        }
+
+        if (!Array.isArray(checklist_snapshot) || checklist_snapshot.some(section => !section || typeof section.title !== "string" || !Array.isArray(section.items))) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid checklist snapshot."
             });
         }
 
@@ -494,7 +517,7 @@ router.post('/applications/:id/qualification-checklist', async (req, res) => {
         // Verify application ownership and allow checklist use
         // without changing its current status
         const [appRows] = await pool.query(
-            `SELECT app.application_id
+            `SELECT app.application_id, app.status
              FROM user_adoption_applications app
              INNER JOIN animals a ON app.animal_id = a.animal_id
              WHERE app.application_id = ?
@@ -509,16 +532,38 @@ router.post('/applications/:id/qualification-checklist', async (req, res) => {
             });
         }
 
+        // Only allow checklist saving during the interview review stages.
+        const currentStatus = String(appRows[0].status || "")
+            .trim()
+            .toLowerCase();
+
+        const canSaveChecklist = [
+            "interview scheduled",
+            "post-interview review"
+        ].includes(currentStatus);
+
+        if (!canSaveChecklist) {
+            return res.status(403).json({
+                success: false,
+                message: "The qualification checklist can only be edited during Interview Scheduled or Post-Interview Review."
+            });
+        }
+
         await pool.query(
             `INSERT INTO adoption_qualification_checklists
-                (application_id, checklist_data, notes)
-             VALUES (?, ?, ?)
+                (application_id, checklist_data, checklist_snapshot, notes)
+             VALUES (?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
                 checklist_data = VALUES(checklist_data),
+                checklist_snapshot = COALESCE(
+                    checklist_snapshot,
+                    VALUES(checklist_snapshot)
+                ),
                 notes = VALUES(notes)`,
             [
                 id,
                 JSON.stringify(checklist_data),
+                JSON.stringify(checklist_snapshot),
                 notes?.trim() || null
             ]
         );

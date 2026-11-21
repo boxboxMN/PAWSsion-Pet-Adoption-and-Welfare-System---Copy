@@ -235,20 +235,39 @@ function populateDetailsUI(app) {
     const isCancelled = lowerStatus.includes("cancelled"); // Check kung kinansela ng adopter
     const isFinalized = isApproved || isReceived || isDeclined || isReturned || isCancelled;
 
-    // Disable checklist only for declined or cancelled applications
+    // CONTROL CHECKLIST VISIBILITY AND ACCESS BASED ON APPLICATION STATUS
     const qualificationChecklistBtn = document.getElementById("qualificationChecklistBtn");
-    const isChecklistLocked = isDeclined || isCancelled;
+
+    const canEditChecklist =
+        lowerStatus === "interview scheduled" ||
+        lowerStatus === "post-interview review";
+
+    const canViewChecklist = [
+        "received",
+        "interview scheduled",
+        "post-interview review",
+        "approved",
+        "returned",
+        "declined",
+        "rejected",
+        "cancelled by org",
+        "cancelled by organization",
+        "cancelled by adopter"
+    ].includes(lowerStatus);
 
     if (qualificationChecklistBtn) {
-        qualificationChecklistBtn.disabled = isChecklistLocked;
+        // Hide the button when the application is Under Review or has an unsupported status.
+        qualificationChecklistBtn.classList.toggle("hidden", !canViewChecklist);
 
-        qualificationChecklistBtn.title = isChecklistLocked
-            ? "The checklist is unavailable for declined or cancelled applications."
-            : "Open Adopter Qualification Checklist";
+        // Only allow editing during Interview Scheduled and Post-Interview Review.
+        qualificationChecklistBtn.disabled = !canEditChecklist;
 
-        qualificationChecklistBtn.classList.toggle("opacity-50", isChecklistLocked);
-        qualificationChecklistBtn.classList.toggle("cursor-not-allowed", isChecklistLocked);
-        qualificationChecklistBtn.classList.toggle("pointer-events-none", isChecklistLocked);
+        qualificationChecklistBtn.title = canEditChecklist
+            ? "Open and edit Adopter Qualification Checklist"
+            : "View Adopter Qualification Checklist";
+
+        qualificationChecklistBtn.classList.toggle("opacity-50", !canEditChecklist);
+        qualificationChecklistBtn.classList.toggle("cursor-not-allowed", !canEditChecklist);
     }
 
     // Awtomatikong magiging true (disabled) kung:
@@ -1737,14 +1756,17 @@ function renderQualificationChecklist(savedData = {}) {
 
             qualificationChecklistStatuses.forEach((status) => {
                 const optionLabel = document.createElement("label");
-                optionLabel.className = "inline-flex items-center gap-2 text-xs text-gray-600 cursor-pointer";
-
+                optionLabel.className = `inline-flex items-center gap-2 text-xs text-gray-600 ${
+                    isEditable ? "cursor-pointer" : "cursor-not-allowed"
+                }`;
+                
                 const radio = document.createElement("input");
                 radio.type = "radio";
                 radio.name = `qualification_${item.id}`;
                 radio.value = status.value;
                 radio.className = "text-teal-600 focus:ring-teal-500";
                 radio.checked = savedItem.status === status.value;
+                radio.disabled = !isEditable;
 
                 optionLabel.appendChild(radio);
 
@@ -1768,6 +1790,11 @@ function renderQualificationChecklist(savedData = {}) {
             noteInput.placeholder = "Optional observations or follow-up questions...";
             noteInput.className = "mt-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500";
             noteInput.value = savedItem.notes || "";
+            noteInput.disabled = !isEditable;
+
+            if (!isEditable) {
+                noteInput.classList.add("bg-gray-100", "cursor-not-allowed");
+            }
 
             noteLabel.appendChild(noteInput);
             itemWrapper.appendChild(noteLabel);
@@ -1779,7 +1806,6 @@ function renderQualificationChecklist(savedData = {}) {
     });
 }
 
-
 async function openQualificationChecklist() {
     if (!currentAppId) {
         Swal.fire({
@@ -1788,6 +1814,73 @@ async function openQualificationChecklist() {
             text: "Please select an adoption application first."
         });
         return;
+    }
+
+    // Check the current application's status before opening the checklist.
+    let checklistStatus = String(currentAppDetails?.status || "")
+        .trim()
+        .toLowerCase();
+
+    // Use the same fallback status rules as populateDetailsUI().
+    if (!checklistStatus) {
+        checklistStatus =
+            currentAppDetails?.interview_date ||
+            currentAppDetails?.interview_time
+                ? "interview scheduled"
+                : "under review";
+    }
+
+    const canViewChecklist = [
+        "received",
+        "interview scheduled",
+        "post-interview review",
+        "approved",
+        "returned",
+        "declined",
+        "rejected",
+        "cancelled by org",
+        "cancelled by organization",
+        "cancelled by adopter"
+    ].includes(checklistStatus);
+
+    if (!canViewChecklist) {
+        Swal.fire({
+            icon: "info",
+            title: "Checklist Unavailable",
+            text: "The qualification checklist is not available while this application is Under Review."
+        });
+        return;
+    }
+
+    // Only these two statuses allow checklist editing.
+    const canEditChecklist =
+        checklistStatus === "interview scheduled" ||
+        checklistStatus === "post-interview review";
+
+    // Show the Save button only when checklist editing is allowed.
+    const saveButton = document.getElementById("saveQualificationChecklistBtn");
+
+    if (saveButton) {
+        saveButton.classList.toggle("hidden", !canEditChecklist);
+    }
+
+    // Make the general notes field read-only when editing is not allowed.
+    const generalNotesField = document.getElementById(
+        "qualificationChecklistNotes"
+    );
+
+    if (generalNotesField) {
+        generalNotesField.readOnly = !canEditChecklist;
+
+        generalNotesField.classList.toggle(
+            "bg-gray-100",
+            !canEditChecklist
+        );
+
+        generalNotesField.classList.toggle(
+            "cursor-not-allowed",
+            !canEditChecklist
+        );
     }
 
     const modal = document.getElementById("qualificationChecklistModal");
@@ -1825,28 +1918,6 @@ async function openQualificationChecklist() {
     }
 
     try {
-
-        // 1. Load the organization's customized master checklist.
-        const masterResponse = await fetch("/org/qualification-checklist", {
-            method: "GET",
-            headers: {
-                "Accept": "application/json"
-            },
-            credentials: "same-origin"
-        });
-
-        const masterResult = await masterResponse.json();
-
-        if (!masterResponse.ok || !masterResult.success) {
-            throw new Error(
-                masterResult.message || "Failed to load the organization's checklist."
-            );
-        }
-
-        window.qualificationChecklistSections = Array.isArray(masterResult.checklist)
-            ? masterResult.checklist
-            : [];
-
         const response = await fetch(
             `/org/applications/${encodeURIComponent(currentAppId)}/qualification-checklist`,
             {
@@ -1866,8 +1937,35 @@ async function openQualificationChecklist() {
 
         const checklist = result.checklist;
 
+        // 1. Use the saved application snapshot if available.
+        if (checklist?.snapshot && Array.isArray(checklist.snapshot)) {
+            window.qualificationChecklistSections = checklist.snapshot;
+        } else {
+            // 2. No snapshot yet: fetch the latest organization checklist.
+            const masterResponse = await fetch("/org/qualification-checklist", {
+                method: "GET",
+                headers: {
+                    "Accept": "application/json"
+                },
+                credentials: "same-origin"
+            });
+
+            const masterResult = await masterResponse.json();
+
+            if (!masterResponse.ok || !masterResult.success) {
+                throw new Error(
+                    masterResult.message || "Failed to load the organization's checklist."
+                );
+            }
+
+            window.qualificationChecklistSections = Array.isArray(masterResult.checklist)
+                ? masterResult.checklist
+                : [];
+        }
+
+        // 3. Render the checklist with its saved assessment answers.
         if (checklist) {
-            renderQualificationChecklist(checklist.data || {});
+            renderQualificationChecklist(checklist.data || {}, canEditChecklist);
 
             const notesField = document.getElementById("qualificationChecklistNotes");
             if (notesField) {
@@ -1885,8 +1983,8 @@ async function openQualificationChecklist() {
                         : "Saved checklist loaded.";
             }
         } else {
-            // No saved checklist yet: start with a blank checklist.
-            renderQualificationChecklist();
+            // No assessment exists yet.
+            renderQualificationChecklist({}, canEditChecklist);
 
             const notesField = document.getElementById("qualificationChecklistNotes");
             if (notesField) {
@@ -1974,6 +2072,7 @@ async function saveQualificationChecklist() {
                 credentials: "same-origin",
                 body: JSON.stringify({
                     checklist_data: checklistData,
+                    checklist_snapshot: window.qualificationChecklistSections,
                     notes: notesField?.value.trim() || ""
                 })
             }
