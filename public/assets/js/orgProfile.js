@@ -656,6 +656,9 @@ let selectedImageFile = null;
 openEditModalBtn?.addEventListener("click", async () => {
     if (!currentOrgData) return;
 
+    // Restore saved social media links whenever the modal opens
+    renderSocialLinks(currentOrgData.social_links || []);
+
     // I-pre-fill ang text fields (with a guard against the literal
     // strings "undefined"/"null" that older bad data may contain)
     const safeValue = (val) => {
