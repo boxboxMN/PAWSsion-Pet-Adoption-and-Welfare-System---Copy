@@ -1938,8 +1938,9 @@ async function openQualificationChecklist() {
         // 1. Use the saved application snapshot if available.
         if (checklist?.snapshot && Array.isArray(checklist.snapshot)) {
             window.qualificationChecklistSections = checklist.snapshot;
-        } else {
-            // 2. No snapshot yet: fetch the latest organization checklist.
+        } else if (checklist || canEditChecklist) {
+            // 2. Use the latest master only if an assessment exists
+            // or the current application is still editable.
             const masterResponse = await fetch("/org/qualification-checklist", {
                 method: "GET",
                 headers: {
@@ -1959,6 +1960,9 @@ async function openQualificationChecklist() {
             window.qualificationChecklistSections = Array.isArray(masterResult.checklist)
                 ? masterResult.checklist
                 : [];
+        } else {
+            // 3. Historical application with no saved assessment or snapshot.
+            window.qualificationChecklistSections = [];
         }
 
         // 3. Render the checklist with its saved assessment answers.
@@ -1987,6 +1991,15 @@ async function openQualificationChecklist() {
             const notesField = document.getElementById("qualificationChecklistNotes");
             if (notesField) {
                 notesField.value = "";
+            }
+
+            const checklistContainer = document.getElementById(
+                "qualificationChecklistItems"
+            );
+
+            if (checklistContainer && !canEditChecklist) {
+                checklistContainer.textContent =
+                    "No historical qualification checklist assessment is available for this application.";
             }
 
             if (lastUpdated) {
