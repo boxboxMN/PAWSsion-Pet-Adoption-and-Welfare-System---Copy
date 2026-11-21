@@ -564,6 +564,13 @@ console.log("Current scroll position:", window.scrollY);
                             behavior: "smooth",
                             block: "center"
                         });
+
+                        setTimeout(() => {
+    console.log("Scroll position after scrolling:", window.scrollY);
+    console.log("Document scroll top:", document.scrollingElement.scrollTop);
+    console.log("Section position after scrolling:", savedSectionCard.getBoundingClientRect());
+    console.log("Window height:", window.innerHeight);
+}, 1000);
                     });
                 });
             }
