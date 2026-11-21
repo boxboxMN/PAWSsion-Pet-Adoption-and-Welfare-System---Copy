@@ -1698,100 +1698,7 @@ document.addEventListener("DOMContentLoaded", () => {
     generateTimeOptions();
 });
 
-window.qualificationChecklistSections = [
-    {
-        title: "1. Financial Readiness",
-        items: [
-            { id: "food_expenses", label: "Can provide regular food and clean drinking water." },
-            { id: "vet_expenses", label: "Has considered routine veterinary care and emergency expenses." },
-            { id: "basic_supplies", label: "Can provide essential supplies for the pet." }
-        ]
-    },
-    {
-        title: "2. Living Environment and Safety",
-        items: [
-            { id: "living_permission", label: "Has permission to keep a pet where they live, when applicable." },
-            { id: "safe_space", label: "Can provide a safe and suitable living space." },
-            { id: "hazards", label: "Has considered potential household hazards and escape risks." }
-        ]
-    },
-    {
-        title: "3. Pet-Care Knowledge",
-        items: [
-            { id: "basic_care", label: "Understands the pet's basic feeding, hygiene, and care needs." },
-            { id: "healthcare", label: "Understands the importance of vaccinations and veterinary checkups." },
-            { id: "behavior", label: "Understands that pets may need training, patience, and adjustment time." }
-        ]
-    },
-    {
-        title: "4. Existing or Previous Pet Experience",
-        items: [
-            { id: "experience", label: "Has discussed any relevant previous or current pet-care experience." },
-            { id: "first_time_support", label: "If a first-time adopter, has considered available guidance and support." }
-        ]
-    },
-    {
-        title: "5. Time and Long-Term Commitment",
-        items: [
-            { id: "daily_time", label: "Can provide sufficient time, attention, and daily care." },
-            { id: "long_term", label: "Understands the long-term responsibility of pet ownership." },
-            { id: "backup_care", label: "Has considered who can care for the pet during absences or emergencies." }
-        ]
-    },
-    {
-        title: "6. Animal Welfare and Handling",
-        items: [
-            { id: "humane_handling", label: "Demonstrates understanding of humane and responsible handling." },
-            { id: "welfare", label: "Understands the importance of the pet's safety and welfare." },
-            { id: "adjustment", label: "Is prepared to allow the pet time to adjust to a new home." }
-        ]
-    },
-    {
-        title: "7. Pet-Specific Readiness",
-        items: [
-            { id: "specific_needs", label: "Has considered this pet's known needs, age, and behavior." },
-            { id: "household_fit", label: "Has considered compatibility with household members and other pets, if applicable." }
-        ]
-    },
-    {
-        title: "8. Adopter Behavior and Personality",
-        items: [
-            {
-                id: "patience_understanding",
-                label: "Shows willingness to be patient while the pet adjusts to its new home."
-            },
-            {
-                id: "animal_behavior_approach",
-                label: "Has considered humane ways to respond to unwanted behavior, fear, or adjustment difficulties."
-            },
-            {
-                id: "realistic_expectations",
-                label: "Has realistic expectations about pet ownership, training, and the pet's adjustment period."
-            },
-            {
-                id: "lifestyle_compatibility",
-                label: "Has a lifestyle and activity level compatible with this pet's needs."
-            }
-        ]
-    },
-    {
-        title: "9. Health-Related Considerations and Pet-Care Planning",
-        items: [
-            {
-                id: "care_continuity",
-                label: "Has a plan to maintain the pet's daily care if temporarily unable to provide it."
-            },
-            {
-                id: "support_arrangements",
-                label: "Has considered trusted support or alternative caregiving arrangements when needed."
-            },
-            {
-                id: "care_support_needs",
-                label: "Has considered any assistance or arrangements needed to provide consistent care for the pet."
-            }
-        ]
-    }
-];
+window.qualificationChecklistSections = [];
 
 const qualificationChecklistStatuses = [
     { value: "satisfactory", label: "Satisfactory" },
@@ -1806,13 +1713,13 @@ function renderQualificationChecklist(savedData = {}) {
 
     container.innerHTML = "";
 
-    qualificationChecklistSections.forEach((section) => {
+    window.qualificationChecklistSections.forEach((section) => {
         const sectionElement = document.createElement("section");
         sectionElement.className = "space-y-4";
 
         const heading = document.createElement("h4");
         heading.className = "text-base font-bold text-gray-800 border-b border-gray-200 pb-2";
-        heading.textContent = section.title;
+        heading.textContent = section.title; 
         sectionElement.appendChild(heading);
 
         section.items.forEach((item) => {
@@ -1918,6 +1825,28 @@ async function openQualificationChecklist() {
     }
 
     try {
+
+        // 1. Load the organization's customized master checklist.
+        const masterResponse = await fetch("/org/qualification-checklist", {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            },
+            credentials: "same-origin"
+        });
+
+        const masterResult = await masterResponse.json();
+
+        if (!masterResponse.ok || !masterResult.success) {
+            throw new Error(
+                masterResult.message || "Failed to load the organization's checklist."
+            );
+        }
+
+        window.qualificationChecklistSections = Array.isArray(masterResult.checklist)
+            ? masterResult.checklist
+            : [];
+
         const response = await fetch(
             `/org/applications/${encodeURIComponent(currentAppId)}/qualification-checklist`,
             {
@@ -2008,7 +1937,7 @@ async function saveQualificationChecklist() {
     const checklistData = {};
 
     // Collect each item's status and notes.
-    qualificationChecklistSections.forEach((section) => {
+    window.qualificationChecklistSections.forEach((section) => {
         section.items.forEach((item) => {
             const selectedStatus = document.querySelector(
                 `input[name="qualification_${item.id}"]:checked`

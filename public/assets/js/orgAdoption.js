@@ -226,20 +226,15 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     ];
 
-    let qualificationChecklistSections = [];
-
-    if (!Array.isArray(qualificationChecklistSections)) {
-        console.error("Qualification checklist data is not loaded.");
-        return;
-    }
-
+    window.qualificationChecklistSections = [];
+    
     // Open modal
     function openSectionModal(index = null) {
         editingSectionIndex = index;
         itemsContainer.innerHTML = "";
 
         if (index !== null) {
-            const section = qualificationChecklistSections[index];
+            const section = window.qualificationChecklistSections[index];
 
             titleInput.value = section.title;
             document.getElementById("qualificationSectionModalTitle").textContent =
@@ -303,7 +298,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function renderManagedSections() {
         sectionsContainer.innerHTML = "";
 
-        if (qualificationChecklistSections.length === 0) {
+        if (window.qualificationChecklistSections.length === 0) {
             sectionsContainer.innerHTML = `
                 <p class="text-center text-gray-400 py-8">
                     No qualification sections yet.
@@ -312,7 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
             return;
         }
 
-        qualificationChecklistSections.forEach((section, index) => {
+        window.qualificationChecklistSections.forEach((section, index) => {
             const card = document.createElement("div");
             card.className =
                 "border border-gray-200 rounded-xl p-4 space-y-3";
@@ -358,10 +353,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (!result.isConfirmed) return;
 
                 const previousSections = JSON.parse(
-                    JSON.stringify(qualificationChecklistSections)
+                    JSON.stringify(window.qualificationChecklistSections)
                 );
 
-                qualificationChecklistSections.splice(index, 1);
+                window.qualificationChecklistSections.splice(index, 1);
 
                 try {
                     const response = await fetch("/org/qualification-checklist", {
@@ -371,7 +366,7 @@ document.addEventListener("DOMContentLoaded", () => {
                             "Content-Type": "application/json"
                         },
                         body: JSON.stringify({
-                            checklist_data: qualificationChecklistSections
+                            checklist_data: window.qualificationChecklistSections
                         })
                     });
 
@@ -390,7 +385,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     });
 
                 } catch (error) {
-                    qualificationChecklistSections = previousSections;
+                    window.qualificationChecklistSections = previousSections;
 
                     console.error("Error deleting qualification section:", error);
 
@@ -480,21 +475,21 @@ document.addEventListener("DOMContentLoaded", () => {
         };
 
         const previousSections = JSON.parse(
-            JSON.stringify(qualificationChecklistSections)
+            JSON.stringify(window.qualificationChecklistSections)
         );
 
         if (editingSectionIndex !== null) {
             // Preserve existing item IDs when editing.
-            const oldItems = qualificationChecklistSections[editingSectionIndex].items;
+            const oldItems = window.qualificationChecklistSections[editingSectionIndex].items;
 
             sectionData.items = items.map((item, index) => ({
                 ...item,
                 id: oldItems[index]?.id || item.id
             }));
 
-            qualificationChecklistSections[editingSectionIndex] = sectionData;
+            window.qualificationChecklistSections[editingSectionIndex] = sectionData;
         } else {
-            qualificationChecklistSections.push(sectionData);
+            window.qualificationChecklistSections.push(sectionData);
         }
 
         try {
@@ -507,7 +502,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    checklist_data: qualificationChecklistSections
+                    checklist_data: window.qualificationChecklistSections
                 })
             });
 
@@ -527,7 +522,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 confirmButtonColor: "#2563EB"
             });
         } catch (error) {
-            qualificationChecklistSections = previousSections;
+            window.qualificationChecklistSections = previousSections;
 
             console.error("Error saving qualification checklist:", error);
 
@@ -561,10 +556,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (Array.isArray(data.checklist)) {
                 // Load the organization's saved checklist
-                qualificationChecklistSections = data.checklist;
+                window.qualificationChecklistSections = data.checklist;
             } else {
                 // First-time setup: use the 9 default sections
-                qualificationChecklistSections = JSON.parse(
+                window.qualificationChecklistSections = JSON.parse(
                     JSON.stringify(defaultQualificationChecklistSections)
                 );
 
@@ -576,7 +571,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         "Content-Type": "application/json"
                     },
                     body: JSON.stringify({
-                        checklist_data: qualificationChecklistSections
+                        checklist_data: window.qualificationChecklistSections
                     })
                 });
 
