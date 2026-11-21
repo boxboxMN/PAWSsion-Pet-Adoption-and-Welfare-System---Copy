@@ -564,8 +564,6 @@ console.log("Current scroll position:", window.scrollY);
                             behavior: "smooth",
                             block: "center"
                         });
-
-                        savedSectionCard.focus({ preventScroll: true });
                     });
                 });
             }
