@@ -1814,7 +1814,79 @@ function renderQualificationChecklist(savedData = {}, isEditable = false) {
     });
 }
 
+
+function updateQualificationAssessmentSummary(savedData = {}) {
+    const summaryContainer = document.getElementById(
+        "qualificationAssessmentSummary"
+    );
+
+    const resultElement = document.getElementById(
+        "qualificationAssessmentResult"
+    );
+
+    if (!summaryContainer || !resultElement) return;
+
+    const legacyStatusMap = {
+        satisfactory: "meets_requirement",
+        needs_follow_up: "needs_improvement",
+        unsatisfactory: "does_not_meet_requirement"
+    };
+
+    let hasNeedsImprovement = false;
+    let hasDoesNotMeet = false;
+    let hasNotAssessed = false;
+    let totalItems = 0;
+
+    window.qualificationChecklistSections.forEach((section) => {
+        section.items.forEach((item) => {
+            totalItems++;
+
+            const savedItem = savedData[item.id] || {};
+
+            const status =
+                legacyStatusMap[savedItem.status] || savedItem.status;
+
+            if (
+                status === "needs_improvement"
+            ) {
+                hasNeedsImprovement = true;
+            } else if (
+                status === "does_not_meet_requirement"
+            ) {
+                hasDoesNotMeet = true;
+            } else if (
+                status !== "meets_requirement"
+            ) {
+                // Includes Not Assessed and unanswered items.
+                hasNotAssessed = true;
+            }
+        });
+    });
+
+    let result = "";
+
+    if (hasNeedsImprovement || hasDoesNotMeet) {
+        result = "For Further Evaluation";
+    } else if (hasNotAssessed || totalItems === 0) {
+        result = "Incomplete Assessment";
+    } else {
+        result = "Favorable Assessment";
+    }
+
+    resultElement.textContent = result;
+    summaryContainer.classList.remove("hidden");
+}
+
 async function openQualificationChecklist() {
+    // Hide the previous application's summary while loading the current checklist.
+    const summaryContainer = document.getElementById(
+        "qualificationAssessmentSummary"
+    );
+
+    if (summaryContainer) {
+        summaryContainer.classList.add("hidden");
+    }
+
     if (!currentAppId) {
         Swal.fire({
             icon: "warning",
@@ -1977,6 +2049,7 @@ async function openQualificationChecklist() {
         // 3. Render the checklist with its saved assessment answers.
         if (checklist) {
             renderQualificationChecklist(checklist.data || {}, canEditChecklist);
+            updateQualificationAssessmentSummary(checklist.data || {});
 
             const notesField = document.getElementById("qualificationChecklistNotes");
             if (notesField) {
