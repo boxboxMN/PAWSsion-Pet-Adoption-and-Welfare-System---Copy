@@ -459,7 +459,14 @@ document.addEventListener("DOMContentLoaded", () => {
             Swal.fire({
                 icon: "warning",
                 title: "Missing Section Title",
-                text: "Please enter a section title."
+                text: "Please enter a section title.",
+                didOpen: () => {
+                    const swalContainer = document.querySelector(".swal2-container");
+
+                    if (swalContainer) {
+                        swalContainer.style.zIndex = "20000";
+                    }
+                }
             });
             return;
         }
@@ -468,7 +475,14 @@ document.addEventListener("DOMContentLoaded", () => {
             Swal.fire({
                 icon: "warning",
                 title: "No Qualifications",
-                text: "Please add at least one qualification item."
+                text: "Please add at least one qualification item.",
+                didOpen: () => {
+                    const swalContainer = document.querySelector(".swal2-container");
+
+                    if (swalContainer) {
+                        swalContainer.style.zIndex = "20000";
+                    }
+                }
             });
             return;
         }
@@ -525,7 +539,7 @@ document.addEventListener("DOMContentLoaded", () => {
             renderManagedSections();
             closeSectionModal();
 
-            Swal.fire({
+            await Swal.fire({
                 icon: "success",
                 title: "Section Saved",
                 text: "The qualification checklist has been saved successfully.",
