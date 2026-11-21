@@ -551,17 +551,15 @@ document.addEventListener("DOMContentLoaded", () => {
             );
 
             if (savedSectionCard) {
-                savedSectionCard.focus({ preventScroll: true });
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        savedSectionCard.scrollIntoView({
+                            behavior: "smooth",
+                            block: "center"
+                        });
 
-                const targetPosition =
-                    savedSectionCard.getBoundingClientRect().top +
-                    window.scrollY -
-                    (window.innerHeight / 2) +
-                    (savedSectionCard.offsetHeight / 2);
-
-                window.scrollTo({
-                    top: targetPosition,
-                    behavior: "smooth"
+                        savedSectionCard.focus({ preventScroll: true });
+                    });
                 });
             }
         } catch (error) {
