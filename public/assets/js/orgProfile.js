@@ -304,6 +304,9 @@ try {
 
         // Load saved organization social media links
         renderSocialLinks(data.social_links || []);
+
+        // Display saved social media links on Organization Profile
+        displayOrganizationSocialLinks(data.social_links || []);
         
         const profileOrgName = document.getElementById("profileOrgName");
         if (profileOrgName && data.organization_name) {
