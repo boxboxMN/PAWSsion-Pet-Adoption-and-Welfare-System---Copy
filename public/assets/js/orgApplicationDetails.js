@@ -1719,15 +1719,22 @@ document.addEventListener("DOMContentLoaded", () => {
 window.qualificationChecklistSections = [];
 
 const qualificationChecklistStatuses = [
-    { value: "satisfactory", label: "Satisfactory" },
-    { value: "needs_follow_up", label: "Needs Follow-up" },
-    { value: "unsatisfactory", label: "Unsatisfactory" },
+    { value: "meets_requirement", label: "Meets Requirement" },
+    { value: "needs_improvement", label: "Needs Improvement" },
+    { value: "does_not_meet_requirement", label: "Does Not Meet Requirement" },
     { value: "not_assessed", label: "Not Assessed" }
 ];
 
 function renderQualificationChecklist(savedData = {}, isEditable = false) {
     const container = document.getElementById("qualificationChecklistItems");
     if (!container) return;
+
+    // Convert old saved rating values to the new standard options.
+    const legacyStatusMap = {
+        satisfactory: "meets_requirement",
+        needs_follow_up: "needs_improvement",
+        unsatisfactory: "does_not_meet_requirement"
+    };
 
     container.innerHTML = "";
 
@@ -1742,6 +1749,8 @@ function renderQualificationChecklist(savedData = {}, isEditable = false) {
 
         section.items.forEach((item) => {
             const savedItem = savedData[item.id] || {};
+
+            const savedStatus = legacyStatusMap[savedItem.status] || savedItem.status;
             const itemWrapper = document.createElement("div");
             itemWrapper.className = "rounded-xl border border-gray-200 p-4 space-y-3";
 
@@ -1764,7 +1773,7 @@ function renderQualificationChecklist(savedData = {}, isEditable = false) {
                 radio.name = `qualification_${item.id}`;
                 radio.value = status.value;
                 radio.className = "text-teal-600 focus:ring-teal-500";
-                radio.checked = savedItem.status === status.value;
+                radio.checked = savedStatus === status.value;
                 radio.disabled = !isEditable;
 
                 optionLabel.appendChild(radio);
