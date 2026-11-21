@@ -550,6 +550,13 @@ document.addEventListener("DOMContentLoaded", () => {
                 `qualification-section-${targetSectionIndex}`
             );
 
+
+console.log("Target section index:", targetSectionIndex);
+console.log("Target section element:", savedSectionCard);
+console.log("Target section position:", savedSectionCard?.getBoundingClientRect());
+console.log("Page scroll height:", document.documentElement.scrollHeight);
+console.log("Current scroll position:", window.scrollY);
+
             if (savedSectionCard) {
                 requestAnimationFrame(() => {
                     requestAnimationFrame(() => {
