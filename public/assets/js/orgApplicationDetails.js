@@ -1752,7 +1752,19 @@ function renderQualificationChecklist(savedData = {}, isEditable = false) {
 
             const savedStatus = legacyStatusMap[savedItem.status] || savedItem.status;
             const itemWrapper = document.createElement("div");
-            itemWrapper.className = "rounded-xl border border-gray-200 p-4 space-y-3";
+            itemWrapper.className = "qualification-checklist-item rounded-xl border border-gray-200 p-4 space-y-3";
+
+            // Store the assessment category for summary navigation.
+            const validStatuses = [
+                "meets_requirement",
+                "needs_improvement",
+                "does_not_meet_requirement",
+                "not_assessed"
+            ];
+
+            itemWrapper.dataset.assessmentStatus = validStatuses.includes(savedStatus)
+                ? savedStatus
+                : "not_assessed";
 
             const label = document.createElement("p");
             label.className = "text-sm font-medium text-gray-800";
@@ -1826,17 +1838,24 @@ function updateQualificationAssessmentSummary(savedData = {}) {
 
     if (!summaryContainer || !resultElement) return;
 
+    // Convert old saved ratings to the current standard options.
     const legacyStatusMap = {
         satisfactory: "meets_requirement",
         needs_follow_up: "needs_improvement",
         unsatisfactory: "does_not_meet_requirement"
     };
 
-    let hasNeedsImprovement = false;
-    let hasDoesNotMeet = false;
-    let hasNotAssessed = false;
+    // Initialize the assessment counts.
+    const counts = {
+        meets_requirement: 0,
+        needs_improvement: 0,
+        does_not_meet_requirement: 0,
+        not_assessed: 0
+    };
+
     let totalItems = 0;
 
+    // Count each checklist item based on its saved assessment.
     window.qualificationChecklistSections.forEach((section) => {
         section.items.forEach((item) => {
             totalItems++;
@@ -1846,35 +1865,129 @@ function updateQualificationAssessmentSummary(savedData = {}) {
             const status =
                 legacyStatusMap[savedItem.status] || savedItem.status;
 
-            if (
-                status === "needs_improvement"
-            ) {
-                hasNeedsImprovement = true;
-            } else if (
-                status === "does_not_meet_requirement"
-            ) {
-                hasDoesNotMeet = true;
-            } else if (
-                status !== "meets_requirement"
-            ) {
+            if (status === "meets_requirement") {
+                counts.meets_requirement++;
+            } else if (status === "needs_improvement") {
+                counts.needs_improvement++;
+            } else if (status === "does_not_meet_requirement") {
+                counts.does_not_meet_requirement++;
+            } else {
                 // Includes Not Assessed and unanswered items.
-                hasNotAssessed = true;
+                counts.not_assessed++;
             }
         });
     });
 
+    // Determine the overall assessment result.
     let result = "";
 
-    if (hasNeedsImprovement || hasDoesNotMeet) {
+    if (
+        counts.needs_improvement > 0 ||
+        counts.does_not_meet_requirement > 0
+    ) {
         result = "For Further Evaluation";
-    } else if (hasNotAssessed || totalItems === 0) {
+    } else if (counts.not_assessed > 0 || totalItems === 0) {
         result = "Incomplete Assessment";
     } else {
         result = "Favorable Assessment";
     }
 
+    // Display the overall result.
     resultElement.textContent = result;
+
+    resultElement.className =
+        "inline-block text-xs font-semibold rounded-full px-3 py-1 mb-3";
+
+    if (result === "Favorable Assessment") {
+        resultElement.classList.add(
+            "bg-green-100",
+            "text-green-700"
+        );
+    } else if (result === "For Further Evaluation") {
+        resultElement.classList.add(
+            "bg-orange-100",
+            "text-orange-700"
+        );
+    } else {
+        resultElement.classList.add(
+            "bg-gray-100",
+            "text-gray-700"
+        );
+    }
+
+    // Display the total and individual category counts.
+    document.getElementById("assessmentMeetsCount").textContent =
+        counts.meets_requirement;
+
+    document.getElementById("assessmentTotalCount").textContent =
+        totalItems;
+
+    document.getElementById("assessmentMeetsCountRow").textContent =
+        counts.meets_requirement;
+
+    document.getElementById("assessmentNeedsCount").textContent =
+        counts.needs_improvement;
+
+    document.getElementById("assessmentDoesNotMeetCount").textContent =
+        counts.does_not_meet_requirement;
+
+    document.getElementById("assessmentNotAssessedCount").textContent =
+        counts.not_assessed;
+
     summaryContainer.classList.remove("hidden");
+
+    // Attach the category navigation only once.
+    if (summaryContainer.dataset.navigationBound !== "true") {
+        summaryContainer.dataset.navigationBound = "true";
+
+        summaryContainer.addEventListener("click", (event) => {
+            const button = event.target.closest(".assessment-filter-btn");
+
+            if (!button) return;
+
+            const selectedCategory = button.dataset.assessmentFilter;
+
+            // Find the first checklist item in the selected category.
+            const matchingItems = Array.from(
+                document.querySelectorAll(".qualification-checklist-item")
+            ).filter((item) => {
+                return item.dataset.assessmentStatus === selectedCategory;
+            });
+
+            if (matchingItems.length === 0) {
+                Swal.fire({
+                    icon: "info",
+                    title: "No Items Found",
+                    text: "There are no checklist items in this category."
+                });
+                return;
+            }
+
+            // Remove the previous highlight.
+            document.querySelectorAll(".qualification-checklist-item").forEach((item) => {
+                item.classList.remove(
+                    "ring-2",
+                    "ring-teal-500",
+                    "bg-teal-50"
+                );
+            });
+
+            // Scroll to the first matching item.
+            const targetItem = matchingItems[0];
+
+            targetItem.scrollIntoView({
+                behavior: "smooth",
+                block: "center"
+            });
+
+            // Highlight the selected checklist item.
+            targetItem.classList.add(
+                "ring-2",
+                "ring-teal-500",
+                "bg-teal-50"
+            );
+        });
+    }
 }
 
 async function openQualificationChecklist() {

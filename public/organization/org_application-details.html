@@ -500,25 +500,78 @@
                 </div>
 
                 <!-- QUALIFICATION ASSESSMENT SUMMARY -->
-                <div id="qualificationAssessmentSummary"
-                    class="hidden mx-6 mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div id="qualificationAssessmentSummary" class="hidden mx-6 mt-5 rounded-xl border border-gray-200 p-4">
 
-                    <h4 class="text-sm font-bold text-gray-800 mb-2">
+                    <h4 class="text-sm font-bold text-gray-800 mb-3">
                         Qualification Assessment Summary
                     </h4>
 
-                    <p id="qualificationAssessmentResult"
-                        class="text-base font-semibold text-gray-900">
-                    </p>
+                    <span id="qualificationAssessmentResult"
+                        class="inline-block text-xs font-semibold rounded-full px-3 py-1 mb-3">
+                    </span>
 
-                    <p class="text-xs text-gray-500 mt-1">
+                    <div class="mb-4">
+                        <p class="text-2xl font-bold text-gray-900">
+                            <span id="assessmentMeetsCount">0</span> /
+                            <span id="assessmentTotalCount">0</span>
+                        </p>
+
+                        <p class="text-xs text-gray-500 mt-1">
+                            Items assessed as Meets Requirement
+                        </p>
+                    </div>
+
+                    <div class="border-t border-gray-200 pt-4 space-y-1">
+
+                        <button type="button"
+                            data-assessment-filter="meets_requirement"
+                            class="assessment-filter-btn flex items-center justify-between w-full py-2 text-sm text-left hover:bg-gray-50 rounded">
+                            <span>Meets Requirement</span>
+                            <span class="flex items-center gap-3">
+                                <strong id="assessmentMeetsCountRow">0</strong>
+                                <span>›</span>
+                            </span>
+                        </button>
+
+                        <button type="button"
+                            data-assessment-filter="needs_improvement"
+                            class="assessment-filter-btn flex items-center justify-between w-full py-2 text-sm text-left hover:bg-gray-50 rounded">
+                            <span>Needs Improvement</span>
+                            <span class="flex items-center gap-3">
+                                <strong id="assessmentNeedsCount">0</strong>
+                                <span>›</span>
+                            </span>
+                        </button>
+
+                        <button type="button"
+                            data-assessment-filter="does_not_meet_requirement"
+                            class="assessment-filter-btn flex items-center justify-between w-full py-2 text-sm text-left hover:bg-gray-50 rounded">
+                            <span>Does Not Meet Requirement</span>
+                            <span class="flex items-center gap-3">
+                                <strong id="assessmentDoesNotMeetCount">0</strong>
+                                <span>›</span>
+                            </span>
+                        </button>
+
+                        <button type="button"
+                            data-assessment-filter="not_assessed"
+                            class="assessment-filter-btn flex items-center justify-between w-full py-2 text-sm text-left hover:bg-gray-50 rounded">
+                            <span>Not Assessed</span>
+                            <span class="flex items-center gap-3">
+                                <strong id="assessmentNotAssessedCount">0</strong>
+                                <span>›</span>
+                            </span>
+                        </button>
+
+                    </div>
+
+                    <p class="text-xs text-gray-500 mt-3">
                         Based on the organization's saved checklist assessment.
                         This summary does not automatically approve or decline the application.
                     </p>
-
                 </div>
     
-                <!-- Checklist items will be rendered here by JavaScript -->
+                <!-- Checklist items will be rendered here -->
                 <div id="qualificationChecklistItems" class="px-6 py-5 space-y-6">
                     <p class="text-sm text-gray-500">Checklist items will appear here.</p>
                 </div>
