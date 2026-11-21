@@ -421,27 +421,27 @@ app.get("/api/organization/profile", async (req, res) => {
     return res.status(401).json({
         error: "Unauthorized"
     });
-}
-
-try {
-    // GINAGAMIT NA NATIN ANG BAGONG MODEL MO DITO:
-    const orgData = await Organization.getProfileByAccountId(req.session.accountId);
-
-    if (!orgData) {
-        return res.status(404).json({
-            error: "Organization not found"
-        });
     }
 
-    // Ipapasa na ang BUONG object (kasama name, contact, address, pic, etc.) sa frontend
-    res.json(orgData);
+    try {
+        // GINAGAMIT NA NATIN ANG BAGONG MODEL MO DITO:
+        const orgData = await Organization.getProfileByAccountId(req.session.accountId);
 
-} catch (err) {
-    console.error(err);
-    res.status(500).json({
-        error: "Server Error"
-    });
-}
+        if (!orgData) {
+            return res.status(404).json({
+                error: "Organization not found"
+            });
+        }
+
+        // Ipapasa na ang BUONG object (kasama name, contact, address, pic, etc.) sa frontend
+        res.json(orgData);
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({
+            error: "Server Error"
+        });
+    }
 });
 
 app.get("/api/organization/dashboard-greeting", async (req, res) => {
@@ -1153,9 +1153,48 @@ app.put("/api/organization/update-profile", uploadOrgPic.single('profile_pic'), 
     };
 
     try {
-        const { organization_name, email, contact_number, contact_person, address, region, province, city, barangay, zip_code, description } = req.body;
+        const { organization_name, email, contact_number, contact_person, address, region, province, city, barangay, zip_code, description, social_links } = req.body;
         
         const sanitizedEmail = sanitize(email).toLowerCase();
+
+        let parsedSocialLinks = [];
+
+        try {
+            parsedSocialLinks = social_links
+                ? JSON.parse(social_links)
+                : [];
+
+            if (!Array.isArray(parsedSocialLinks)) {
+                throw new Error("Invalid social links format.");
+            }
+
+            parsedSocialLinks = parsedSocialLinks
+                .filter(link =>
+                    link &&
+                    typeof link.platform === "string" &&
+                    typeof link.url === "string" &&
+                    link.platform.trim() &&
+                    link.url.trim()
+                )
+                .map(link => {
+                    const parsedUrl = new URL(link.url.trim());
+
+                    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+                        throw new Error("Social media links must use HTTP or HTTPS.");
+                    }
+
+                    return {
+                        platform: sanitize(link.platform),
+                        url: parsedUrl.href
+                    };
+                });
+
+        } catch (error) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide valid social media links using HTTP or HTTPS."
+            });
+        }
 
         if (!validator.isEmail(sanitizedEmail)) {
             return res.status(400).json({
@@ -1185,6 +1224,7 @@ app.put("/api/organization/update-profile", uploadOrgPic.single('profile_pic'), 
             barangay: sanitize(barangay),
             zip_code: sanitize(zip_code),
             description: sanitize(description),
+            social_links: parsedSocialLinks,
             profile_pic: req.file ? req.file.path : null
         };
 

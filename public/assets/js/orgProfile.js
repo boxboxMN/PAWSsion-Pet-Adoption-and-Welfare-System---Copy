@@ -116,6 +116,96 @@ let provincesData = [];
 let citiesData = [];
 let barangaysData = [];
 
+// ==========================================
+// DYNAMIC ORGANIZATION SOCIAL MEDIA LINKS
+// ==========================================
+
+function addSocialLinkField(platform = "", url = "") {
+    const container = document.getElementById("socialLinksContainer");
+
+    if (!container) return;
+
+    const field = document.createElement("div");
+
+    field.className = "social-link-item border border-gray-200 rounded-xl p-3 space-y-2";
+
+    field.innerHTML = `
+        <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-blue-900">Social Media Link</span>
+
+            <button type="button"
+                class="remove-social-link text-red-500 hover:text-red-700 text-xs font-bold">
+                <i class="fa-solid fa-trash"></i>
+                Remove
+            </button>
+        </div>
+
+        <div>
+            <label class="text-xs font-semibold text-gray-600 block mb-1">
+                Platform / Name
+            </label>
+            <input type="text"
+                class="social-platform w-full text-sm px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-blue-900"
+                placeholder="e.g. Facebook, Instagram, TikTok">
+        </div>
+
+        <div>
+            <label class="text-xs font-semibold text-gray-600 block mb-1">
+                URL
+            </label>
+            <input type="url"
+                class="social-url w-full text-sm px-3 py-2 rounded-lg border border-gray-200 focus:outline-none focus:border-blue-900"
+                placeholder="https://example.com">
+        </div>
+    `;
+
+    field.querySelector(".social-platform").value = platform;
+    field.querySelector(".social-url").value = url;
+
+    field.querySelector(".remove-social-link").addEventListener("click", () => {
+        field.remove();
+
+        // Keep at least one empty field available.
+        if (container.children.length === 0) {
+            addSocialLinkField();
+        }
+    });
+
+    container.appendChild(field);
+}
+
+
+// Load saved links into the fields.
+function renderSocialLinks(links = []) {
+    const container = document.getElementById("socialLinksContainer");
+
+    if (!container) return;
+
+    container.innerHTML = "";
+
+    if (typeof links === "string") {
+        try {
+            links = JSON.parse(links);
+        } catch (error) {
+            links = [];
+        }
+    }
+
+    if (!Array.isArray(links) || links.length === 0) {
+        addSocialLinkField();
+        return;
+    }
+
+    links.forEach(link => {
+        addSocialLinkField(link.platform || "", link.url || "");
+    });
+}
+
+// Add another social media field.
+document.getElementById("addSocialLinkBtn")?.addEventListener("click", () => {
+    addSocialLinkField();
+});
+
 document.addEventListener("DOMContentLoaded", async () => {
 
 // await loadTopbar({
@@ -142,6 +232,8 @@ try {
         const data = await response.json();
         currentOrgData = data;
 
+        // Load saved organization social media links
+        renderSocialLinks(data.social_links || []);
         
         const profileOrgName = document.getElementById("profileOrgName");
         if (profileOrgName && data.organization_name) {
@@ -789,7 +881,43 @@ editProfileForm?.addEventListener("submit", async (e) => {
     saveProfileBtn.disabled = true;
     saveProfileBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Saving...`;
 
-    // 1. Gumawa ng FormData Instance
+    // Collect organization social media links
+    const socialLinks = [];
+    let hasIncompleteSocialLink = false;
+
+    document.querySelectorAll("#socialLinksContainer .social-link-item").forEach(field => {
+        const platform = field.querySelector(".social-platform").value.trim();
+        const url = field.querySelector(".social-url").value.trim();
+
+        // Skip completely empty fields
+        if (!platform && !url) return;
+
+        // Require both fields when adding a link
+        if (!platform || !url) {
+            hasIncompleteSocialLink = true;
+            return;
+        }
+
+        socialLinks.push({ platform, url });
+    });
+
+    // Stop saving if a field is incomplete
+    if (hasIncompleteSocialLink) {
+        Swal.fire({
+            icon: "warning",
+            title: "Incomplete Social Media Link",
+            text: "Please provide both the platform name and URL for each social media link."
+        });
+
+        return;
+    }
+
+    editModalMessage.classList.add("hidden");
+
+    saveProfileBtn.disabled = true;
+    saveProfileBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Saving...`;
+
+    // Create FormData
     const formData = new FormData();
     formData.append("organization_name", document.getElementById("editOrgName").value.trim());
     // formData.append("email", document.getElementById("editOrgEmail").value.trim());
@@ -803,7 +931,7 @@ editProfileForm?.addEventListener("submit", async (e) => {
     formData.append("barangay", barangayValue);
     formData.append("zip_code", zipValue);
     formData.append("description", document.getElementById("editDescription").value.trim());
-    
+    formData.append("social_links", JSON.stringify(socialLinks));
     // Isama ang image file kung may piniling bago si user
     if (selectedImageFile) {
         formData.append("profile_pic", selectedImageFile);

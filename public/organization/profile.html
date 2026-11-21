@@ -301,6 +301,27 @@
                         <label class="text-xs font-bold text-blue-600 block uppercase tracking-wider mb-1">Short Description</label>
                         <textarea id="editDescription" rows="3" required class="w-full text-sm font-normal text-gray-700 px-3 py-2 rounded-xl border border-gray-200 focus:outline-none focus:border-blue-900 transition bg-slate-50/50 resize-none"></textarea>
                     </div>
+
+                    <!-- SOCIAL MEDIA LINKS -->
+                    <div class="pt-3 border-t border-gray-100">
+                        <h4 class="text-sm font-bold text-blue-950 mb-1 flex items-center gap-2">
+                            <i class="fa-solid fa-share-nodes text-blue-900"></i>
+                            Social Media Links
+                        </h4>
+
+                        <p class="text-[11px] text-gray-400 mb-3">
+                            Add your organization's social media accounts, website, or other links.
+                        </p>
+
+                        <!-- Dynamic social media fields -->
+                        <div id="socialLinksContainer" class="space-y-3">
+                        </div>
+
+                        <button type="button" id="addSocialLinkBtn" class="mt-3 inline-flex items-center gap-2 text-sm font-bold text-blue-900 hover:text-blue-700 transition">
+                            <i class="fa-solid fa-plus-circle"></i>
+                            Add Another Link
+                        </button>
+                    </div>
                 
                     <p id="editModalMessage" class="text-xs font-semibold hidden"></p>
                 

@@ -18,7 +18,8 @@ const Organization = {
                 zip_code,
                 description,
                 contact_person,
-                profile_pic 
+                profile_pic,
+                social_links 
             FROM organizations o
             INNER JOIN accounts a
                 ON a.account_id = o.account_id
@@ -51,7 +52,7 @@ const Organization = {
         try {
             await connection.beginTransaction();
 
-            const { organization_name, contact_number, contact_person, address, region, province, city, barangay, zip_code, description, profile_pic, email } = profileData;
+            const { organization_name, contact_number, contact_person, address, region, province, city, barangay, zip_code, description, profile_pic, email, social_links } = profileData;
             
             // Confirm that this account belongs to an organization.
             const [orgRows] = await connection.query(
@@ -154,10 +155,11 @@ const Organization = {
                     city = ?, 
                     barangay = ?,
                     zip_code = ?,
-                    description = ?
+                    description = ?,
+                    social_links = ?
             `;
             
-            const params = [organization_name, contact_number, contact_person, address, region, province, city, barangay, zip_code, description];
+            const params = [organization_name, contact_number, contact_person, address, region, province, city, barangay, zip_code, description, JSON.stringify(social_links ?? [])];
 
             if (profile_pic) {
                 query += `, profile_pic = ? `;
