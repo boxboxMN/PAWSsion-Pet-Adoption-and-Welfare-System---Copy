@@ -265,8 +265,8 @@ function populateDetailsUI(app) {
             ? "Open and edit Adopter Qualification Checklist"
             : "View Adopter Qualification Checklist";
 
-        qualificationChecklistBtn.classList.toggle("opacity-50", !canEditChecklist);
-        qualificationChecklistBtn.classList.toggle("cursor-not-allowed", !canEditChecklist);
+        qualificationChecklistBtn.classList.toggle("opacity-50", !canViewChecklist);
+        qualificationChecklistBtn.classList.toggle("cursor-not-allowed", !canViewChecklist);
     }
 
     // Awtomatikong magiging true (disabled) kung:
