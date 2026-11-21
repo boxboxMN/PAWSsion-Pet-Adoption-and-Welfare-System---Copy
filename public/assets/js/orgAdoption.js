@@ -553,9 +553,15 @@ document.addEventListener("DOMContentLoaded", () => {
             if (savedSectionCard) {
                 savedSectionCard.focus({ preventScroll: true });
 
-                savedSectionCard.scrollIntoView({
-                    behavior: "smooth",
-                    block: "center"
+                const targetPosition =
+                    savedSectionCard.getBoundingClientRect().top +
+                    window.scrollY -
+                    (window.innerHeight / 2) +
+                    (savedSectionCard.offsetHeight / 2);
+
+                window.scrollTo({
+                    top: targetPosition,
+                    behavior: "smooth"
                 });
             }
         } catch (error) {
