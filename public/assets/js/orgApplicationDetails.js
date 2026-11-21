@@ -1726,7 +1726,7 @@ const qualificationChecklistStatuses = [
     { value: "not_assessed", label: "Not Assessed" }
 ];
 
-function renderQualificationChecklist(savedData = {}) {
+function renderQualificationChecklist(savedData = {}, isEditable = false) {
     const container = document.getElementById("qualificationChecklistItems");
     if (!container) return;
 
