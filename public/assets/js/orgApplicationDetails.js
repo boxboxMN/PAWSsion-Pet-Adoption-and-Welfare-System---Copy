@@ -250,7 +250,6 @@ function populateDetailsUI(app) {
         "returned",
         "declined",
         "rejected",
-        "cancelled by org",
         "cancelled by organization",
         "cancelled by adopter"
     ].includes(lowerStatus);
@@ -260,7 +259,7 @@ function populateDetailsUI(app) {
         qualificationChecklistBtn.classList.toggle("hidden", !canViewChecklist);
 
         // Only allow editing during Interview Scheduled and Post-Interview Review.
-        qualificationChecklistBtn.disabled = !canEditChecklist;
+        qualificationChecklistBtn.disabled = !canViewChecklist;
 
         qualificationChecklistBtn.title = canEditChecklist
             ? "Open and edit Adopter Qualification Checklist"
@@ -1838,7 +1837,6 @@ async function openQualificationChecklist() {
         "returned",
         "declined",
         "rejected",
-        "cancelled by org",
         "cancelled by organization",
         "cancelled by adopter"
     ].includes(checklistStatus);
