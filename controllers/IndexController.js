@@ -504,9 +504,9 @@ exports.getPublicStats = async (req, res) => {
 
         // 3. Adopted pets — count DISTINCT animals from approved applications
         const [[adoptionStats]] = await pool.query(`
-            SELECT COUNT(DISTINCT animal_id) AS total_count
-            FROM user_adoption_applications
-            WHERE status = 'Approved'
+            SELECT COUNT(*) AS total_count
+            FROM animals
+            WHERE adoption_status = 'Adopted'
         `);
 
         res.json({
