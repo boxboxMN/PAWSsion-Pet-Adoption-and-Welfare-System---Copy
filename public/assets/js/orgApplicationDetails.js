@@ -1972,6 +1972,15 @@ function updateQualificationAssessmentSummary(savedData = {}) {
                 );
             });
 
+            // Highlight all checklist items in the selected category.
+            matchingItems.forEach((item) => {
+                item.classList.add(
+                    "ring-2",
+                    "ring-teal-500",
+                    "bg-teal-50"
+                );
+            });
+
             // Scroll to the first matching item.
             const targetItem = matchingItems[0];
 
