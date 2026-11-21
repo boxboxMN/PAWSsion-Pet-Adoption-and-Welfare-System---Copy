@@ -309,6 +309,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
         window.qualificationChecklistSections.forEach((section, index) => {
             const card = document.createElement("div");
+
+            card.id = `qualification-section-${index}`;
+            card.tabIndex = -1;
+
             card.className =
                 "border border-gray-200 rounded-xl p-4 space-y-3";
 
@@ -474,6 +478,12 @@ document.addEventListener("DOMContentLoaded", () => {
             items
         };
 
+        const isNewSection = editingSectionIndex === null;
+
+        const targetSectionIndex = isNewSection
+            ? window.qualificationChecklistSections.length
+            : editingSectionIndex;
+
         const previousSections = JSON.parse(
             JSON.stringify(window.qualificationChecklistSections)
         );
@@ -514,6 +524,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
             renderManagedSections();
             closeSectionModal();
+
+            const savedSectionCard = document.getElementById(
+                `qualification-section-${targetSectionIndex}`
+            );
+
+            if (savedSectionCard) {
+                savedSectionCard.scrollIntoView({
+                    behavior: "smooth",
+                    block: "center"
+                });
+
+                savedSectionCard.focus({ preventScroll: true });
+            }
 
             Swal.fire({
                 icon: "success",
