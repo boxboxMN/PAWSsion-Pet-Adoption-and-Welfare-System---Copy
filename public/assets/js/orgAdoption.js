@@ -551,12 +551,12 @@ document.addEventListener("DOMContentLoaded", () => {
             );
 
             if (savedSectionCard) {
+                savedSectionCard.focus({ preventScroll: true });
+
                 savedSectionCard.scrollIntoView({
                     behavior: "smooth",
                     block: "center"
                 });
-
-                savedSectionCard.focus({ preventScroll: true });
             }
         } catch (error) {
             window.qualificationChecklistSections = previousSections;
