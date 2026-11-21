@@ -1936,6 +1936,41 @@ function updateQualificationAssessmentSummary(savedData = {}) {
 
     summaryContainer.classList.remove("hidden");
 
+    // Keep the detailed breakdown collapsed whenever the checklist opens.
+    const breakdown = document.getElementById(
+        "qualificationAssessmentBreakdown"
+    );
+
+    const toggleButton = document.getElementById(
+        "toggleAssessmentSummaryBtn"
+    );
+
+    if (breakdown && toggleButton) {
+
+        breakdown.classList.add("hidden");
+
+        toggleButton.textContent = "View Summary";
+        toggleButton.setAttribute("aria-expanded", "false");
+
+        // Attach the click event only once.
+        if (toggleButton.dataset.toggleBound !== "true") {
+            toggleButton.dataset.toggleBound = "true";
+
+            toggleButton.addEventListener("click", () => {
+                const isHidden = breakdown.classList.toggle("hidden");
+
+                toggleButton.textContent = isHidden
+                    ? "View Summary"
+                    : "Hide Summary";
+
+                toggleButton.setAttribute(
+                    "aria-expanded",
+                    String(!isHidden)
+                );
+            });
+        }
+    }
+
     // Attach the category navigation only once.
     if (summaryContainer.dataset.navigationBound !== "true") {
         summaryContainer.dataset.navigationBound = "true";
