@@ -1869,7 +1869,7 @@ function updateStatCards(data) {
     let interview = 0;  // Interview Scheduled
 
     data.forEach(app => {
-        // I-normalize ang status string para hindi magka-error sa casing o underscores
+        // I-normalize ang status string para hindi magka-error sa casing o scores
         const status = (app.status || '').toLowerCase().replace(/_/g, ' ').trim();
 
         if (status.includes('approved')) {

@@ -2420,7 +2420,7 @@ exports.getDashboardStats = async (req, res) => {
             SELECT COUNT(*) AS pendingAdoptions
             FROM user_adoption_applications app
             INNER JOIN animals animal ON app.animal_id = animal.animal_id
-            WHERE animal.organization_id = ? AND app.status IN ('Under Review', 'Interview Scheduled')
+            WHERE animal.organization_id = ? AND app.status IN ('Under Review', 'Interview Scheduled', 'Post-Interview Review')
             `,
             [organizationId]
         );
@@ -2428,10 +2428,9 @@ exports.getDashboardStats = async (req, res) => {
         // ADOPTED PETS
         const [[adoptedStats]] = await pool.query(
             `
-            SELECT COUNT(DISTINCT app.animal_id) AS adoptedPets
-            FROM user_adoption_applications app
-            INNER JOIN animals animal ON app.animal_id = animal.animal_id
-            WHERE animal.organization_id = ? AND app.status = 'Approved'
+            SELECT COUNT(*) AS adoptedPets
+            FROM animals
+            WHERE organization_id = ? AND adoption_status = 'Adopted'
             `,
             [organizationId]
         );
