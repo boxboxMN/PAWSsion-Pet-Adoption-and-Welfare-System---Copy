@@ -492,12 +492,6 @@ document.addEventListener("DOMContentLoaded", () => {
             items
         };
 
-        const isNewSection = editingSectionIndex === null;
-
-        const targetSectionIndex = isNewSection
-            ? window.qualificationChecklistSections.length
-            : editingSectionIndex;
-
         const previousSections = JSON.parse(
             JSON.stringify(window.qualificationChecklistSections)
         );
@@ -546,34 +540,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 confirmButtonColor: "#2563EB"
             });
 
-            const savedSectionCard = document.getElementById(
-                `qualification-section-${targetSectionIndex}`
-            );
-
-
-console.log("Target section index:", targetSectionIndex);
-console.log("Target section element:", savedSectionCard);
-console.log("Target section position:", savedSectionCard?.getBoundingClientRect());
-console.log("Page scroll height:", document.documentElement.scrollHeight);
-console.log("Current scroll position:", window.scrollY);
-
-            if (savedSectionCard) {
-                requestAnimationFrame(() => {
-                    requestAnimationFrame(() => {
-                        savedSectionCard.scrollIntoView({
-                            behavior: "smooth",
-                            block: "center"
-                        });
-
-                        setTimeout(() => {
-    console.log("Scroll position after scrolling:", window.scrollY);
-    console.log("Document scroll top:", document.scrollingElement.scrollTop);
-    console.log("Section position after scrolling:", savedSectionCard.getBoundingClientRect());
-    console.log("Window height:", window.innerHeight);
-}, 1000);
-                    });
-                });
-            }
         } catch (error) {
             window.qualificationChecklistSections = previousSections;
 
