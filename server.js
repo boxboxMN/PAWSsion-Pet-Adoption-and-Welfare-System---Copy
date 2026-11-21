@@ -432,7 +432,8 @@ app.get("/api/organization/profile", async (req, res) => {
                 error: "Organization not found"
             });
         }
-
+        console.log("ORG PROFILE SOCIAL LINKS:", orgData.social_links);
+        
         // Ipapasa na ang BUONG object (kasama name, contact, address, pic, etc.) sa frontend
         res.json(orgData);
 
