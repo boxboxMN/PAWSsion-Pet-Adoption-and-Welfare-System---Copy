@@ -525,6 +525,13 @@ document.addEventListener("DOMContentLoaded", () => {
             renderManagedSections();
             closeSectionModal();
 
+            Swal.fire({
+                icon: "success",
+                title: "Section Saved",
+                text: "The qualification checklist has been saved successfully.",
+                confirmButtonColor: "#2563EB"
+            });
+
             const savedSectionCard = document.getElementById(
                 `qualification-section-${targetSectionIndex}`
             );
@@ -537,13 +544,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
                 savedSectionCard.focus({ preventScroll: true });
             }
-
-            Swal.fire({
-                icon: "success",
-                title: "Section Saved",
-                text: "The qualification checklist has been saved successfully.",
-                confirmButtonColor: "#2563EB"
-            });
         } catch (error) {
             window.qualificationChecklistSections = previousSections;
 
