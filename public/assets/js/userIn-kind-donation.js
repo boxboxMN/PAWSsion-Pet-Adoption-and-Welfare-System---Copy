@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', async function() {
+   // Load modular layout components (Sidebar & Topbar)
     await loadSidebar();
 
     requestAnimationFrame(() => {
@@ -12,7 +13,13 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     let organizations = [];
     let selectedOrganization = null;
-
+/**
+     * ========================================================================
+     * DOMAIN DICTIONARIES (CATEGORY-TO-UNIT MAPPING & CONTEXTUAL PLACEHOLDERS)
+     * Enforces data standardization by restricting measurement units based on 
+     * the chosen supply category (e.g., "kg" for Food, "bottles" for Medicine).
+     * ========================================================================
+     */
     const CATEGORY_UNITS = {
         "Food & Treats":          ["kg", "sacks", "packs", "boxes", "cans", "pcs"],
         "Toys":                   ["pcs", "packs", "boxes", "sets"],
@@ -32,12 +39,20 @@ document.addEventListener('DOMContentLoaded', async function() {
         "Bedding & Housing":      "e.g., Pet bed, Blanket, Crate mat",
         "Other":                  "e.g., Any pet supply item"
     };
+    // DOM Element References
     const itemNameInput = document.getElementById('itemNameInput');
     const quantityInput = document.getElementById('quantityInput');
     const unitInput     = document.getElementById('unitInput');
     const termsCheckbox = document.getElementById('termsCheckbox');
     const submitBtn     = document.getElementById('submitInKindBtn');
 
+    /**
+     * ========================================================================
+     * REAL-TIME QUANTITY INPUT SANITIZATION
+     * Multi-layer defense (input, keydown, paste) ensuring only positive 
+     * whole integers (> 0) can be entered—blocking negatives, decimals, and 'e'.
+     * ========================================================================
+     */
     if (quantityInput) {
         quantityInput.addEventListener("input", function () {
         
@@ -59,6 +74,13 @@ document.addEventListener('DOMContentLoaded', async function() {
         });
     }
 
+    /**
+     * ========================================================================
+     * DEPENDENT DROPDOWN & PROGRESSIVE FORM UNLOCKING
+     * Dynamically populates valid units and unlocks the item name field only 
+     * after a donation category is selected.
+     * ========================================================================
+     */
     function populateUnitsForCategory(category) {
         if (!unitInput) return;
 
@@ -102,7 +124,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         });
     }
-
+// Drop-off Location & Organization Profile Modal References
     const dropoffTitle   = document.getElementById('dropoffTitle');
     const dropoffAddress = document.getElementById('dropoffAddress');
     const dropoffHours   = document.getElementById('dropoffHours');
@@ -118,6 +140,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const orgEmail   = document.getElementById("modalOrgEmail");
     const orgMission = document.getElementById("modalOrgMission");
 
+    
     function validateItemName(name) {
         const value = (name || '').trim();
 
@@ -286,13 +309,13 @@ document.addEventListener('DOMContentLoaded', async function() {
     async function openModal(id) {
         const org = organizations.find(o => o.organization_id == id);
         if (!org || !modal) return;
-
+// Instant population from cached list
         if (orgName) orgName.textContent = org.organization_name;
         if (orgAddress) orgAddress.innerHTML = `<i class="fa-solid fa-location-dot"></i> ${org.city || ''}, ${org.province || ''}`;
         if (orgPhone) orgPhone.textContent = org.contact_number || "N/A";
         if (orgEmail) orgEmail.textContent = org.email || "N/A";
         if (orgMission) orgMission.textContent = org.description || "No description available.";
-
+// Fetch live organization profile details
         try {
             const response = await fetch(`/api/organizations/${id}`);
             if (response.ok) {
@@ -332,7 +355,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         modal.classList.remove("active");
         document.body.style.overflow = "";
     }
-
+// Modal closing listeners (Close buttons, Backdrop click, Escape key)
     if (closeBtn)  closeBtn.addEventListener("click", closeModal);
     if (closeBtn2) closeBtn2.addEventListener("click", closeModal);
 

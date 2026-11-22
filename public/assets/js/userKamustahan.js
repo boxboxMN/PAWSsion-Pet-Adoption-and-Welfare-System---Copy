@@ -4,7 +4,7 @@ let selectedEditFile = null;
 let fetchedUpdates = []; // Cache para sa Edit Modal
 let dueUpdatesList = []; // Cache para sa Kamustahan Due
 
-// FILTER VARIABLES
+// FILTER STATE VARIABLES FOR HISTORY FEED
 let historySearchQuery = '';
 let historyStatusFilter = 'all';
 
@@ -136,19 +136,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         loadTopbar({ title: "Kamustahan", subtitle: "Share updates about your adopted pet." });
         document.body.style.visibility = "visible";
     });
-
+// Render health and behavior rubric checklists dynamically
     renderChecklist('healthChecklistGrid', HEALTH_CHECKLIST, healthAnswers, '#059669', '#ecfdf5');
     renderChecklist('behaviorChecklistGrid', BEHAVIOR_CHECKLIST, behaviorAnswers, '#4f46e5', '#eef2ff');
-
+// Toggle visibility of veterinary visit input fields
     document.getElementById('vetVisitToggle')?.addEventListener('change', (e) => {
         document.getElementById('vetVisitFields')?.classList.toggle('hidden', !e.target.checked);
     });
 
+    // Set default date input value to current Philippine local time (Asia/Manila)
     const phTimeOptions = { timeZone: 'Asia/Manila', year: 'numeric', month: '2-digit', day: '2-digit' };
     const formatter = new Intl.DateTimeFormat('en-CA', phTimeOptions);
     document.getElementById('updateDate').value = formatter.format(new Date());
 
-       // 1. Fetch Kamustahan Due Updates
+    // 1. Fetch Kamustahan Due Updates & Display Warning Banner if Overdue/Due
     try {
         const dueRes = await fetch('/api/user/kamustahan-due');
         const dueData = await dueRes.json();
@@ -192,7 +193,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.error("Error loading due Kamustahan updates:", err);
     }
 
-    // 2. Fetch Approved Pets Data 
+    // 2. Fetch Approved Adopted Pets Data for Selection Dropdown
     try {
         const res = await fetch('/api/user/approved-pets');
         const data = await res.json();
@@ -220,7 +221,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 opt.textContent = petName + (isDue ? ' 🟡 (Update Needed)' : ''); 
                 petSelect.appendChild(opt);
             });
-
+// Display submission deadline notice when a pet is selected
             petSelect.addEventListener('change', (e) => {
                 const selectedPet = petsData.find(p => p.animal_id == e.target.value);
                 document.getElementById('orgIdInput').value = selectedPet ? selectedPet.organization_id : '';
@@ -248,8 +249,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.error("Error loading approved pets:", err);
     }
 
-    // 3. Photo input 
-    const photoInput = document.getElementById('photoInput');
+// 3. Photo Upload Handler (Enforces 5-photo maximum limit)    const photoInput = document.getElementById('photoInput');
     photoInput.addEventListener('change', (e) => {
         const files = Array.from(e.target.files);
         
@@ -263,7 +263,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         e.target.value = '';
     });
 
-    // Edit Photo input
+    // Edit Modal Photo Replacement Handler
     const editPhotoInput = document.getElementById('editPhotoInput');
     if (editPhotoInput) {
         editPhotoInput.addEventListener('change', (e) => {
@@ -279,7 +279,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
 
-    // 4. FORM SUBMISSION 
+    // 4. SUBMISSION HANDLER (POST /api/user/kamustahan)
     document.getElementById('kamustahanForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         hideUiAlert();
@@ -336,7 +336,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const cleanDiagnosis = rawDiagnosis.trim().slice(0, 500);
         
         formData.set('update_text', cleanConcerns !== '' ? cleanConcerns : 'Updated via Health & Behavior Checklist.');
-
+// Pack JSON objects into form payload
         formData.set('health_checklist',   JSON.stringify(healthAnswers));
         formData.set('behavior_checklist', JSON.stringify(behaviorAnswers));
         formData.set('vet_visit',          isVetVisit ? '1' : '0');
@@ -380,7 +380,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     }
                     reader.readAsDataURL(selectedFiles[0]);
                 }
-
+// Show success modal confirmation
                 document.getElementById('successModal').classList.remove('hidden');
                 document.getElementById('successModal').classList.add('flex');
             } else {
@@ -468,7 +468,7 @@ function renderChecklist(containerId, checklist, storageObj, colorHex, colorBg) 
                 ${optionsHtml}
             </div>
         `;
-
+// Radio change listener: records answer and triggers emergency symptom warning if matched
         wrapper.querySelectorAll('input[type="radio"]').forEach(radio => {
             radio.addEventListener('change', (e) => {
                 storageObj[key] = e.target.value;
@@ -496,7 +496,9 @@ function renderChecklist(containerId, checklist, storageObj, colorHex, colorBg) 
     }
 }
 
-// RENDER DETAILS PARA SA EDIT MODAL (Checklist & Vet)
+/**
+ * Renders previously submitted checklist snapshots and vet visit info inside the Edit Modal.
+ */
 function renderUpdateDetails(item) {
     let html = '';
 

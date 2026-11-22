@@ -1,4 +1,5 @@
 document.addEventListener("DOMContentLoaded", async () => {
+   // Load modular navigation components (Sidebar & Topbar)
     await loadSidebar();
     
     requestAnimationFrame(() => {
@@ -12,7 +13,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     let organizations = [];
     let selectedOrganization = null;
-    
+    // Organization Profile Modal References
     const modal = document.getElementById("orgModal");
     const closeBtn = document.getElementById("modalClose");
     const closeBtn2 = document.getElementById("modalCloseBtn");
@@ -22,7 +23,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const orgPhone = document.getElementById("modalOrgPhone");
     const orgEmail = document.getElementById("modalOrgEmail");
     const orgMission = document.getElementById("modalOrgMission");
-
+// Donor & Payment Input References
     const donorNameInput = document.querySelector('input[placeholder="Name"]') || document.getElementById("donorName");
     const donorEmailInput = document.querySelector('input[placeholder="Email Address"]');
     
@@ -33,7 +34,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const gcashNameInput = document.getElementById("gcashNameInput");
     const refNumInput = document.getElementById("refNumInput");
     const amountInput = document.getElementById("customAmount");
-    
+    // Prevent negative amounts on client input
     if (amountInput) {
         amountInput.addEventListener("input", function() {
             if (this.value < 0) {
@@ -47,9 +48,13 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
     }
     
-    /* =========================================================
-       QR MODAL — ROBUST HANDLING
-       ========================================================= */
+    /**
+     * ========================================================================
+     * QR CODE PREVIEW MODAL CONTROLS
+     * Displays enlarged, auto-cropped QR codes so donors can scan cleanly
+     * without mobile app screenshot borders interfering.
+     * ========================================================================
+     */
     const qrModal              = document.getElementById("qrModal");
     const qrModalClose         = document.getElementById("qrModalClose");
     const qrModalCloseBtn      = document.getElementById("qrModalCloseBtn");
@@ -127,6 +132,13 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
     const receiptFileInput = document.querySelector('input[type="file"]');
     const submitBtn = document.getElementById("submitDonationBtn");
 
+    /**
+     * ========================================================================
+     * AUTHENTICATED USER AUTO-FILL
+     * Fetches logged-in user details (GET /api/user/profile) and locks Name &
+     * Email fields to ensure accurate donor attribution and audit trails.
+     * ========================================================================
+     */
     async function fetchUserProfile() {
         try {
             const res = await fetch("/api/user/profile");
@@ -150,6 +162,13 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
         }
     }
 
+    /**
+     * ========================================================================
+     * ORGANIZATION LOADING & E-WALLET ELIGIBILITY FILTERING
+     * Fetches registered shelters and filters out organizations without an 
+     * active GCash or Maya account configured.
+     * ========================================================================
+     */
     async function loadOrganizations() {
         try {
             const response = await fetch("/api/organizations");
@@ -164,6 +183,7 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
             ? data
             : (data.organizations || data.data || []);
 
+            // Business Rule: Only list shelters with at least one active e-wallet account
             organizations = allOrganizations.filter(org =>
                 (org.gcash_number && org.gcash_number.trim() !== "") ||
                 (org.maya_number && org.maya_number.trim() !== "")
@@ -259,6 +279,13 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
             !trimmed.endsWith("/undefined")
         );
     }
+    /**
+     * ========================================================================
+     * DYNAMIC PAYMENT GATEWAY SWITCHER (GCASH / MAYA)
+     * Automatically adjusts available payment options, account labels, account
+     * numbers, and QR codes based on the selected organization's setup.
+     * ========================================================================
+     */
 
     function updateDonationInfo(id) {
         const org = organizations.find(o => String(o.organization_id) === String(id));
@@ -432,6 +459,13 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
         if (e.key === "Escape") closeModal();
     });
 
+    /**
+     * ========================================================================
+     * CASH DONATION SUBMISSION WORKFLOW (POST /api/user/donation/cash)
+     * Validates reference number format (10–15 alphanumeric chars with at least
+     * 1 digit), amount (> 0), receipt upload, and sends FormData payload.
+     * ========================================================================
+     */
     if (submitBtn) {
         submitBtn.addEventListener("click", async function (e) {
             e.preventDefault();
@@ -468,6 +502,8 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
                 showToast("Please enter the Reference Number.", "error");
                 return;
             }
+
+            // Reference Number Regex: 10–15 alphanumeric chars with at least 1 digit (GCash/Maya standard)
             const refNumPattern = /^(?=.*[0-9])[a-zA-Z0-9]{10,15}$/;
             if (!refNumPattern.test(refNumInput.value.trim())) {
                 showToast("Reference number must be 10-15 characters (letters and numbers) and include at least one digit. Please check your receipt and try again.", "error");
@@ -560,6 +596,9 @@ if (qrModalAccountNumber) qrModalAccountNumber.textContent = numberText || "N/A"
     }
 });
 
+/**
+ * Displays non-blocking toast alerts for validation feedback and confirmations.
+ */
 function showToast(message, type = "error") {
     const container = document.getElementById("toastContainer");
     if (!container) return;
