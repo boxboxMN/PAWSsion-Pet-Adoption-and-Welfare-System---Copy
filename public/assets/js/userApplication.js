@@ -1471,6 +1471,8 @@ async function openOrgProfileModal(id) {
     const orgEmail = document.getElementById("modalOrgEmail");
     const orgMission = document.getElementById("modalOrgMission");
     const logoEl = document.getElementById("modalOrgLogo");
+    const socialSection = document.getElementById("modalOrgSocialSection");
+    const socialContainer = document.getElementById("modalOrgSocialLinks");
 
     try {
         const response = await fetch(`/api/organizations/${id}`);
@@ -1482,6 +1484,49 @@ async function openOrgProfileModal(id) {
         if (orgPhone) orgPhone.textContent = org.contact_number || org.phone || "N/A";
         if (orgEmail) orgEmail.textContent = org.email || org.org_email || "N/A";
         if (orgMission) orgMission.textContent = org.description || org.mission || "No description available.";
+
+        // Display organization social media links
+        if (socialSection && socialContainer) {
+            socialContainer.innerHTML = "";
+
+            let socialLinks = org.social_links || [];
+
+            // Parse JSON if the API returns it as a string
+            if (typeof socialLinks === "string") {
+                try {
+                    socialLinks = JSON.parse(socialLinks);
+                } catch {
+                    socialLinks = [];
+                }
+            }
+
+            if (Array.isArray(socialLinks) && socialLinks.length > 0) {
+                socialLinks.forEach(link => {
+                    if (!link || typeof link.url !== "string") return;
+
+                    try {
+                        const url = new URL(link.url);
+
+                        if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) {
+                            return;
+                        }
+
+                        const anchor = document.createElement("a");
+                        anchor.href = url.href;
+                        anchor.target = "_blank";
+                        anchor.rel = "noopener noreferrer";
+                        anchor.textContent = link.platform || "Visit Link";
+                        anchor.className = "inline-flex items-center gap-2 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-semibold hover:bg-blue-100 transition";
+
+                        socialContainer.appendChild(anchor);
+                    } catch {
+                        // Skip invalid URLs
+                    }
+                });
+            }
+
+            socialSection.classList.toggle("hidden", socialContainer.children.length === 0);
+        }
 
         const logoPath = org.logo || org.avatar || org.image || org.profile_pic;
         // if (logoEl && logoPath) {
