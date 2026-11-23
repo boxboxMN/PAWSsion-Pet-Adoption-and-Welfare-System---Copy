@@ -530,7 +530,7 @@ function updateStepper(status) {
         currentStep = 2;
     } 
     // 3. Approved
-    else if (status === "Approved") {
+    else if (status === "Approved" || status === "Received") {
         currentStep = 3;
     } 
     // Kapag Declined: Ipapakita hanggang step 1 o 2 batay sa status kung kailan na-decline
@@ -841,9 +841,19 @@ function showDetails(app) {
                         disabled
                         class="px-4 py-2 text-xs font-semibold bg-green-100 text-green-700 rounded-lg inline-flex items-center gap-1.5 cursor-not-allowed"
                     >
-                        <i class="fas fa-check-circle"></i> Returned
+                        <i class="fas fa-check-circle"></i> Awaiting Return Confirmation
                     </button>
                 `;
+            // } else if (returnStatus === "returned") {
+            //     detailsActions.innerHTML = `
+            //         <button
+            //             type="button"
+            //             disabled
+            //             class="px-4 py-2 text-xs font-semibold bg-green-100 text-green-700 rounded-lg inline-flex items-center gap-1.5 cursor-not-allowed"
+            //         >
+            //             <i class="fas fa-check-circle"></i> Returned
+            //         </button>
+            //     `;
             } else {
                 detailsActions.innerHTML = `
                     <button

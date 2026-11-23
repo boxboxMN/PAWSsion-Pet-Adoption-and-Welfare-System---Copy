@@ -824,7 +824,7 @@ async function fetchReturnPetRequests() {
                                     `
                                     : request.status === "Returned" &&
                                       request.adoption_status === "Adopted" &&
-                                      Number(request.is_latest_application) === 1
+                                      Number(request.is_latest_return_request) === 1
                                         ? `
                                             <button
                                                 type="button"
