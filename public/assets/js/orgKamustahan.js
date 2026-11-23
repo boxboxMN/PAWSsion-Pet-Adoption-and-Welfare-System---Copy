@@ -379,19 +379,35 @@ function renderTable() {
 
     const todayKey = getTodayLocalKey();
 
-    paginatedData.forEach((item) => {
-        let displayPhoto = "https://via.placeholder.com/150?text=No+Image";
-        
+        paginatedData.forEach((item) => {
+    // Detect if there's an active (current-cycle) submitted update
+    const hasActiveUpdate = item.formatted_date && item.update_status !== 'For Update';
+
+    // Detect if this row is only scheduled (waiting for a NEW update) — old photos must not show
+    const isScheduledOnly = !hasActiveUpdate
+        && item.is_archived != 1
+        && !!item.scheduled_date;
+
+    let displayPhoto = "https://via.placeholder.com/150?text=No+Image";
+
+    // Show update photos ONLY when the update is current OR the record is archived.
+    // If it's just scheduled (or overdue with no new submission), keep "No Image".
+    if (!isScheduledOnly) {
         if (item.update_photos) {
             try {
                 let parsed = JSON.parse(item.update_photos);
                 if (Array.isArray(parsed) && parsed.length > 0) displayPhoto = parsed[0];
             } catch (e) { displayPhoto = item.update_photos; }
-            if (!displayPhoto.startsWith('http') && !displayPhoto.startsWith('/')) displayPhoto = `/uploads/${displayPhoto}`;
+            if (!displayPhoto.startsWith('http') && !displayPhoto.startsWith('/')) {
+                displayPhoto = `/uploads/${displayPhoto}`;
+            }
         } else if (item.pet_image) {
             displayPhoto = item.pet_image;
-            if (!displayPhoto.startsWith('http') && !displayPhoto.startsWith('/')) displayPhoto = `/uploads/pets/${displayPhoto}`;
+            if (!displayPhoto.startsWith('http') && !displayPhoto.startsWith('/')) {
+                displayPhoto = `/uploads/pets/${displayPhoto}`;
+            }
         }
+    }
 
         let statusBadge = '';
 
