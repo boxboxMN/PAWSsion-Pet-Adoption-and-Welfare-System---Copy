@@ -20,6 +20,25 @@
         .hide-scrollbar::-webkit-scrollbar {
             display: none;
         }
+        .pet-lightbox-image-frame {
+            width: min(92vw, 1200px);
+            height: min(82vh, 820px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #expandedPetImage {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            object-position: center;
+        }
+        @media (max-width: 640px) {
+            .pet-lightbox-image-frame {
+                width: calc(100vw - 1.5rem);
+                height: calc(100dvh - 8rem);
+            }
+        }
     </style>
 </head>
 
@@ -623,17 +642,19 @@
     </button>
 
     <div id="petImageLightboxContent" class="relative flex h-full w-full items-center justify-center">
-        <img id="expandedPetImage" src="" alt="Expanded pet photo" class="max-h-[calc(100vh-2rem)] max-w-[calc(100vw-2rem)] object-contain rounded-lg shadow-2xl">
-
-        <button id="prevExpandedPetImage" type="button" aria-label="Previous pet photo" class="hidden absolute left-2 md:left-6 top-1/2 -translate-y-1/2 h-12 w-12 flex items-center justify-center rounded-full bg-black/60 text-white text-lg shadow-lg transition hover:bg-black">
-            <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
-        </button>
-        <button id="nextExpandedPetImage" type="button" aria-label="Next pet photo" class="hidden absolute right-2 md:right-6 top-1/2 -translate-y-1/2 h-12 w-12 flex items-center justify-center rounded-full bg-black/60 text-white text-lg shadow-lg transition hover:bg-black">
-            <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
-        </button>
-
-        <span id="expandedPetImageCount" class="hidden absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white"></span>
+        <div id="petImageLightboxFrame" class="pet-lightbox-image-frame">
+            <img id="expandedPetImage" src="" alt="Expanded pet photo" class="object-contain object-center rounded-lg shadow-2xl">
+        </div>
     </div>
+
+    <button id="prevExpandedPetImage" type="button" aria-label="Previous pet photo" class="hidden absolute left-3 md:left-6 top-1/2 z-10 -translate-y-1/2 h-12 w-12 flex items-center justify-center rounded-full bg-black/60 text-white text-lg shadow-lg transition hover:bg-black">
+        <i class="fa-solid fa-chevron-left" aria-hidden="true"></i>
+    </button>
+    <button id="nextExpandedPetImage" type="button" aria-label="Next pet photo" class="hidden absolute right-3 md:right-6 top-1/2 z-10 -translate-y-1/2 h-12 w-12 flex items-center justify-center rounded-full bg-black/60 text-white text-lg shadow-lg transition hover:bg-black">
+        <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
+    </button>
+
+    <span id="expandedPetImageCount" class="hidden absolute bottom-5 left-1/2 z-10 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1.5 text-xs font-semibold text-white"></span>
 </div>
 
 <!--Logout Modal-->

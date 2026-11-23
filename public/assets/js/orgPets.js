@@ -916,6 +916,12 @@ document.getElementById("petImageLightboxContent")?.addEventListener("click", (e
     }
 });
 
+document.getElementById("petImageLightboxFrame")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) {
+        closePetImageLightbox();
+    }
+});
+
 document.addEventListener("keydown", (event) => {
     const lightbox = document.getElementById("petImageLightbox");
     if (!lightbox || lightbox.classList.contains("hidden")) return;
