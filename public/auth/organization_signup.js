@@ -1534,7 +1534,7 @@ window.addEventListener("load", async () => {
                 validateStep1();
 
                 showCustomAlert(
-                    "Google email verified. Continue completing your organization registration."
+                    "Google email verified. Continue completing your organization registration.", "success"
                 );
             } catch (error) {
                 console.error("Google verification error:", error);
