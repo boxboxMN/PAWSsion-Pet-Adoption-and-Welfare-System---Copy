@@ -675,21 +675,46 @@ async function openUpdateModal(item) {
     const isArchived = item.is_archived == 1 || item.update_status === 'Archived';
     const isEvaluated = !!item.org_verdict;
 
+    const hasSubmittedUpdate = !!item.formatted_date && item.update_status !== 'For Update';
+    const isPending = !hasSubmittedUpdate && !isArchived;
 
-    if (isArchived || isEvaluated)  {
-        reviewInput.disabled = true;
+if (isArchived || isEvaluated || isPending) {
+    reviewInput.disabled = true;
+    reviewInput.classList.add('bg-gray-200', 'cursor-not-allowed', 'text-gray-500');
+    reviewBtn.classList.add('hidden');
+
+    document.querySelectorAll('#evaluationChecklist .eval-btn').forEach(b => {
+        b.disabled = true;
+        b.classList.add('cursor-not-allowed', 'opacity-70');
+    });
+    if (followUpInput) followUpInput.disabled = true;
+
+    if (isPending) {
+        reviewInput.value = '';
+        reviewInput.placeholder =
+            "Waiting for the adopter to submit an update. Review and evaluation will be enabled once they submit.";
+        if (prevNoteContainer) prevNoteContainer.classList.add('hidden');
+
+        const verdictBox = document.getElementById('verdictPreview');
+        if (verdictBox) {
+            verdictBox.className =
+                'p-3 rounded-xl border text-xs font-semibold flex items-start gap-2 bg-amber-50 border-amber-200 text-amber-800';
+            verdictBox.innerHTML = `
+                <i class="fas fa-hourglass-half mt-0.5 text-sm shrink-0"></i>
+                <div>
+                    <span class="block uppercase text-[10px] opacity-80 mb-0.5">Evaluation Locked</span>
+                    <strong class="block">WAITING FOR UPDATE</strong>
+                    <span class="opacity-80 text-[11px] font-medium">
+                        The adopter has not submitted an update for this pet yet.
+                    </span>
+                </div>`;
+        }
+        const followUpSectionEl = document.getElementById('followUpSection');
+        if (followUpSectionEl) followUpSectionEl.classList.add('hidden');
+
+    } else if (isArchived) {
         reviewInput.value = item.org_response || '';
-        reviewInput.placeholder = isArchived ? "This record has been archived. Evaluation is locked." : "Evaluation already submitted. You cannot change it.";
-        reviewInput.classList.add('bg-gray-200', 'cursor-not-allowed', 'text-gray-500');
-        
-        reviewBtn.classList.add('hidden');
-        
-        document.querySelectorAll('#evaluationChecklist .eval-btn').forEach(b => {
-            b.disabled = true;
-            b.classList.add('cursor-not-allowed', 'opacity-70');
-        });
-        if (followUpInput) followUpInput.disabled = true;
-
+        reviewInput.placeholder = "This record has been archived. Evaluation is locked.";
         if (item.org_response) {
             prevNoteContainer.classList.remove('hidden');
             prevNoteText.textContent = item.org_response;
@@ -697,22 +722,30 @@ async function openUpdateModal(item) {
             prevNoteContainer.classList.add('hidden');
         }
     } else {
-        reviewInput.disabled = false;
-        reviewInput.classList.remove('bg-gray-200', 'cursor-not-allowed', 'text-gray-500');
-        reviewBtn.classList.remove('hidden');
-        reviewBtn.innerHTML = '<i class="fas fa-check-circle"></i> Save Evaluation & Send';
-
+        // IsEvaluated = true
+        reviewInput.value = item.org_response || '';
+        reviewInput.placeholder = "Evaluation already submitted. You cannot change it.";
         if (item.org_response) {
             prevNoteContainer.classList.remove('hidden');
             prevNoteText.textContent = item.org_response;
-            reviewInput.value = item.org_response; 
         } else {
             prevNoteContainer.classList.add('hidden');
-            reviewInput.value = '';
         }
     }
+} else {
     
-    modal.classList.remove("hidden");
+    reviewInput.classList.remove('bg-gray-200', 'cursor-not-allowed', 'text-gray-500');
+    reviewBtn.classList.remove('hidden');
+    reviewBtn.innerHTML = '<i class="fas fa-check-circle"></i> Save Evaluation & Send';
+
+    if (item.org_response) {
+        prevNoteContainer.classList.remove('hidden');
+        prevNoteText.textContent = item.org_response;
+        reviewInput.value = item.org_response;
+    } else {
+        prevNoteContainer.classList.add('hidden');
+        reviewInput.value = '';
+    }
 }
 function updateOrgPhotoView() {
     const img = document.getElementById("modalPhoto");
@@ -822,6 +855,13 @@ function renderEvaluationChecklist() {
 // Saves the selected evaluation answer for a specific category
 
 function setEvalAnswer(key, val) {
+     const item = allUpdatesData.find(i => Number(i.update_id) === Number(currentUpdateIdForReply));
+    if (item) {
+        const hasSubmittedUpdate = !!item.formatted_date && item.update_status !== 'For Update';
+        if (item.is_archived == 1 || !hasSubmittedUpdate || item.org_verdict) {
+            return; 
+        }
+    }
     orgEvaluationAnswers[key] = val;
 
     const wrapper = document.querySelector(`[data-eval-key="${key}"]`);
@@ -919,6 +959,27 @@ function updateVerdictPreview(savedVerdict = null) {
 
 async function markAsReviewed() {
     if (!currentUpdateIdForReply) return;
+
+    const item = allUpdatesData.find(i => Number(i.update_id) === Number(currentUpdateIdForReply));
+    if (!item) {
+        showToast('Update record not found.', 'error');
+        return;
+    }
+    const hasSubmittedUpdate = !!item.formatted_date && item.update_status !== 'For Update';
+    if (item.is_archived == 1) {
+        showToast('This record is archived and cannot be evaluated.', 'warning');
+        return;
+    }
+    if (!hasSubmittedUpdate) {
+        showToast('Cannot evaluate yet. Waiting for the adopter to submit an update.', 'warning');
+        return;
+    }
+    if (item.org_verdict) {
+        showToast('This update has already been evaluated.', 'warning');
+        return;
+    }
+
+    
     const verdict = computeVerdict();
 
     if (!verdict) {
