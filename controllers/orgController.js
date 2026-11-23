@@ -3551,14 +3551,15 @@ exports.getPetReturnRequests = async (req, res) => {
                 app.status AS application_status,
 
                 CASE
-                    WHEN r.application_id = (
-                        SELECT MAX(latest_app.application_id)
-                        FROM user_adoption_applications latest_app
-                        WHERE latest_app.animal_id = r.animal_id
+                    WHEN r.return_request_id = (
+                        SELECT MAX(latest_return.return_request_id)
+                        FROM pet_return_requests latest_return
+                        WHERE latest_return.animal_id = r.animal_id
+                          AND latest_return.organization_id = r.organization_id
                     )
                     THEN 1
                     ELSE 0
-                END AS is_latest_application,
+                END AS is_latest_return_request,
 
                 a.name AS pet_name,
                 a.species,
