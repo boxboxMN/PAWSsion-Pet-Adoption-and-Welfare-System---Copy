@@ -2010,7 +2010,7 @@ window.addEventListener("load", async () => {
                 updateSignUpButtonState();
 
                 showCustomAlert(
-                    "Google email verified. Continue completing your adopter registration."
+                    "Google email verified. Continue completing your adopter registration.", "success"
                 );
             } catch (error) {
                 console.error("Google verification error:", error);
