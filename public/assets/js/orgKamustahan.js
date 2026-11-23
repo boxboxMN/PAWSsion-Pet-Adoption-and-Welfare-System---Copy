@@ -1145,7 +1145,7 @@ function renderCalendar() {
         calendarGrid.appendChild(emptyCell);
     }
 
-    for (let day = 1; day <= totalDays; day++) {
+        for (let day = 1; day <= totalDays; day++) {
         const formattedMonth = String(month + 1).padStart(2, '0');
         const formattedDay = String(day).padStart(2, '0');
         const dateString = `${year}-${formattedMonth}-${formattedDay}`;
@@ -1156,26 +1156,48 @@ function renderCalendar() {
             isToday ? 'border-blue-500 ring-2 ring-blue-100' : 'border-gray-200'
         }`;
 
-        const scheduledItems = allUpdatesData.filter(item => {
+        // 1. Kunin lahat ng scheduled items sa araw na ito
+        const dayItems = allUpdatesData.filter(item => {
             const rawDate = toLocalDateKey(item.scheduled_date);
             return rawDate === dateString && item.is_archived != 1;
         });
 
+        // 2. Bilangin lang kung ilan ang PENDING (hindi pa updated) para sa badge sa taas
+        const pendingCount = dayItems.filter(item => {
+            const isUpdated = item.formatted_date && item.update_status !== 'For Update';
+            return !isUpdated;
+        }).length;
+
         let eventsHtml = '';
-        scheduledItems.forEach(item => {
+        dayItems.forEach(item => {
+            // 3. Check kung tapos na (Updated)
+            const isUpdated = item.formatted_date && item.update_status !== 'For Update';
+
+            // 4. Mag-iba ang kulay: Green kung Updated, Amber kung Pending
+            const bgClass = isUpdated
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800 hover:bg-emerald-100'
+                : 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100';
+            
+            const iconClass = isUpdated
+                ? 'fa-solid fa-check text-emerald-600'
+                : 'fa-regular fa-clock text-amber-500';
+            
+            const tooltip = isUpdated ? `title="UPDATED | Pet: ${escapeHtml(item.pet_name)}"` : `title="Pet: ${escapeHtml(item.pet_name)} | Adopter: ${escapeHtml(item.adopter_name)}"`;
+
             eventsHtml += `
                 <div data-action="view" data-update-id="${Number(item.update_id)}"
-                    class="bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-medium p-1 rounded-md mb-1 cursor-pointer truncate hover:bg-amber-100 transition-colors"
-                    title="Pet: ${escapeHtml(item.pet_name)} | Adopter: ${escapeHtml(item.adopter_name)}">
-                    <i class="fa-regular fa-clock mr-1"></i> ${escapeHtml(item.pet_name)}
+                    class="${bgClass} border text-[10px] font-medium p-1 rounded-md mb-1 cursor-pointer truncate transition-colors"
+                    ${tooltip}>
+                    <i class="${iconClass} mr-1"></i> ${escapeHtml(item.pet_name)}
                 </div>
             `;
         });
 
+        // 5. Ipapakita lang ang badge kung may pendingCount na higit sa 0
         dayCell.innerHTML = `
             <div class="flex justify-between items-center">
                 <span class="text-xs font-bold ${isToday ? 'text-blue-600' : 'text-gray-700'}">${day}</span>
-                ${scheduledItems.length > 0 ? `<span class="w-4 h-4 bg-amber-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">${scheduledItems.length}</span>` : ''}
+                ${pendingCount > 0 ? `<span class="w-4 h-4 bg-amber-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">${pendingCount}</span>` : ''}
             </div>
             <div class="mt-1 flex-1 overflow-y-auto">${eventsHtml}</div>
         `;
