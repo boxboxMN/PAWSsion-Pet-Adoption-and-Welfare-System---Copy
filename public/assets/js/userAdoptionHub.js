@@ -51,6 +51,90 @@ document.getElementById("modalImageNext")?.addEventListener("click", () => {
     showModalPetImage();
 });
 
+function openUserPetImageLightbox() {
+    const lightbox = document.getElementById("userPetImageLightbox");
+    if (!lightbox || !modalPetImages.length) return;
+
+    lightbox.classList.remove("hidden");
+    lightbox.classList.add("flex");
+    renderExpandedUserPetImage();
+    document.body.classList.add("overflow-hidden");
+}
+
+function closeUserPetImageLightbox() {
+    const lightbox = document.getElementById("userPetImageLightbox");
+    if (!lightbox) return;
+
+    lightbox.classList.remove("flex");
+    lightbox.classList.add("hidden");
+    document.body.classList.remove("overflow-hidden");
+}
+
+function renderExpandedUserPetImage() {
+    const image = document.getElementById("expandedUserPetImage");
+    const previousButton = document.getElementById("prevExpandedUserPetImage");
+    const nextButton = document.getElementById("nextExpandedUserPetImage");
+    const counter = document.getElementById("expandedUserPetImageCount");
+    if (!image || !modalPetImages.length) return;
+
+    image.onerror = () => {
+        image.onerror = null;
+        image.src = fallbackPetImage;
+    };
+    image.src = modalPetImages[modalPetImageIndex];
+
+    const hasMultipleImages = modalPetImages.length > 1;
+    previousButton?.classList.toggle("hidden", !hasMultipleImages);
+    nextButton?.classList.toggle("hidden", !hasMultipleImages);
+    previousButton?.classList.toggle("flex", hasMultipleImages);
+    nextButton?.classList.toggle("flex", hasMultipleImages);
+    counter?.classList.toggle("hidden", !hasMultipleImages);
+    if (counter && hasMultipleImages) {
+        counter.textContent = `${modalPetImageIndex + 1} / ${modalPetImages.length}`;
+    }
+
+    showModalPetImage();
+}
+
+function navigateExpandedUserPetImage(direction) {
+    if (modalPetImages.length < 2) return;
+    modalPetImageIndex =
+        (modalPetImageIndex + direction + modalPetImages.length) % modalPetImages.length;
+    renderExpandedUserPetImage();
+}
+
+document.getElementById("modalImage")?.addEventListener("click", openUserPetImageLightbox);
+document.getElementById("closeUserPetImageLightbox")?.addEventListener("click", closeUserPetImageLightbox);
+document.getElementById("prevExpandedUserPetImage")?.addEventListener("click", () => navigateExpandedUserPetImage(-1));
+document.getElementById("nextExpandedUserPetImage")?.addEventListener("click", () => navigateExpandedUserPetImage(1));
+
+document.getElementById("userPetImageLightbox")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) {
+        closeUserPetImageLightbox();
+    }
+});
+
+document.getElementById("userPetImageLightboxContent")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) {
+        closeUserPetImageLightbox();
+    }
+});
+
+document.getElementById("userPetImageLightboxFrame")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) {
+        closeUserPetImageLightbox();
+    }
+});
+
+document.addEventListener("keydown", (event) => {
+    const lightbox = document.getElementById("userPetImageLightbox");
+    if (!lightbox || lightbox.classList.contains("hidden")) return;
+
+    if (event.key === "Escape") closeUserPetImageLightbox();
+    if (event.key === "ArrowLeft") navigateExpandedUserPetImage(-1);
+    if (event.key === "ArrowRight") navigateExpandedUserPetImage(1);
+});
+
 // =====================================================
 // SECURITY: HTML ESCAPING
 // Prevents user/database data from being interpreted as HTML
@@ -739,6 +823,7 @@ function renderMedicalHistory(history) {
 
 function closePetModal(){
 
+    closeUserPetImageLightbox();
     document.getElementById("viewPetModal").classList.add("hidden");
 
     document.getElementById("viewPetModal").classList.remove("flex");
