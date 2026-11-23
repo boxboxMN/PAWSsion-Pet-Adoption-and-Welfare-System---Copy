@@ -853,6 +853,78 @@ function renderCurrentPetImage() {
     }
 }
 
+function openPetImageLightbox() {
+    const lightbox = document.getElementById("petImageLightbox");
+    if (!lightbox || !viewPetImages.length) return;
+
+    lightbox.classList.remove("hidden");
+    lightbox.classList.add("flex");
+    renderExpandedPetImage();
+    document.body.classList.add("overflow-hidden");
+}
+
+function closePetImageLightbox() {
+    const lightbox = document.getElementById("petImageLightbox");
+    if (!lightbox) return;
+
+    lightbox.classList.remove("flex");
+    lightbox.classList.add("hidden");
+    document.body.classList.remove("overflow-hidden");
+}
+
+function renderExpandedPetImage() {
+    const imageElement = document.getElementById("expandedPetImage");
+    const previousButton = document.getElementById("prevExpandedPetImage");
+    const nextButton = document.getElementById("nextExpandedPetImage");
+    const countElement = document.getElementById("expandedPetImageCount");
+    if (!imageElement || !viewPetImages.length) return;
+
+    imageElement.src = getPetImageUrl(viewPetImages[viewPetImageIndex]);
+
+    const hasMultipleImages = viewPetImages.length > 1;
+    previousButton?.classList.toggle("hidden", !hasMultipleImages);
+    nextButton?.classList.toggle("hidden", !hasMultipleImages);
+    countElement?.classList.toggle("hidden", !hasMultipleImages);
+    if (countElement && hasMultipleImages) {
+        countElement.textContent = `${viewPetImageIndex + 1} / ${viewPetImages.length}`;
+    }
+
+    renderCurrentPetImage();
+}
+
+function navigateExpandedPetImage(direction) {
+    if (viewPetImages.length < 2) return;
+    viewPetImageIndex =
+        (viewPetImageIndex + direction + viewPetImages.length) % viewPetImages.length;
+    renderExpandedPetImage();
+}
+
+document.getElementById("viewPetImage")?.addEventListener("click", openPetImageLightbox);
+document.getElementById("closePetImageLightbox")?.addEventListener("click", closePetImageLightbox);
+document.getElementById("prevExpandedPetImage")?.addEventListener("click", () => navigateExpandedPetImage(-1));
+document.getElementById("nextExpandedPetImage")?.addEventListener("click", () => navigateExpandedPetImage(1));
+
+document.getElementById("petImageLightbox")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) {
+        closePetImageLightbox();
+    }
+});
+
+document.getElementById("petImageLightboxContent")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) {
+        closePetImageLightbox();
+    }
+});
+
+document.addEventListener("keydown", (event) => {
+    const lightbox = document.getElementById("petImageLightbox");
+    if (!lightbox || lightbox.classList.contains("hidden")) return;
+
+    if (event.key === "Escape") closePetImageLightbox();
+    if (event.key === "ArrowLeft") navigateExpandedPetImage(-1);
+    if (event.key === "ArrowRight") navigateExpandedPetImage(1);
+});
+
 
 function createTrashCard(pet) {
     const image = getPetImageUrl(pet.image_path);
@@ -1424,6 +1496,7 @@ function openPetDetailsModal(pet){
 function closeViewPetModal(){
 
     const viewModal = document.getElementById("viewPetModal");
+    closePetImageLightbox();
 
     viewModal.classList.remove("flex");
     viewModal.classList.add("hidden");
