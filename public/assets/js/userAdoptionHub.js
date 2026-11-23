@@ -6,6 +6,20 @@ let modalPetImages = [];
 let modalPetImageIndex = 0;
 const fallbackPetImage = "/assets/images/no-image.png";
 
+function updateProfileCarouselHeight() {
+    const frame = document.getElementById("profileCarouselFrame");
+    const image = document.getElementById("modalImage");
+    if (!frame || !image) return;
+
+    const containerWidth = frame.clientWidth;
+    if (!containerWidth || !image.naturalWidth || !image.naturalHeight) return;
+
+    const calculatedHeight = containerWidth * (image.naturalHeight / image.naturalWidth);
+    frame.style.height = `${Math.min(380, Math.max(220, calculatedHeight))}px`;
+}
+
+window.addEventListener("resize", updateProfileCarouselHeight);
+
 function getPetImageUrl(imagePath) {
     if (typeof imagePath !== "string" || !imagePath.trim()) {
         return fallbackPetImage;
@@ -29,6 +43,7 @@ function showModalPetImage() {
         image.onerror = null;
         image.src = fallbackPetImage;
     };
+    image.onload = updateProfileCarouselHeight;
     image.src = modalPetImages[modalPetImageIndex];
 
     const hasMultipleImages = modalPetImages.length > 1;
