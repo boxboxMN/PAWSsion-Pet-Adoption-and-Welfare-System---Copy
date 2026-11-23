@@ -732,21 +732,25 @@ if (isArchived || isEvaluated || isPending) {
             prevNoteContainer.classList.add('hidden');
         }
     }
-} else {
-    
-    reviewInput.classList.remove('bg-gray-200', 'cursor-not-allowed', 'text-gray-500');
-    reviewBtn.classList.remove('hidden');
-    reviewBtn.innerHTML = '<i class="fas fa-check-circle"></i> Save Evaluation & Send';
-
-    if (item.org_response) {
-        prevNoteContainer.classList.remove('hidden');
-        prevNoteText.textContent = item.org_response;
-        reviewInput.value = item.org_response;
     } else {
-        prevNoteContainer.classList.add('hidden');
-        reviewInput.value = '';
+        
+        reviewInput.disabled = false;                                    // ← idinagdag
+        reviewInput.classList.remove('bg-gray-200', 'cursor-not-allowed', 'text-gray-500');
+        reviewBtn.classList.remove('hidden');
+        reviewBtn.innerHTML = '<i class="fas fa-check-circle"></i> Save Evaluation & Send';
+
+        if (item.org_response) {
+            prevNoteContainer.classList.remove('hidden');
+            prevNoteText.textContent = item.org_response;
+            reviewInput.value = item.org_response;
+        } else {
+            prevNoteContainer.classList.add('hidden');
+            reviewInput.value = '';
+        }
     }
-}
+
+    modal.classList.remove("hidden");                                   // ← idinagdag
+    }                                                                   // ← idinagdag (closer ng openUpdateModal)
 function updateOrgPhotoView() {
     const img = document.getElementById("modalPhoto");
     const prevBtn = document.getElementById("prevPhotoBtn");
