@@ -518,19 +518,6 @@ function createFormalField(label, value) {
 // =====================================================
 
 function updateStepper(status) {
-    if (!stepperContainer) return;
-
-    const stepperCard = stepperContainer.parentElement;
-
-    // Hide the progress stepper when the pet is returned
-    if (status === "Returned") {
-        stepperContainer.classList.add("hidden");
-        return;
-    }
-
-    // Show the progress stepper for other statuses
-    stepperContainer.classList.remove("hidden");
-    
     const steps = stepperContainer.querySelectorAll(".step-item");
     let currentStep = 1;
 
