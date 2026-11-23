@@ -354,7 +354,6 @@ function filterAndRenderTable(resetPage = false) {
 }
 
 // Displays the filtered records in the HTML table
-
 function renderTable() {
     const tbody = document.getElementById("updatesTableBody");
     if (!tbody) return;
@@ -379,42 +378,52 @@ function renderTable() {
 
     const todayKey = getTodayLocalKey();
 
-        paginatedData.forEach((item) => {
-    // Detect if there's an active (current-cycle) submitted update
-    const hasActiveUpdate = item.formatted_date && item.update_status !== 'For Update';
+    paginatedData.forEach((item) => {
+        // ✅ BAGONG: Check kung adopted pa ang pet (fallback = true para sa backward compat)
+        const petIsAdopted = item.adoption_status
+            ? String(item.adoption_status).toLowerCase() === 'adopted'
+            : true;
 
-    // Detect if this row is only scheduled (waiting for a NEW update) — old photos must not show
-    const isScheduledOnly = !hasActiveUpdate
-        && item.is_archived != 1
-        && !!item.scheduled_date;
+        // Detect if there's an active (current-cycle) submitted update
+        const hasActiveUpdate = item.formatted_date && item.update_status !== 'For Update';
 
-    let displayPhoto = "https://via.placeholder.com/150?text=No+Image";
+        // Detect if this row is only scheduled (waiting for a NEW update) — old photos must not show
+        const isScheduledOnly = !hasActiveUpdate
+            && item.is_archived != 1
+            && !!item.scheduled_date;
 
-    // Show update photos ONLY when the update is current OR the record is archived.
-    // If it's just scheduled (or overdue with no new submission), keep "No Image".
-    if (!isScheduledOnly) {
-        if (item.update_photos) {
-            try {
-                let parsed = JSON.parse(item.update_photos);
-                if (Array.isArray(parsed) && parsed.length > 0) displayPhoto = parsed[0];
-            } catch (e) { displayPhoto = item.update_photos; }
-            if (!displayPhoto.startsWith('http') && !displayPhoto.startsWith('/')) {
-                displayPhoto = `/uploads/${displayPhoto}`;
-            }
-        } else if (item.pet_image) {
-            displayPhoto = item.pet_image;
-            if (!displayPhoto.startsWith('http') && !displayPhoto.startsWith('/')) {
-                displayPhoto = `/uploads/pets/${displayPhoto}`;
+        let displayPhoto = "https://via.placeholder.com/150?text=No+Image";
+
+        // Show update photos ONLY when the update is current OR the record is archived.
+        // If it's just scheduled (or overdue with no new submission), keep "No Image".
+        if (!isScheduledOnly) {
+            if (item.update_photos) {
+                try {
+                    let parsed = JSON.parse(item.update_photos);
+                    if (Array.isArray(parsed) && parsed.length > 0) displayPhoto = parsed[0];
+                } catch (e) { displayPhoto = item.update_photos; }
+                if (!displayPhoto.startsWith('http') && !displayPhoto.startsWith('/')) {
+                    displayPhoto = `/uploads/${displayPhoto}`;
+                }
+            } else if (item.pet_image) {
+                displayPhoto = item.pet_image;
+                if (!displayPhoto.startsWith('http') && !displayPhoto.startsWith('/')) {
+                    displayPhoto = `/uploads/pets/${displayPhoto}`;
+                }
             }
         }
-    }
 
         let statusBadge = '';
 
         if (item.is_archived == 1 || item.update_status === 'Archived') {
             statusBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-gray-100 text-gray-600 rounded-full border border-gray-200 whitespace-nowrap"><i class="fa-solid fa-box-archive text-[10px]"></i> Archived</span>`;
+
+        } else if (!petIsAdopted) {                                                          // ✅ BAGONG BRANCH
+            statusBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-rose-50 text-rose-600 rounded-full border border-rose-100 whitespace-nowrap"><i class="fa-solid fa-rotate-left text-[10px]"></i> Returned</span>`;
+
         } else if (item.formatted_date && item.update_status !== 'For Update') {
             statusBadge = `<span class="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100 whitespace-nowrap"><i class="fa-solid fa-check text-[10px]"></i> Updated</span>`;
+
         } else if (item.scheduled_date) {
             const deadlineKey = toLocalDateKey(item.scheduled_date);
             const isPast = todayKey > deadlineKey;
@@ -438,7 +447,8 @@ function renderTable() {
             </button>
         `;
 
-        if (item.is_archived != 1) {
+        // ✅ Schedule button — enabled lang kung adopted pa
+        if (item.is_archived != 1 && petIsAdopted) {
             actionButtons += `
                 <button data-action="schedule" data-update-id="${Number(item.update_id)}"
                     class="px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:text-amber-600 hover:bg-slate-50 flex items-center gap-1 transition-colors"
@@ -446,11 +456,19 @@ function renderTable() {
                     <i class="fa-regular fa-calendar-days text-[11px]"></i> Schedule
                 </button>
             `;
+        } else if (item.is_archived != 1 && !petIsAdopted) {
+            actionButtons += `
+                <button disabled
+                    class="px-2.5 py-1.5 text-xs font-medium text-slate-300 cursor-not-allowed flex items-center gap-1"
+                    title="Cannot schedule — this pet is no longer adopted">
+                    <i class="fa-regular fa-calendar-days text-[11px]"></i> Schedule
+                </button>
+            `;
         }
 
         const dateDisplay = item.formatted_date || item.formatted_scheduled_date || (item.scheduled_date ? formatReadableDate(item.scheduled_date) : 'N/A');
 
-               const row = document.createElement("tr");
+        const row = document.createElement("tr");
         row.className = "hover:bg-slate-50/60 transition-colors";
         
         row.innerHTML = `
@@ -532,16 +550,23 @@ function updatePaginationUI(startIndex, endIndex, totalItems) {
 }
 
 // Calculates and displays the Kamustahan dashboard statistics
-
 function updateStatistics(data) {
-   
-    const activeData = data.filter(i => i.is_archived != 1);
+    // ✅ Exclude archived AND returned pets
+    const activeData = data.filter(i => {
+        if (i.is_archived == 1) return false;
 
-    
+        const petIsAdopted = i.adoption_status
+            ? String(i.adoption_status).toLowerCase() === 'adopted'
+            : true;
+
+        return petIsAdopted;
+    });
+
+    // Total pets (unique)
     const uniquePetIds = new Set(activeData.map(i => i.animal_id));
     const total = uniquePetIds.size;
 
-   
+    // Updated pets (unique)
     const updatedPetIds = new Set(
         activeData
             .filter(i => i.formatted_date && i.update_status !== 'For Update')
@@ -549,7 +574,7 @@ function updateStatistics(data) {
     );
     const updatedCount = updatedPetIds.size;
 
-
+    // For Update pets (unique)
     const forUpdatePetIds = new Set(
         activeData
             .filter(i => !i.formatted_date || i.update_status === 'For Update')
@@ -563,9 +588,8 @@ function updateStatistics(data) {
 
     if (statTotalPets) statTotalPets.textContent = total;
     if (statUpdated) statUpdated.textContent = updatedCount;
-    if (statForUpdate) statForUpdate.textContent = forUpdateCount; 
+    if (statForUpdate) statForUpdate.textContent = forUpdateCount;
 }
-
 
 // Opens the modal containing the adopter's submitted Kamustahan update
 
@@ -1070,8 +1094,19 @@ async function archiveUpdate(update_id) {
     );
 }
 // Opens the modal for setting a Kamustahan update deadline
-
 function openScheduleModal(updateId) {
+    // ✅ GUARD — pigilan kung returned na ang pet
+    const item = allUpdatesData.find(i => Number(i.update_id) === Number(updateId));
+    if (item) {
+        const petIsAdopted = item.adoption_status
+            ? String(item.adoption_status).toLowerCase() === 'adopted'
+            : true;
+        if (!petIsAdopted) {
+            showToast('Cannot schedule an update. This pet is no longer adopted.', 'warning');
+            return;
+        }
+    }
+
     const schedUpdateIdInput = document.getElementById("schedUpdateId");
     const scheduleModal = document.getElementById("scheduleModal");
     const dateInput = document.getElementById("scheduledDateInput");
@@ -1090,7 +1125,6 @@ function openScheduleModal(updateId) {
 
 // Closes the schedule modal
 
-
 function closeScheduleModal() {
     const scheduleModal = document.getElementById("scheduleModal");
     if (scheduleModal) scheduleModal.classList.add("hidden");
@@ -1107,6 +1141,19 @@ function submitSchedule(event) {
     if (!update_id) {
         showToast("Missing update record ID. Please refresh the page and try again.", "error");
         return;
+    }
+
+    // ✅ GUARD — double-check bago mag-POST
+    const targetItem = allUpdatesData.find(i => Number(i.update_id) === Number(update_id));
+    if (targetItem) {
+        const petIsAdopted = targetItem.adoption_status
+            ? String(targetItem.adoption_status).toLowerCase() === 'adopted'
+            : true;
+        if (!petIsAdopted) {
+            showToast('This pet is no longer adopted and cannot receive update schedules.', 'warning');
+            closeScheduleModal();
+            return;
+        }
     }
 
     if (!scheduled_date) {

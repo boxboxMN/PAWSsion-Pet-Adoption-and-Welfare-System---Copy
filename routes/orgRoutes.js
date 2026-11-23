@@ -2307,7 +2307,9 @@ router.post(
 );
 router.post('/kamustahan/:updateId/acknowledge', async (req, res) => {
     try {
-        if (!req.session?.accountId) return res.status(401).json({ success: false, message: "Unauthorized." });
+        if (!req.session?.accountId) {
+            return res.status(401).json({ success: false, message: "Unauthorized." });
+        }
 
         const { message, evaluation_checklist, verdict, follow_up_date } = req.body;
         const { updateId } = req.params;
@@ -2316,13 +2318,23 @@ router.post('/kamustahan/:updateId/acknowledge', async (req, res) => {
             `SELECT organization_id FROM organizations WHERE account_id = ?`,
             [req.session.accountId]
         );
-        if (!org.length) return res.status(404).json({ success: false, message: "Organization not found." });
+        if (!org.length) {
+            return res.status(404).json({ success: false, message: "Organization not found." });
+        }
         const orgId = org[0].organization_id;
 
+
         const [[existing]] = await pool.query(
-            `SELECT org_verdict, animal_id, adopter_id 
-             FROM kamustahan_updates 
-             WHERE update_id = ? AND organization_id = ?`,
+            `SELECT 
+                k.org_verdict, 
+                k.animal_id, 
+                k.adopter_id,
+                k.status           AS update_status,
+                k.update_date,
+                a.adoption_status
+             FROM kamustahan_updates k
+             INNER JOIN animals a ON k.animal_id = a.animal_id
+             WHERE k.update_id = ? AND k.organization_id = ?`,
             [updateId, orgId]
         );
 
@@ -2337,6 +2349,30 @@ router.post('/kamustahan/:updateId/acknowledge', async (req, res) => {
             });
         }
 
+  
+        const hasSubmittedUpdate =
+            !!existing.update_date &&
+            String(existing.update_status || '').toLowerCase() !== 'for update';
+
+        if (!hasSubmittedUpdate) {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot evaluate yet. The adopter has not submitted an update for this pet."
+            });
+        }
+
+        const petIsAdopted = !existing.adoption_status ||
+            String(existing.adoption_status).toLowerCase() === 'adopted';
+
+        if (follow_up_date && !petIsAdopted) {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot schedule a follow-up. This pet is no longer adopted."
+            });
+        }
+
+       
+
         if (follow_up_date) {
             const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
             if (!dateRegex.test(String(follow_up_date).trim())) {
@@ -2350,33 +2386,32 @@ router.post('/kamustahan/:updateId/acknowledge', async (req, res) => {
             }
         }
 
-        // 3. I-UPDATE ANG KASALUKUYANG ROW (history record)
-        await pool.query(`
-            UPDATE kamustahan_updates
-            SET consultation_status = 'resolved',
-                org_response = ?,
-                org_evaluation_checklist = ?,
-                org_verdict = ?,
-                follow_up_date = ?,
-                org_responded_at = NOW()
-            WHERE update_id = ? AND organization_id = ?
-        `, [
-            message ? message.trim() : null,
-            evaluation_checklist ? JSON.stringify(evaluation_checklist) : null,
-            verdict || null,
-            follow_up_date || null,
-            updateId,
-            orgId
-        ]);
+      
+        await pool.query(
+            `UPDATE kamustahan_updates
+             SET consultation_status = 'resolved',
+                 org_response = ?,
+                 org_evaluation_checklist = ?,
+                 org_verdict = ?,
+                 follow_up_date = ?,
+                 org_responded_at = NOW()
+             WHERE update_id = ? AND organization_id = ?`,
+            [
+                message ? message.trim() : null,
+                evaluation_checklist ? JSON.stringify(evaluation_checklist) : null,
+                verdict || null,
+                follow_up_date || null,
+                updateId,
+                orgId
+            ]
+        );
 
+     
         if (follow_up_date) {
             const [[pending]] = await pool.query(
                 `SELECT update_id FROM kamustahan_updates
-                 WHERE animal_id = ? 
-                   AND adopter_id = ? 
-                   AND organization_id = ?
-                   AND status = 'For Update'
-                   AND is_archived = 0
+                 WHERE animal_id = ? AND adopter_id = ? AND organization_id = ?
+                   AND status = 'For Update' AND is_archived = 0
                  LIMIT 1`,
                 [existing.animal_id, existing.adopter_id, orgId]
             );
@@ -2389,16 +2424,17 @@ router.post('/kamustahan/:updateId/acknowledge', async (req, res) => {
             } else {
                 await pool.query(
                     `INSERT INTO kamustahan_updates
-                        (organization_id, animal_id, adopter_id, 
-                        update_date, update_text, photos, 
-                        scheduled_date, status, created_at)
-                    VALUES (?, ?, ?, CURDATE(), 'Follow-up kamustahan scheduled.', '[]', ?, 'For Update', NOW())`,
+                        (organization_id, animal_id, adopter_id,
+                         update_date, update_text, photos,
+                         scheduled_date, status, created_at)
+                     VALUES (?, ?, ?, CURDATE(), 'Follow-up kamustahan scheduled.', '[]', ?, 'For Update', NOW())`,
                     [orgId, existing.animal_id, existing.adopter_id, follow_up_date]
                 );
             }
         }
 
         res.json({ success: true, message: "Evaluation saved successfully." });
+
     } catch (err) {
         console.error("Acknowledge Error:", err);
         res.status(500).json({ success: false, message: err.message });

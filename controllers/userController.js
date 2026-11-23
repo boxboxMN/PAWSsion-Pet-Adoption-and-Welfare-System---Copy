@@ -2292,14 +2292,39 @@ exports.submitKamustahanUpdate = async (req, res) => {
             vet_visit, vet_visit_date, vet_diagnosis,
             weight_kg, concerns
         } = req.body;
-      
+
         let photoPath = JSON.stringify([]);
 
         if (!animal_id || !organization_id || !update_text) {
             return res.status(400).json({ success: false, error: "Please fill in all required fields." });
         }
 
-    
+        // ==========================================
+        // ✅ 2b. NEW VALIDATION — pet must still be adopted
+        // ==========================================
+        const [petCheck] = await pool.query(
+            `SELECT adoption_status
+             FROM animals
+             WHERE animal_id = ?
+             LIMIT 1`,
+            [animal_id]
+        );
+
+        if (!petCheck.length) {
+            return res.status(404).json({ success: false, error: "Pet not found." });
+        }
+
+        if (String(petCheck[0].adoption_status || '').toLowerCase() !== 'adopted') {
+            return res.status(400).json({
+                success: false,
+                error: "This pet is no longer adopted. You cannot submit a kamustahan update."
+            });
+        }
+        // ==========================================
+
+        // ==========================================
+        // 3. FIND SCHEDULED UPDATE
+        // ==========================================
         const [scheduleRows] = await pool.query(`
             SELECT update_id, status, scheduled_date as target_schedule 
             FROM kamustahan_updates 
@@ -2318,7 +2343,7 @@ exports.submitKamustahanUpdate = async (req, res) => {
         const updateId = currentSchedule.update_id;
 
         // ==========================================
-        //  VALIDATE SCHEDULE DATE
+        // 4. VALIDATE SCHEDULE DATE
         // ==========================================
         if (!currentSchedule.target_schedule) {
             return res.status(400).json({ 
@@ -2521,6 +2546,8 @@ exports.getKamustahanHistory = async (req, res) => {
             FROM kamustahan_updates k
             JOIN animals a ON k.animal_id = a.animal_id
             WHERE k.adopter_id = ?
+            AND a.adoption_status = 'Adopted'  
+
             ORDER BY k.created_at DESC
         `, [adopterId]);
 
@@ -2575,6 +2602,9 @@ exports.getKamustahanDue = async (req, res) => {
             WHERE k.adopter_id = ?
               AND k.status = 'For Update'
               AND k.is_archived = 0
+              AND a.adoption_status = 'Adopted'
+              
+
             ORDER BY k.scheduled_date ASC
             `,
             [adopterId]

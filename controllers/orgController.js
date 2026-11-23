@@ -3193,6 +3193,7 @@ exports.getKamustahanUpdates = async (req, res) => {
                 p.name AS pet_name,
                 p.species,
                 p.image_path AS pet_image,
+                p.adoption_status AS adoption_status,
                 CONCAT(a.first_name, ' ', a.last_name) AS adopter_name,
                 acc.email AS adopter_email
             FROM kamustahan_updates k
@@ -3266,8 +3267,27 @@ exports.schedulePetUpdate = async (req, res) => {
         }
 
         const organizationId = org[0].organization_id;
+        //check if pet is still adopted
+      const [petCheck] = await pool.query(
+            `SELECT k.update_id, a.adoption_status
+             FROM kamustahan_updates k
+             INNER JOIN animals a ON k.animal_id = a.animal_id
+             WHERE k.update_id = ? AND k.organization_id = ?
+             LIMIT 1`,
+            [update_id, organizationId]
+        );
 
-      
+        if (!petCheck.length) {
+            return res.status(404).json({ success: false, message: "Update record not found." });
+        }
+
+        const petAdoptionStatus = String(petCheck[0].adoption_status || '').toLowerCase();
+        if (petAdoptionStatus !== 'adopted') {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot schedule an update. This pet is no longer adopted."
+            });
+        }
         const [[currentUpdate]] = await pool.query(
             `SELECT animal_id, adopter_id, status FROM kamustahan_updates WHERE update_id = ? AND organization_id = ?`,
             [update_id, organizationId]
