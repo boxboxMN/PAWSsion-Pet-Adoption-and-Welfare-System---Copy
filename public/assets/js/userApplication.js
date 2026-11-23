@@ -530,7 +530,7 @@ function updateStepper(status) {
         currentStep = 2;
     } 
     // 3. Approved
-    else if (status === "Approved") {
+    else if (status === "Approved" || status === "Received") {
         currentStep = 3;
     } 
     // Kapag Declined: Ipapakita hanggang step 1 o 2 batay sa status kung kailan na-decline
