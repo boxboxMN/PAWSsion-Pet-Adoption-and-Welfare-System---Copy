@@ -39,7 +39,75 @@ document.addEventListener('DOMContentLoaded', async function() {
         "Bedding & Housing":      "e.g., Pet bed, Blanket, Crate mat",
         "Other":                  "e.g., Any pet supply item"
     };
+    /**
+ * ========================================================================
+ * ITEM NAME ↔ UNIT COMPATIBILITY RULES
+ * Catches mismatched units like "Canned Tuna" measured in "kg".
+ * When the item name matches a keyword pattern, the chosen unit must be
+ * one of the sensible units for that kind of item.
+ * ========================================================================
+ */
+const ITEM_UNIT_RULES = [
+    {
+        keywords: /\b(can|canned|tin|tinned)\b/i,
+        expectedUnits: ["cans", "packs", "boxes", "pcs"],
+        hint: "Canned items (like canned tuna or canned food) are usually counted, not weighed. Please choose 'cans', 'packs', 'boxes', or 'pcs' instead of '{unit}'."
+    },
+    {
+        keywords: /\b(shampoo|spray|lotion|syrup|suspension|conditioner|solution|disinfectant|antiseptic|oil)\b/i,
+        expectedUnits: ["bottles", "liters"],
+        hint: "Liquid items are usually measured in 'bottles' or 'liters'. Please change '{unit}' to one of those."
+    },
+    {
+        keywords: /\b(ointment|cream|gel|paste|salve)\b/i,
+        expectedUnits: ["tubes", "bottles", "pcs"],
+        hint: "Ointments and creams are usually measured in 'tubes', 'bottles', or 'pcs'. Please change '{unit}' accordingly."
+    },
+    {
+        keywords: /\b(tablet|tablets|pill|pills|capsule|capsules|dewormer|deworming|vitamin|vitamins)\b/i,
+        expectedUnits: ["pcs", "boxes", "packs", "bottles"],
+        hint: "Tablets and capsules are usually measured in 'pcs', 'boxes', 'packs', or 'bottles'. Please change '{unit}' accordingly."
+    },
+    {
+        keywords: /\b(leash|leashes|collar|collars|harness|harnesses|bowl|bowls|cage|cages|crate|crates|bed|beds|blanket|blankets|mat|mats|ball|balls|toy|toys|brush|brushes|comb|combs)\b/i,
+        expectedUnits: ["pcs", "sets", "packs"],
+        hint: "'{item}' is an individual item and should be counted in 'pcs' or 'sets' — not measured in '{unit}'."
+    },
+    {
+        keywords: /\b(litter|sand)\b/i,
+        expectedUnits: ["sacks", "packs", "kg", "liters"],
+        hint: "Litter or sand is usually measured in 'sacks', 'packs', 'kg', or 'liters'. Please choose one of those instead of '{unit}'."
+    },
+    {
+        keywords: /\b(kibble|rice)\b/i,
+        expectedUnits: ["kg", "sacks", "packs"],
+        hint: "Bulk dry food is usually measured in 'kg', 'sacks', or 'packs'. Please change '{unit}' accordingly."
+    }
+];
+
+function validateItemUnitMatch(itemName, unit) {
+    const cleanItem = String(itemName || "").trim();
+    const cleanUnit = String(unit || "").trim().toLowerCase();
+
+    if (!cleanItem || !cleanUnit) return { valid: true };
+
+    for (const rule of ITEM_UNIT_RULES) {
+        if (rule.keywords.test(cleanItem)) {
+            const allowed = rule.expectedUnits.map(u => u.toLowerCase());
+            if (!allowed.includes(cleanUnit)) {
+                return {
+                    valid: false,
+                    reason: rule.hint
+                        .split("{item}").join(cleanItem)
+                        .split("{unit}").join(cleanUnit)
+                };
+            }
+        }
+    }
+    return { valid: true };
+}
     // DOM Element References
+    const categoryInput = document.getElementById('categoryInput');   
     const itemNameInput = document.getElementById('itemNameInput');
     const quantityInput = document.getElementById('quantityInput');
     const unitInput     = document.getElementById('unitInput');
@@ -72,6 +140,16 @@ document.addEventListener('DOMContentLoaded', async function() {
                 e.preventDefault();
             }
         });
+         if (unitInput) {
+        unitInput.addEventListener("change", function () {
+            const currentItem = itemNameInput ? itemNameInput.value.trim() : "";
+            if (!currentItem || !this.value) return;
+
+            const check = validateItemUnitMatch(currentItem, this.value);
+            if (!check.valid) showToast(check.reason, "error");
+        });
+    }
+        
     }
 
     /**
@@ -409,6 +487,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
             if (!unit || !CATEGORY_UNITS[category].includes(unit)) {
                 showToast("Please select a valid unit for the chosen category.", "error");
+                return;
+            }
+            const unitMatchCheck = validateItemUnitMatch(finalItemName, unit);
+            if (!unitMatchCheck.valid) {
+                showToast(unitMatchCheck.reason, "error");
                 return;
             }
 

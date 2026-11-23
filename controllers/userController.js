@@ -15,6 +15,70 @@ const provinces = require("../public/data/provinces.json");
 const cities = require("../public/data/cities.json");
 const barangays = require("../public/data/barangays.json");
 
+// ==========================================
+// ITEM NAME ↔ UNIT COMPATIBILITY RULES
+// Same rules as the client — enforced server-side so the API cannot be
+// bypassed with a mismatched payload like { item: "Canned Tuna", unit: "kg" }
+// ==========================================
+const ITEM_UNIT_RULES = [
+    {
+        keywords: /\b(can|canned|tin|tinned)\b/i,
+        expectedUnits: ["cans", "packs", "boxes", "pcs"],
+        hint: "Canned items (like canned tuna or canned food) are usually counted, not weighed. Please choose 'cans', 'packs', 'boxes', or 'pcs' instead of '{unit}'."
+    },
+    {
+        keywords: /\b(shampoo|spray|lotion|syrup|suspension|conditioner|solution|disinfectant|antiseptic|oil)\b/i,
+        expectedUnits: ["bottles", "liters"],
+        hint: "Liquid items are usually measured in 'bottles' or 'liters'. Please change '{unit}' to one of those."
+    },
+    {
+        keywords: /\b(ointment|cream|gel|paste|salve)\b/i,
+        expectedUnits: ["tubes", "bottles", "pcs"],
+        hint: "Ointments and creams are usually measured in 'tubes', 'bottles', or 'pcs'. Please change '{unit}' accordingly."
+    },
+    {
+        keywords: /\b(tablet|tablets|pill|pills|capsule|capsules|dewormer|deworming|vitamin|vitamins)\b/i,
+        expectedUnits: ["pcs", "boxes", "packs", "bottles"],
+        hint: "Tablets and capsules are usually measured in 'pcs', 'boxes', 'packs', or 'bottles'. Please change '{unit}' accordingly."
+    },
+    {
+        keywords: /\b(leash|leashes|collar|collars|harness|harnesses|bowl|bowls|cage|cages|crate|crates|bed|beds|blanket|blankets|mat|mats|ball|balls|toy|toys|brush|brushes|comb|combs)\b/i,
+        expectedUnits: ["pcs", "sets", "packs"],
+        hint: "'{item}' is an individual item and should be counted in 'pcs' or 'sets' — not measured in '{unit}'."
+    },
+    {
+        keywords: /\b(litter|sand)\b/i,
+        expectedUnits: ["sacks", "packs", "kg", "liters"],
+        hint: "Litter or sand is usually measured in 'sacks', 'packs', 'kg', or 'liters'. Please choose one of those instead of '{unit}'."
+    },
+    {
+        keywords: /\b(kibble|rice)\b/i,
+        expectedUnits: ["kg", "sacks", "packs"],
+        hint: "Bulk dry food is usually measured in 'kg', 'sacks', or 'packs'. Please change '{unit}' accordingly."
+    }
+];
+
+function validateItemUnitMatch(itemName, unit) {
+    const cleanItem = String(itemName || "").trim();
+    const cleanUnit = String(unit || "").trim().toLowerCase();
+
+    if (!cleanItem || !cleanUnit) return { valid: true };
+
+    for (const rule of ITEM_UNIT_RULES) {
+        if (rule.keywords.test(cleanItem)) {
+            const allowed = rule.expectedUnits.map(u => u.toLowerCase());
+            if (!allowed.includes(cleanUnit)) {
+                return {
+                    valid: false,
+                    reason: rule.hint
+                        .split("{item}").join(cleanItem)
+                        .split("{unit}").join(cleanUnit)
+                };
+            }
+        }
+    }
+    return { valid: true };
+}
 function normalizeImagePath(imagePath, legacyFolder, fallback = "") {
     if (typeof imagePath !== "string") {
         return fallback;
@@ -1396,6 +1460,12 @@ exports.submitInKindDonation = async (req, res) => {
     //  Unit must belong to the selected category
     if (!cleanUnit || !CATEGORY_UNITS[cleanCategory].includes(cleanUnit)) {
         return res.status(400).json({ success: false, error: "Invalid unit for the selected category." });
+    }
+
+     //  Unit must make sense for the item name
+    const unitMatch = validateItemUnitMatch(cleanItemName, cleanUnit);
+    if (!unitMatch.valid) {
+        return res.status(400).json({ success: false, error: unitMatch.reason });
     }
 
     try {
