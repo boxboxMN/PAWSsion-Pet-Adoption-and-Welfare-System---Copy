@@ -844,16 +844,16 @@ function showDetails(app) {
                         <i class="fas fa-check-circle"></i> Awaiting Return Confirmation
                     </button>
                 `;
-            } else if (returnStatus === "returned") {
-                detailsActions.innerHTML = `
-                    <button
-                        type="button"
-                        disabled
-                        class="px-4 py-2 text-xs font-semibold bg-green-100 text-green-700 rounded-lg inline-flex items-center gap-1.5 cursor-not-allowed"
-                    >
-                        <i class="fas fa-check-circle"></i> Returned
-                    </button>
-                `;
+            // } else if (returnStatus === "returned") {
+            //     detailsActions.innerHTML = `
+            //         <button
+            //             type="button"
+            //             disabled
+            //             class="px-4 py-2 text-xs font-semibold bg-green-100 text-green-700 rounded-lg inline-flex items-center gap-1.5 cursor-not-allowed"
+            //         >
+            //             <i class="fas fa-check-circle"></i> Returned
+            //         </button>
+            //     `;
             } else {
                 detailsActions.innerHTML = `
                     <button
